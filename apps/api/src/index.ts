@@ -6,6 +6,7 @@ import { assertEnv } from "@/env";
 import { authRoutes } from "@/routes/auth";
 import { meRoutes } from "@/routes/me";
 import { accountRoutes } from "@/routes/account";
+import { chatRoutes } from "@/routes/chat";
 import { handleChatWebSocket } from "@/ws/chat";
 
 const app = new Hono<AppBindings>();
@@ -33,6 +34,7 @@ app.get("/health", async (c) => {
 app.route("/auth", authRoutes);
 app.route("/me", meRoutes);
 app.route("/account", accountRoutes);
+app.route("/chat", chatRoutes);
 
 app.get("/ws/chat", (c) => handleChatWebSocket(c.req.raw, c.env, c.executionCtx));
 

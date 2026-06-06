@@ -83,3 +83,10 @@ export const recentContextSchema = z.object({
 });
 
 export type RecentContext = z.infer<typeof recentContextSchema>;
+
+export const chatHistoryResponseSchema = z.object({
+  messages: z.array(chatMessageSchema).max(50),
+  has_more: z.boolean()
+});
+
+export type ChatHistoryResponse = z.infer<typeof chatHistoryResponseSchema>;

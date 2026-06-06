@@ -10,12 +10,18 @@ import type { AgentRunResult, AgentState } from "@/agent/state";
 
 export async function runAgent(
   env: Env,
-  input: { userId: string; message: string; conversationId?: string }
+  input: {
+    userId: string;
+    message: string;
+    conversationId?: string;
+    userMessageId?: string;
+  }
 ): Promise<AgentRunResult> {
   const graph = new StateGraph<AgentState>({
     channels: {
       userId: null,
       conversationId: null,
+      userMessageId: null,
       userMessage: null,
       context: null,
       longTermMemory: null,
@@ -46,6 +52,7 @@ export async function runAgent(
   const result = await graph.invoke({
     userId: input.userId,
     conversationId,
+    userMessageId: input.userMessageId,
     userMessage: input.message,
     context: [],
     longTermMemory: { enabled: true, profile: null, memories: [], summaries: [] },

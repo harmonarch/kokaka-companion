@@ -5,9 +5,10 @@ import type {
   RefreshRequest,
   RegisterRequest,
   UpdateMeRequest,
-  User
+  User,
+  ChatHistoryResponse
 } from "@ai-companion/shared";
-import { authResponseSchema, userSchema } from "@ai-companion/shared";
+import { authResponseSchema, chatHistoryResponseSchema, userSchema } from "@ai-companion/shared";
 
 export type TokenStore = {
   getTokens: () => AuthTokens | null | Promise<AuthTokens | null>;
@@ -138,6 +139,22 @@ export function createHttpClient(options: HttpClientOptions) {
     await options.tokenStore?.setTokens(null);
   }
 
+  async function chatHistory(input?: {
+    beforeId?: string;
+    limit?: number;
+  }): Promise<ChatHistoryResponse> {
+    const searchParams = new URLSearchParams();
+    if (input?.beforeId) searchParams.set("before_id", input.beforeId);
+    if (input?.limit) searchParams.set("limit", String(input.limit));
+    const query = searchParams.toString();
+    const data = await request<unknown>(
+      `/chat/history${query ? `?${query}` : ""}`,
+      undefined,
+      { auth: true }
+    );
+    return chatHistoryResponseSchema.parse(data);
+  }
+
   return {
     register,
     login,
@@ -145,6 +162,7 @@ export function createHttpClient(options: HttpClientOptions) {
     logout,
     me,
     updateMe,
-    deleteAccount
+    deleteAccount,
+    chatHistory
   };
 }

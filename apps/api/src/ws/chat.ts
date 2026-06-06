@@ -56,7 +56,8 @@ export async function handleChatWebSocket(
       const result = await runAgent(env, {
         userId: user.id,
         message: message.content,
-        conversationId: message.session_id
+        conversationId: message.session_id,
+        userMessageId: message.client_message_id
       });
       for (const delta of chunks(result.reply)) {
         send(server, {

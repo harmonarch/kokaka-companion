@@ -70,3 +70,21 @@ export const conversationSummaries = sqliteTable(
     )
   })
 );
+
+export const chatMessages = sqliteTable(
+  "chat_messages",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    conversationId: text("conversation_id").notNull(),
+    role: text("role").notNull(),
+    content: text("content").notNull(),
+    createdAt: integer("created_at").notNull()
+  },
+  (table) => ({
+    userTimeIdx: index("idx_chat_messages_user_time").on(
+      table.userId,
+      table.createdAt
+    )
+  })
+);

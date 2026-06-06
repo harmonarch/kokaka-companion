@@ -1,6 +1,6 @@
 import { Redirect, router } from "expo-router";
 import { useEffect } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { AgentStatus } from "@/components/AgentStatus";
 import { ChatInput } from "@/components/ChatInput";
 import { MessageBubble } from "@/components/MessageBubble";
@@ -12,16 +12,23 @@ export default function Chat() {
   const messages = useChatStore((state) => state.messages);
   const status = useChatStore((state) => state.status);
   const connection = useChatStore((state) => state.connection);
+  const historyLoaded = useChatStore((state) => state.historyLoaded);
+  const historyLoading = useChatStore((state) => state.historyLoading);
   const emotionState = useChatStore((state) => state.emotionState);
   const error = useChatStore((state) => state.error);
   const connect = useChatStore((state) => state.connect);
+  const loadHistory = useChatStore((state) => state.loadHistory);
+  const loadOlderHistory = useChatStore((state) => state.loadOlderHistory);
   const disconnect = useChatStore((state) => state.disconnect);
   const send = useChatStore((state) => state.send);
 
   useEffect(() => {
-    if (user) connect();
+    if (user) {
+      loadHistory();
+      connect();
+    }
     return () => disconnect();
-  }, [connect, disconnect, user]);
+  }, [connect, disconnect, loadHistory, user]);
 
   if (!user) return <Redirect href="/login" />;
 
@@ -37,16 +44,31 @@ export default function Chat() {
         </Pressable>
       </View>
       <AgentStatus connection={connection} emotionState={emotionState} />
-      <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-        {messages.length === 0 ? (
+      <FlatList
+        inverted
+        style={styles.list}
+        contentContainerStyle={[
+          styles.listContent,
+          messages.length === 0 && styles.emptyListContent
+        ]}
+        data={messages}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
+        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+        keyExtractor={(message) => message.id}
+        renderItem={({ item }) => <MessageBubble message={item} />}
+        ListFooterComponent={
+          historyLoading ? <Text style={styles.historyStatus}>正在载入历史聊天记录</Text> : null
+        }
+        ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>可以开始说话了。</Text>
             <Text style={styles.emptyText}>试试输入：今天有点累。</Text>
           </View>
-        ) : (
-          messages.map((message) => <MessageBubble key={message.id} message={message} />)
-        )}
-      </ScrollView>
+        }
+        onEndReached={historyLoaded ? loadOlderHistory : undefined}
+        onEndReachedThreshold={0.2}
+      />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <ChatInput disabled={connection !== "connected" || status !== "idle"} onSend={send} />
     </View>
@@ -99,8 +121,18 @@ const styles = StyleSheet.create({
   listContent: {
     paddingVertical: 18
   },
+  emptyListContent: {
+    flexGrow: 1
+  },
+  historyStatus: {
+    color: "#526057",
+    fontSize: 13,
+    textAlign: "center",
+    marginBottom: 12
+  },
   empty: {
-    paddingVertical: 80,
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center"
   },
   emptyTitle: {

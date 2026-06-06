@@ -4,6 +4,7 @@ import type { LongTermMemoryContext } from "@/agent/memory/longTermMemory";
 export type AgentState = {
   userId: string;
   conversationId: string;
+  userMessageId?: string;
   userMessage: string;
   context: ChatMessage[];
   longTermMemory: LongTermMemoryContext;
