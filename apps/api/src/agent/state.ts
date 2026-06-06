@@ -1,9 +1,12 @@
 import type { ChatMessage, EmotionState } from "@ai-companion/shared";
+import type { LongTermMemoryContext } from "@/agent/memory/longTermMemory";
 
 export type AgentState = {
   userId: string;
+  conversationId: string;
   userMessage: string;
   context: ChatMessage[];
+  longTermMemory: LongTermMemoryContext;
   emotionState: EmotionState;
   reasoning: string;
   strategy: string;
@@ -13,4 +16,6 @@ export type AgentState = {
 export type AgentRunResult = {
   emotionState: EmotionState;
   reply: string;
+  conversationId: string;
+  context: ChatMessage[];
 };

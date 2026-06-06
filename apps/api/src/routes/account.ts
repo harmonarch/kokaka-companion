@@ -4,8 +4,12 @@ import { authMiddleware } from "@/middleware/auth";
 
 export const accountRoutes = new Hono<AppBindings>();
 
-async function deleteMemoryPlaceholders(_userId: string) {
-  return true;
+async function deleteLongTermMemory(env: AppBindings["Bindings"], userId: string) {
+  await env.DB.prepare("DELETE FROM user_profiles WHERE user_id = ?").bind(userId).run();
+  await env.DB.prepare("DELETE FROM memories WHERE user_id = ?").bind(userId).run();
+  await env.DB.prepare("DELETE FROM conversation_summaries WHERE user_id = ?")
+    .bind(userId)
+    .run();
 }
 
 accountRoutes.delete("/", authMiddleware, async (c) => {
@@ -23,6 +27,6 @@ accountRoutes.delete("/", authMiddleware, async (c) => {
     .run();
   await c.env.CHAT_CONTEXT.delete(`ctx:${user.id}`);
   await c.env.CHAT_CONTEXT.delete(`mood:${user.id}`);
-  await deleteMemoryPlaceholders(user.id);
+  await deleteLongTermMemory(c.env, user.id);
   return c.json({ ok: true });
 });

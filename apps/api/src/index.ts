@@ -34,6 +34,6 @@ app.route("/auth", authRoutes);
 app.route("/me", meRoutes);
 app.route("/account", accountRoutes);
 
-app.get("/ws/chat", (c) => handleChatWebSocket(c.req.raw, c.env));
+app.get("/ws/chat", (c) => handleChatWebSocket(c.req.raw, c.env, c.executionCtx));
 
 export default app;

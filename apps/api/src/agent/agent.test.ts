@@ -20,8 +20,10 @@ describe("P0 agent", () => {
   it("keeps vulnerable fallback free of direct advice language", async () => {
     const reply = await generateReplyWithDeepSeek(env, {
       userId: "u1",
+      conversationId: "c1",
       userMessage: "今天有点累",
       context: [],
+      longTermMemory: { enabled: true, profile: null, memories: [], summaries: [] },
       emotionState: "vulnerable",
       reasoning: "",
       strategy: "共情确认，轻声追问，不给建议。",

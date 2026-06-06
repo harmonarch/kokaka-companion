@@ -43,6 +43,6 @@ export function createPersistContextNode(env: Env) {
     await env.CHAT_CONTEXT.put(`mood:${state.userId}`, state.emotionState, {
       expirationTtl: 60 * 60 * 24 * 7
     });
-    return {};
+    return { context: messages };
   };
 }

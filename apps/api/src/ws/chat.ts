@@ -3,6 +3,11 @@ import type { Env } from "@/env";
 import { findUserById } from "@/auth/session";
 import { verifyAccessToken } from "@/auth/tokens";
 import { runAgent } from "@/agent/graph";
+import {
+  extractLongTermMemory,
+  maybeSaveConversationSummary,
+  saveLongTermMemory
+} from "@/agent/memory/longTermMemory";
 
 function send(socket: WebSocket, payload: unknown) {
   socket.send(JSON.stringify(payload));
@@ -13,7 +18,11 @@ function chunks(value: string) {
   return parts && parts.length > 0 ? parts : [value];
 }
 
-export async function handleChatWebSocket(request: Request, env: Env) {
+export async function handleChatWebSocket(
+  request: Request,
+  env: Env,
+  executionCtx?: ExecutionContext
+) {
   const url = new URL(request.url);
   const token = url.searchParams.get("token");
   if (!token) {
@@ -46,7 +55,8 @@ export async function handleChatWebSocket(request: Request, env: Env) {
       });
       const result = await runAgent(env, {
         userId: user.id,
-        message: message.content
+        message: message.content,
+        conversationId: message.session_id
       });
       for (const delta of chunks(result.reply)) {
         send(server, {
@@ -66,6 +76,28 @@ export async function handleChatWebSocket(request: Request, env: Env) {
           topics_count: 1
         }
       });
+      const persistLongTermMemory = async () => {
+        const memory = await extractLongTermMemory(env, {
+          userMessage: message.content,
+          reply: result.reply,
+          emotionState: result.emotionState
+        });
+        await saveLongTermMemory(env, {
+          userId: user.id,
+          conversationId: result.conversationId,
+          memory
+        });
+        await maybeSaveConversationSummary(env, {
+          userId: user.id,
+          conversationId: result.conversationId,
+          messages: result.context
+        });
+      };
+      if (executionCtx) {
+        executionCtx.waitUntil(persistLongTermMemory());
+      } else {
+        await persistLongTermMemory();
+      }
     } catch (error) {
       send(server, {
         type: "error",
