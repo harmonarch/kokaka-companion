@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "Kokaka Companion",
+    "slug": "kokaka-companion",
+    "scheme": "kokaka",
+    "platforms": ["web", "ios", "android"],
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": ["expo-router"]
+  }
+}

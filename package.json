@@ -1,0 +1,22 @@
+{
+  "name": "ai-companion",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:api": "pnpm --filter @ai-companion/api dev",
+    "dev:mobile": "pnpm --filter @ai-companion/mobile dev",
+    "setup:env": "node scripts/setup-env.mjs",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "prettier": "^3.3.3",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  }
+}

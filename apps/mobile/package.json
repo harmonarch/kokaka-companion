@@ -1,0 +1,33 @@
+{
+  "name": "@ai-companion/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "expo start --web",
+    "build": "expo export --platform web",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "node -e \"console.log('mobile smoke test')\""
+  },
+  "dependencies": {
+    "@ai-companion/api-client": "workspace:*",
+    "@ai-companion/core": "workspace:*",
+    "@ai-companion/shared": "workspace:*",
+    "@babel/runtime": "^7.26.0",
+    "@expo/metro-runtime": "~4.0.1",
+    "expo": "~52.0.25",
+    "expo-linking": "~7.0.4",
+    "expo-router": "~4.0.16",
+    "expo-secure-store": "~14.0.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-native": "0.76.6",
+    "react-native-web": "~0.19.13",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@types/react": "~18.3.12",
+    "typescript": "^5.7.2"
+  }
+}
