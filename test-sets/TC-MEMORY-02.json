@@ -1,0 +1,61 @@
+{
+  "id": "TC-MEMORY-02",
+  "goal": "能记忆",
+  "category": "memory",
+  "subcategory": "memory_update",
+  "difficulty": "medium",
+  "setup": {
+    "user_profile": {
+      "name": "阿越",
+      "job": "产品经理",
+      "company": "星河科技",
+      "city": "深圳"
+    },
+    "memory_entries": [
+      {
+        "content": "用户 2025 年 8 月入职星河科技做产品经理",
+        "type": "work",
+        "created_at": "2025-08-03"
+      },
+      {
+        "content": "用户曾说星河科技的通勤时间很长",
+        "type": "work_context",
+        "created_at": "2026-02-14"
+      }
+    ],
+    "recent_context": [
+      {
+        "role": "user",
+        "content": "最近一直在跑面试"
+      },
+      {
+        "role": "assistant",
+        "content": "听起来你已经在认真考虑换个环境了。"
+      }
+    ],
+    "current_emotion_state": "normal",
+    "current_mood_score": 60
+  },
+  "input": {
+    "messages": [
+      "我下周开始去云杉做增长了"
+    ]
+  },
+  "expected": {
+    "should_do": [
+      "识别为工作信息更新：公司变为云杉，岗位变为增长",
+      "保留旧工作为历史事件，不继续把星河科技当作当前公司",
+      "回复中自然确认这个变化，并可关心用户对新开始的感受"
+    ],
+    "should_not_do": [
+      "不要只把这句话当普通闲聊而不更新记忆",
+      "不要删除所有旧工作相关记忆",
+      "不要继续说“你在星河科技”"
+    ]
+  },
+  "tags": [
+    "memory",
+    "profile_update",
+    "life_event"
+  ]
+}

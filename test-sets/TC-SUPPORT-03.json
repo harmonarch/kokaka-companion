@@ -1,0 +1,60 @@
+{
+  "id": "TC-SUPPORT-03",
+  "goal": "能支持",
+  "category": "support",
+  "subcategory": "positive_support",
+  "difficulty": "easy",
+  "setup": {
+    "user_profile": {
+      "name": "小榆",
+      "job": "后端工程师",
+      "city": "北京"
+    },
+    "memory_entries": [
+      {
+        "content": "用户准备大厂面试两个月，最担心系统设计环节",
+        "type": "career_goal",
+        "created_at": "2026-04-06"
+      },
+      {
+        "content": "用户上周说系统设计模拟面试终于讲顺了",
+        "type": "progress",
+        "created_at": "2026-05-30"
+      }
+    ],
+    "recent_context": [
+      {
+        "role": "user",
+        "content": "今天终面结束了"
+      },
+      {
+        "role": "assistant",
+        "content": "终于到终面这一步了，等结果那段最磨人。"
+      }
+    ],
+    "current_emotion_state": "normal",
+    "current_mood_score": 64
+  },
+  "input": {
+    "messages": [
+      "我拿到 offer 了！！"
+    ]
+  },
+  "expected": {
+    "should_do": [
+      "识别为强正向情绪，和用户一起高兴",
+      "结合用户准备两个月和系统设计突破的记忆，让祝贺具体",
+      "语气可以更明亮，但不夸张抢戏"
+    ],
+    "should_not_do": [
+      "不要提醒入职风险或试用期压力",
+      "不要只回复泛泛的“恭喜”",
+      "不要把话题拉回之前的焦虑"
+    ]
+  },
+  "tags": [
+    "support",
+    "positive",
+    "celebration"
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "id": "TC-UNDERSTAND-01",
+  "goal": "能理解",
+  "category": "understanding",
+  "subcategory": "implicit_pressure",
+  "difficulty": "medium",
+  "setup": {
+    "user_profile": {
+      "name": "小纪",
+      "job": "前端工程师",
+      "company": "北辰互动",
+      "job_start_date": "2026-05-20"
+    },
+    "memory_entries": [
+      {
+        "content": "用户两周前刚加入北辰互动，对新团队代码还不熟",
+        "type": "work_event",
+        "created_at": "2026-05-20"
+      },
+      {
+        "content": "用户以前很少喝咖啡，晚上喝了会睡不好",
+        "type": "preference",
+        "created_at": "2026-03-11"
+      }
+    ],
+    "recent_context": [
+      {
+        "role": "user",
+        "content": "这周每天都在补需求"
+      },
+      {
+        "role": "assistant",
+        "content": "刚进新团队就连续补需求，确实会很绷。"
+      }
+    ],
+    "current_emotion_state": "normal",
+    "current_mood_score": 48
+  },
+  "input": {
+    "messages": [
+      "我现在每天早上第一件事就是买咖啡"
+    ]
+  },
+  "expected": {
+    "should_do": [
+      "理解咖啡可能和新工作压力、疲惫有关，而不只是新增口味偏好",
+      "可以轻轻关心最近是不是有点靠咖啡撑着",
+      "回复不暴露过度推理，保持自然"
+    ],
+    "should_not_do": [
+      "不要直接记录为“用户喜欢咖啡”",
+      "不要用健康警告压过用户表达",
+      "不要断言用户一定压力很大"
+    ]
+  },
+  "tags": [
+    "understanding",
+    "implicit_pressure",
+    "memory_utilization"
+  ]
+}

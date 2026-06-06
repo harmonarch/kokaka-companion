@@ -1,0 +1,55 @@
+{
+  "id": "TC-SUPPORT-01",
+  "goal": "能支持",
+  "category": "support",
+  "subcategory": "asked_for_advice",
+  "difficulty": "medium",
+  "setup": {
+    "user_profile": {
+      "name": "阿舟",
+      "job": "市场专员",
+      "city": "上海"
+    },
+    "memory_entries": [
+      {
+        "content": "用户最近在考虑是否接一个跨部门项目，担心自己经验不够",
+        "type": "work_decision",
+        "created_at": "2026-05-29"
+      }
+    ],
+    "recent_context": [
+      {
+        "role": "user",
+        "content": "那个项目负责人又来问我了"
+      },
+      {
+        "role": "assistant",
+        "content": "这事看起来已经压在你心里好几天了。"
+      }
+    ],
+    "current_emotion_state": "normal",
+    "current_mood_score": 50
+  },
+  "input": {
+    "messages": [
+      "你觉得我到底要不要接啊"
+    ]
+  },
+  "expected": {
+    "should_do": [
+      "在用户明确求助后，可以给出决策支持",
+      "先帮用户梳理利弊，再给轻量建议",
+      "建议要贴合用户担心经验不够的背景"
+    ],
+    "should_not_do": [
+      "不要替用户做绝对决定",
+      "不要只说“看你自己”",
+      "不要忽略用户已经反复纠结这件事"
+    ]
+  },
+  "tags": [
+    "support",
+    "advice_when_asked",
+    "decision_support"
+  ]
+}

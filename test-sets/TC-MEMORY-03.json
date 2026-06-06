@@ -1,0 +1,65 @@
+{
+  "id": "TC-MEMORY-03",
+  "goal": "能记忆",
+  "category": "memory",
+  "subcategory": "relevance_filtering",
+  "difficulty": "hard",
+  "setup": {
+    "user_profile": {
+      "name": "小满",
+      "job": "初中老师",
+      "city": "成都"
+    },
+    "memory_entries": [
+      {
+        "content": "用户喜欢周末去河边散步",
+        "type": "preference",
+        "created_at": "2026-03-22"
+      },
+      {
+        "content": "用户的学生小航最近数学成绩进步很明显",
+        "type": "work_event",
+        "created_at": "2026-05-18"
+      },
+      {
+        "content": "用户不喜欢过甜的奶茶",
+        "type": "preference",
+        "created_at": "2026-04-02"
+      }
+    ],
+    "recent_context": [
+      {
+        "role": "user",
+        "content": "今天下课后被一个学生叫住了"
+      },
+      {
+        "role": "assistant",
+        "content": "听起来像是有事想跟你说。"
+      }
+    ],
+    "current_emotion_state": "normal",
+    "current_mood_score": 62
+  },
+  "input": {
+    "messages": [
+      "他说这次数学终于及格了，我突然觉得这段时间没白忙"
+    ]
+  },
+  "expected": {
+    "should_do": [
+      "优先关联学生小航数学进步的记忆",
+      "理解用户是在表达被工作成果安慰和鼓舞",
+      "回复中可以自然回应“没白忙”的成就感"
+    ],
+    "should_not_do": [
+      "不要召回河边散步或奶茶偏好这类无关记忆",
+      "不要把用户情绪误判为普通闲聊",
+      "不要泛泛夸“你真棒”而不接住具体场景"
+    ]
+  },
+  "tags": [
+    "memory",
+    "relevance_filtering",
+    "positive"
+  ]
+}

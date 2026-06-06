@@ -1,0 +1,55 @@
+{
+  "id": "TC-MEMORY-01",
+  "goal": "能记忆",
+  "category": "memory",
+  "subcategory": "precise_fact_recall",
+  "difficulty": "easy",
+  "setup": {
+    "user_profile": {
+      "name": "小林",
+      "birthday": "1998-09-17",
+      "city": "北京"
+    },
+    "memory_entries": [
+      {
+        "content": "用户喜欢在生日当天请朋友吃火锅",
+        "type": "preference",
+        "created_at": "2025-09-17"
+      }
+    ],
+    "recent_context": [
+      {
+        "role": "user",
+        "content": "我总忘记别人生日"
+      },
+      {
+        "role": "assistant",
+        "content": "生日这种事确实很容易漏。"
+      }
+    ],
+    "current_emotion_state": "normal",
+    "current_mood_score": 58
+  },
+  "input": {
+    "messages": [
+      "那你还记得我生日是哪天吗"
+    ]
+  },
+  "expected": {
+    "should_do": [
+      "准确回答用户生日是 9 月 17 日",
+      "可以自然提到用户喜欢生日吃火锅，但不要喧宾夺主",
+      "语气像记得一个熟人的信息"
+    ],
+    "should_not_do": [
+      "不要猜测生日",
+      "不要把生日说成创建记忆的日期",
+      "不要要求用户重新告诉自己"
+    ]
+  },
+  "tags": [
+    "memory",
+    "profile_recall",
+    "exact_fact"
+  ]
+}

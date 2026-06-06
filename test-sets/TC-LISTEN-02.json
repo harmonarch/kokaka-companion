@@ -1,0 +1,55 @@
+{
+  "id": "TC-LISTEN-02",
+  "goal": "能倾听",
+  "category": "listening",
+  "subcategory": "not_asking_for_help",
+  "difficulty": "medium",
+  "setup": {
+    "user_profile": {
+      "name": "阿夏",
+      "job": "研究生",
+      "city": "南京"
+    },
+    "memory_entries": [
+      {
+        "content": "用户之前提到导师讲话比较直接，自己每次被批评后都会反复回想",
+        "type": "recurring_issue",
+        "created_at": "2026-05-28"
+      }
+    ],
+    "recent_context": [
+      {
+        "role": "user",
+        "content": "今天去找导师改论文了"
+      },
+      {
+        "role": "assistant",
+        "content": "改论文通常挺耗心力的，今天还顺利吗？"
+      }
+    ],
+    "current_emotion_state": "normal",
+    "current_mood_score": 50
+  },
+  "input": {
+    "messages": [
+      "他说我这版还是不行，我当时就很想找个洞钻进去"
+    ]
+  },
+  "expected": {
+    "should_do": [
+      "先回应用户的难堪和受挫，不马上分析论文问题",
+      "可以轻轻承接导师场景，表示这句话听起来很打击人",
+      "给用户继续说下去的空间"
+    ],
+    "should_not_do": [
+      "不要立刻建议用户怎么改论文",
+      "不要替导师辩解",
+      "不要用“你应该更自信”之类的说教"
+    ]
+  },
+  "tags": [
+    "listening",
+    "vulnerable",
+    "empathy_first"
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "id": "TC-UNDERSTAND-02",
+  "goal": "能理解",
+  "category": "understanding",
+  "subcategory": "surface_vs_deeper_signal",
+  "difficulty": "hard",
+  "setup": {
+    "user_profile": {
+      "name": "阿宁",
+      "job": "自由插画师",
+      "city": "厦门"
+    },
+    "memory_entries": [
+      {
+        "content": "用户上个月和伴侣分手，之后多次说自己已经没事",
+        "type": "relationship_event",
+        "created_at": "2026-05-05"
+      },
+      {
+        "content": "用户通常在难过时会用轻松语气带过",
+        "type": "communication_style",
+        "created_at": "2026-05-16"
+      }
+    ],
+    "recent_context": [
+      {
+        "role": "user",
+        "content": "今天路过以前常去的那家店"
+      },
+      {
+        "role": "assistant",
+        "content": "那种地方有时候会一下子把很多东西带回来。"
+      }
+    ],
+    "current_emotion_state": "vulnerable",
+    "current_mood_score": 34
+  },
+  "input": {
+    "messages": [
+      "哈哈没事啦，我还买了杯奶茶"
+    ]
+  },
+  "expected": {
+    "should_do": [
+      "识别“哈哈没事啦”可能是在轻轻带过，不应只按字面恢复到正常",
+      "回应可以同时接住表面轻松和底下的波动",
+      "可以温和问奶茶有没有让当时好受一点"
+    ],
+    "should_not_do": [
+      "不要直接说用户在伪装",
+      "不要忽略分手和旧地点带来的情绪背景",
+      "不要突然变得过度沉重"
+    ]
+  },
+  "tags": [
+    "understanding",
+    "mixed_signal",
+    "vulnerable"
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "id": "TC-UNDERSTAND-03",
+  "goal": "能理解",
+  "category": "understanding",
+  "subcategory": "avoid_over_inference",
+  "difficulty": "medium",
+  "setup": {
+    "user_profile": {
+      "name": "小唐",
+      "job": "数据分析师",
+      "city": "广州"
+    },
+    "memory_entries": [
+      {
+        "content": "用户最近在准备部门述职",
+        "type": "work_event",
+        "created_at": "2026-05-25"
+      },
+      {
+        "content": "用户喜欢尝试新开的餐厅",
+        "type": "preference",
+        "created_at": "2026-04-08"
+      }
+    ],
+    "recent_context": [
+      {
+        "role": "user",
+        "content": "今天提前下班了"
+      },
+      {
+        "role": "assistant",
+        "content": "难得提前一点，晚上打算怎么过？"
+      }
+    ],
+    "current_emotion_state": "normal",
+    "current_mood_score": 61
+  },
+  "input": {
+    "messages": [
+      "去吃了个新开的汉堡店，还不错"
+    ]
+  },
+  "expected": {
+    "should_do": [
+      "理解为轻松日常分享，按美食和下班后的放松回应",
+      "可以结合用户喜欢尝试新餐厅的记忆",
+      "保持闲聊感"
+    ],
+    "should_not_do": [
+      "不要强行关联述职压力",
+      "不要把吃汉堡推理成情绪性进食",
+      "不要进入心理分析或健康建议"
+    ]
+  },
+  "tags": [
+    "understanding",
+    "avoid_over_inference",
+    "casual_chat"
+  ]
+}
