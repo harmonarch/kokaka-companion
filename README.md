@@ -28,7 +28,6 @@ kokaka 希望成为一个能倾听、能记忆、能理解、能支持的陪伴 
 | `normal`、`vulnerable`、`crisis`、`positive` 四类状态识别 | ✅ |
 | `vulnerable` 状态下避免说教和直接建议 | ✅ |
 | DeepSeek 回复生成 | ✅ |
-| DeepSeek 不可用时本地兜底回复 | ✅ |
 | Expo + React Native Web 原型 | ✅ |
 | 长期记忆系统 | □ |
 | 用户查看、编辑、删除记忆 | □ |
