@@ -2,6 +2,7 @@ import { Hono } from "hono"
 import type { AppBindings } from "@/middleware/auth"
 import { authMiddleware } from "@/middleware/auth"
 import { ensureChatMessagesTable } from "@/chat/history"
+import { invalidateLongTermMemoryCache } from "@/agent/memory/longTermMemory"
 
 export const accountRoutes = new Hono<AppBindings>()
 
@@ -39,6 +40,7 @@ accountRoutes.delete("/", authMiddleware, async (c) => {
     .run()
   await c.env.CHAT_CONTEXT.delete(`ctx:${user.id}`)
   await c.env.CHAT_CONTEXT.delete(`mood:${user.id}`)
+  await invalidateLongTermMemoryCache(c.env, user.id)
   await deleteLongTermMemory(c.env, user.id)
   return c.json({ ok: true })
 })

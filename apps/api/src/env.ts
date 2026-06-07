@@ -1,6 +1,7 @@
 export type Env = {
   DB: D1Database
   CHAT_CONTEXT: KVNamespace
+  MEMORY_VECTORIZE?: VectorizeIndex
   JWT_SECRET: string
   ACCESS_TOKEN_TTL_SECONDS: string
   REFRESH_TOKEN_TTL_SECONDS: string
@@ -9,6 +10,9 @@ export type Env = {
   DEEPSEEK_API_KEY?: string
   DEEPSEEK_BASE_URL: string
   DEEPSEEK_MODEL: string
+  EMBEDDING_BASE_URL?: string
+  EMBEDDING_MODEL?: string
+  EMBEDDING_API_KEY?: string
 }
 
 const required = [

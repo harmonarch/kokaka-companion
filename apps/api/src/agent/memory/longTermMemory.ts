@@ -1,5 +1,6 @@
 import type { ChatMessage } from "@ai-companion/shared"
 import type { Env } from "@/env"
+import { upsertMemoryVector } from "@/agent/memory/vectorMemory"
 
 export type LongTermMemoryProfile = {
   userId: string
@@ -56,6 +57,12 @@ const emptyExtraction: ExtractedLongTermMemory = {
   events: [],
   preferences: [],
   emotionSnapshot: null,
+}
+
+const LONG_TERM_MEMORY_CACHE_TTL_SECONDS = 60 * 15
+
+export function longTermMemoryCacheKey(userId: string) {
+  return `ltm:${userId}`
 }
 
 function now() {
@@ -149,9 +156,48 @@ export async function loadLongTermMemory(
 ): Promise<LongTermMemoryContext> {
   const enabled = await isLongTermMemoryEnabled(env, userId)
   if (!enabled) {
+    await invalidateLongTermMemoryCache(env, userId)
     return { enabled: false, profile: null, memories: [], summaries: [] }
   }
 
+  const cached = await env.CHAT_CONTEXT.get(longTermMemoryCacheKey(userId))
+  if (cached) {
+    const parsed = parseLongTermMemoryContext(cached)
+    if (parsed) return parsed
+  }
+
+  const context = await loadLongTermMemoryFromD1(env, userId)
+  await env.CHAT_CONTEXT.put(
+    longTermMemoryCacheKey(userId),
+    JSON.stringify(context),
+    {
+      expirationTtl: LONG_TERM_MEMORY_CACHE_TTL_SECONDS,
+    },
+  )
+  return context
+}
+
+function parseLongTermMemoryContext(raw: string) {
+  try {
+    const parsed = JSON.parse(raw) as LongTermMemoryContext
+    if (
+      typeof parsed.enabled === "boolean" &&
+      (parsed.profile === null || typeof parsed.profile === "object") &&
+      Array.isArray(parsed.memories) &&
+      Array.isArray(parsed.summaries)
+    ) {
+      return parsed
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
+async function loadLongTermMemoryFromD1(
+  env: Env,
+  userId: string,
+): Promise<LongTermMemoryContext> {
   const [profile, memoriesResult, summariesResult] = await Promise.all([
     env.DB.prepare(
       `SELECT
@@ -197,6 +243,10 @@ export async function loadLongTermMemory(
     memories: memoriesResult.results ?? [],
     summaries: summariesResult.results ?? [],
   }
+}
+
+export async function invalidateLongTermMemoryCache(env: Env, userId: string) {
+  await env.CHAT_CONTEXT.delete(longTermMemoryCacheKey(userId))
 }
 
 export function formatLongTermMemory(context: LongTermMemoryContext) {
@@ -389,6 +439,7 @@ export async function saveLongTermMemory(
   if (!enabled) return
 
   const timestamp = now()
+  let changed = false
   for (const fact of input.memory.facts) {
     await env.DB.prepare(
       `INSERT INTO user_profiles (user_id, ${fact.field}, updated_at)
@@ -399,6 +450,7 @@ export async function saveLongTermMemory(
     )
       .bind(input.userId, fact.value, timestamp)
       .run()
+    changed = true
   }
 
   const rows = [
@@ -413,12 +465,13 @@ export async function saveLongTermMemory(
   ]
 
   for (const row of rows) {
+    const id = crypto.randomUUID()
     await env.DB.prepare(
       `INSERT INTO memories (id, user_id, conversation_id, type, content, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
     )
       .bind(
-        crypto.randomUUID(),
+        id,
         input.userId,
         input.conversationId,
         row.type,
@@ -426,6 +479,19 @@ export async function saveLongTermMemory(
         timestamp,
       )
       .run()
+    await upsertMemoryVector(env, {
+      id,
+      userId: input.userId,
+      conversationId: input.conversationId,
+      type: row.type,
+      content: row.content,
+      createdAt: timestamp,
+    })
+    changed = true
+  }
+
+  if (changed) {
+    await invalidateLongTermMemoryCache(env, input.userId)
   }
 }
 
@@ -495,4 +561,5 @@ export async function maybeSaveConversationSummary(
       now(),
     )
     .run()
+  await invalidateLongTermMemoryCache(env, input.userId)
 }

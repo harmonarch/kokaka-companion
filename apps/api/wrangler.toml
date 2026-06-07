@@ -19,3 +19,7 @@ migrations_dir = "drizzle"
 [[kv_namespaces]]
 binding = "CHAT_CONTEXT"
 id = "local"
+
+# [[vectorize]]
+# binding = "MEMORY_VECTORIZE"
+# index_name = "ai-companion-memory"

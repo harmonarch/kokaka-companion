@@ -70,6 +70,15 @@ export const conversationSummaries = sqliteTable(
       table.startTime,
       table.endTime,
     ),
+    userEndTimeIdx: index("idx_summaries_user_end_time").on(
+      table.userId,
+      table.endTime,
+    ),
+    conversationTimeIdx: index("idx_summaries_conversation_time").on(
+      table.userId,
+      table.conversationId,
+      table.endTime,
+    ),
   }),
 )
 

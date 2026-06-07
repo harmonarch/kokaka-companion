@@ -5,6 +5,7 @@ import { reasoningNode } from "@/agent/nodes/reasoning"
 import { strategyNode } from "@/agent/nodes/strategy"
 import { createGenerateNode } from "@/agent/nodes/generate"
 import { createLoadLongTermMemoryNode } from "@/agent/nodes/longTermMemory"
+import { createHybridMemorySearchNode } from "@/agent/nodes/hybridMemorySearch"
 import {
   createLoadContextNode,
   createPersistContextNode,
@@ -28,6 +29,7 @@ export async function runAgent(
       userMessage: null,
       context: null,
       longTermMemory: null,
+      memorySearch: null,
       emotionState: null,
       reasoning: null,
       strategy: null,
@@ -36,6 +38,7 @@ export async function runAgent(
   })
     .addNode("loadContext", createLoadContextNode(env))
     .addNode("loadLongTermMemory", createLoadLongTermMemoryNode(env))
+    .addNode("searchHybridMemory", createHybridMemorySearchNode(env))
     .addNode("detectEmotion", detectEmotionNode)
     .addNode("reason", reasoningNode)
     .addNode("selectStrategy", strategyNode)
@@ -43,7 +46,8 @@ export async function runAgent(
     .addNode("persistContext", createPersistContextNode(env))
     .addEdge(START, "loadContext")
     .addEdge("loadContext", "loadLongTermMemory")
-    .addEdge("loadLongTermMemory", "detectEmotion")
+    .addEdge("loadLongTermMemory", "searchHybridMemory")
+    .addEdge("searchHybridMemory", "detectEmotion")
     .addEdge("detectEmotion", "reason")
     .addEdge("reason", "selectStrategy")
     .addEdge("selectStrategy", "generateReply")
@@ -63,6 +67,11 @@ export async function runAgent(
       profile: null,
       memories: [],
       summaries: [],
+    },
+    memorySearch: {
+      query: input.message,
+      keywords: [],
+      results: [],
     },
     emotionState: "normal",
     reasoning: "",

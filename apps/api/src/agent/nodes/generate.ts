@@ -1,6 +1,6 @@
 import type { Env } from "@/env"
 import type { AgentState } from "@/agent/state"
-import { formatLongTermMemory } from "@/agent/memory/longTermMemory"
+import { formatHybridMemorySearch } from "@/agent/memory/hybridRetrieval"
 
 function fallbackReply(state: AgentState) {
   switch (state.emotionState) {
@@ -20,14 +20,15 @@ function buildPrompt(state: AgentState) {
     .slice(-6)
     .map((message) => `${message.role}: ${message.content}`)
     .join("\n")
-  const longTermMemory = formatLongTermMemory(state.longTermMemory)
+  const memorySearch = formatHybridMemorySearch(state.memorySearch)
   return [
     "你是一个中文 AI 陪伴 Agent。",
     "回复要短、真诚、像陪伴，不要像心理咨询报告。",
     "如果状态是 vulnerable，不要使用“你应该”，不要直接给行动建议。",
-    "如果长期记忆里有相关内容，要自然接住；不相关时不要生硬复述。",
+    "优先使用混合检索结果；检索为空时，不要编造长期记忆。",
+    "不要复述无关记忆，不要把记忆清单原样念给用户。",
     `当前策略：${state.strategy}`,
-    `长期记忆：${longTermMemory}`,
+    `混合检索结果：${memorySearch}`,
     `近期上下文：${recent || "无"}`,
     `用户消息：${state.userMessage}`,
   ].join("\n")

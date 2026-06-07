@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   formatLongTermMemory,
   heuristicExtractLongTermMemory,
+  longTermMemoryCacheKey,
   loadLongTermMemory,
   maybeSaveConversationSummary,
   saveLongTermMemory,
@@ -15,6 +16,10 @@ const blockingCaseIds = [
   "TC-MEMORY-03",
   "TC-SUPPORT-02",
 ]
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe("long-term memory test cases", () => {
   it("contains the 12 converted test-set cases", () => {
@@ -88,6 +93,7 @@ function createEnvFixture(input?: {
   profile?: Partial<ProfileRow>
   memories?: MemoryRow[]
   summaries?: SummaryRow[]
+  cachedLongTermMemory?: unknown
 }) {
   const users = new Map<string, UserRow>([
     [
@@ -114,9 +120,29 @@ function createEnvFixture(input?: {
   }
   const memories: MemoryRow[] = [...(input?.memories ?? [])]
   const summaries: SummaryRow[] = [...(input?.summaries ?? [])]
+  const kv = new Map<string, string>()
+  const vectors: Array<{
+    id: string
+    values: number[]
+    namespace?: string
+    metadata?: Record<string, unknown>
+  }> = []
+  if (input?.cachedLongTermMemory) {
+    kv.set(
+      longTermMemoryCacheKey("u1"),
+      JSON.stringify(input.cachedLongTermMemory),
+    )
+  }
 
   const db = {
+    readCount: 0,
     prepare(sql: string) {
+      this.readCount +=
+        sql.includes("FROM user_profiles") ||
+        sql.includes("FROM memories") ||
+        sql.includes("FROM conversation_summaries")
+          ? 1
+          : 0
       const statement = {
         values: [] as unknown[],
         bind(...values: unknown[]) {
@@ -245,10 +271,32 @@ function createEnvFixture(input?: {
   return {
     env: {
       DB: db,
+      CHAT_CONTEXT: {
+        async get(key: string) {
+          return kv.get(key) ?? null
+        },
+        async put(key: string, value: string) {
+          kv.set(key, value)
+        },
+        async delete(key: string) {
+          kv.delete(key)
+        },
+      },
+      MEMORY_VECTORIZE: {
+        async upsert(items: typeof vectors) {
+          vectors.push(...items)
+        },
+      },
       DEEPSEEK_API_KEY: "",
       DEEPSEEK_BASE_URL: "https://api.deepseek.com",
       DEEPSEEK_MODEL: "deepseek-chat",
+      EMBEDDING_BASE_URL: "https://embedding.example.com",
+      EMBEDDING_MODEL: "embedding-model",
+      EMBEDDING_API_KEY: "embedding-key",
     } as unknown as Env,
+    db,
+    kv,
+    vectors,
     profiles,
     memories,
     summaries,
@@ -279,9 +327,85 @@ describe("long-term memory behavior", () => {
     expect(formatted).toContain("用户喜欢生日当天吃火锅")
   })
 
+  it("uses KV as the hot cache before reading D1 long-term memory rows", async () => {
+    const { env, db } = createEnvFixture({
+      cachedLongTermMemory: {
+        enabled: true,
+        profile: {
+          userId: "u1",
+          name: "小林",
+          birthday: "09-17",
+          occupation: null,
+          company: null,
+          location: null,
+          updatedAt: 1,
+        },
+        memories: [
+          {
+            type: "preference",
+            content: "用户喜欢安静的回复",
+            createdAt: 1,
+          },
+        ],
+        summaries: [],
+      },
+    })
+
+    const context = await loadLongTermMemory(env, "u1")
+
+    expect(context.profile?.birthday).toBe("09-17")
+    expect(context.memories[0].content).toContain("安静")
+    expect(db.readCount).toBe(0)
+  })
+
+  it("stores D1 long-term memory results in KV after a cache miss", async () => {
+    const { env, kv } = createEnvFixture({
+      profile: { name: "小林", birthday: "09-17" },
+      memories: [
+        {
+          id: "m1",
+          user_id: "u1",
+          conversation_id: "c1",
+          type: "preference",
+          content: "用户喜欢安静的回复",
+          created_at: 10,
+        },
+      ],
+      summaries: [
+        {
+          id: "s1",
+          user_id: "u1",
+          conversation_id: "c1",
+          summary: "用户最近在聊生日安排",
+          start_time: 1,
+          end_time: 20,
+          message_count: 20,
+          created_at: 21,
+        },
+      ],
+    })
+
+    await loadLongTermMemory(env, "u1")
+
+    const cached = kv.get(longTermMemoryCacheKey("u1"))
+    expect(cached).toBeTruthy()
+    expect(JSON.parse(cached ?? "{}")).toMatchObject({
+      enabled: true,
+      profile: { birthday: "09-17" },
+      memories: [{ content: "用户喜欢安静的回复" }],
+      summaries: [{ summary: "用户最近在聊生日安排" }],
+    })
+  })
+
   it("does not load or save when long-term memory is disabled", async () => {
-    const { env, profiles, memories } = createEnvFixture({
+    const { env, profiles, memories, kv } = createEnvFixture({
       memoryEnabled: false,
+      cachedLongTermMemory: {
+        enabled: true,
+        profile: null,
+        memories: [{ type: "preference", content: "不应读取", createdAt: 1 }],
+        summaries: [],
+      },
     })
 
     const context = await loadLongTermMemory(env, "u1")
@@ -304,13 +428,28 @@ describe("long-term memory behavior", () => {
     })
     expect(profiles.size).toBe(0)
     expect(memories).toHaveLength(0)
+    expect(kv.has(longTermMemoryCacheKey("u1"))).toBe(false)
   })
 
   it("overwrites profile facts and appends event memories", async () => {
-    const { env, profiles, memories } = createEnvFixture({
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ data: [{ embedding: [0.1, 0.2] }] }), {
+          status: 200,
+        }),
+      ),
+    )
+    const { env, profiles, memories, kv, vectors } = createEnvFixture({
       profile: {
         occupation: "产品经理",
         company: "星河科技",
+      },
+      cachedLongTermMemory: {
+        enabled: true,
+        profile: null,
+        memories: [{ type: "preference", content: "旧缓存", createdAt: 1 }],
+        summaries: [],
       },
     })
 
@@ -326,6 +465,12 @@ describe("long-term memory behavior", () => {
     expect(memories.some((memory) => memory.content.includes("云杉"))).toBe(
       true,
     )
+    expect(kv.has(longTermMemoryCacheKey("u1"))).toBe(false)
+    expect(
+      vectors.some(
+        (vector) => vector.metadata?.content === memories[0].content,
+      ),
+    ).toBe(true)
   })
 
   it("extracts explicit preferences without external model calls", () => {
@@ -335,7 +480,16 @@ describe("long-term memory behavior", () => {
   })
 
   it("writes a conversation summary after enough recent messages", async () => {
-    const { env, summaries } = createEnvFixture()
+    const { env, summaries, kv } = createEnvFixture({
+      cachedLongTermMemory: {
+        enabled: true,
+        profile: null,
+        memories: [],
+        summaries: [
+          { summary: "旧摘要", startTime: 1, endTime: 2, messageCount: 2 },
+        ],
+      },
+    })
     const messages = Array.from({ length: 20 }, (_, index) => ({
       id: `msg-${index}`,
       role: index % 2 === 0 ? ("user" as const) : ("agent" as const),
@@ -352,5 +506,6 @@ describe("long-term memory behavior", () => {
     expect(summaries).toHaveLength(1)
     expect(summaries[0].summary).toContain("用户话题")
     expect(summaries[0].message_count).toBe(20)
+    expect(kv.has(longTermMemoryCacheKey("u1"))).toBe(false)
   })
 })
