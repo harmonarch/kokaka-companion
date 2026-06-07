@@ -1,14 +1,14 @@
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useState } from "react"
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"
 
 export function ChatInput({
   disabled,
-  onSend
+  onSend,
 }: {
-  disabled?: boolean;
-  onSend: (content: string) => void;
+  disabled?: boolean
+  onSend: (content: string) => void
 }) {
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState("")
   return (
     <View style={styles.wrap}>
       <TextInput
@@ -24,19 +24,19 @@ export function ChatInput({
         accessibilityRole="button"
         disabled={disabled || !value.trim()}
         onPress={() => {
-          onSend(value);
-          setValue("");
+          onSend(value)
+          setValue("")
         }}
         style={({ pressed }) => [
           styles.button,
           (disabled || !value.trim()) && styles.buttonDisabled,
-          pressed && styles.buttonPressed
+          pressed && styles.buttonPressed,
         ]}
       >
         <Text style={styles.buttonText}>发送</Text>
       </Pressable>
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
     gap: 10,
     borderTopWidth: 1,
     borderTopColor: "#dfe4df",
-    paddingTop: 14
+    paddingTop: 14,
   },
   input: {
     flex: 1,
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     color: "#17211c",
     fontSize: 16,
-    backgroundColor: "#ffffff"
+    backgroundColor: "#ffffff",
   },
   button: {
     height: 46,
@@ -67,17 +67,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 8,
-    backgroundColor: "#1f6f5b"
+    backgroundColor: "#1f6f5b",
   },
   buttonDisabled: {
-    opacity: 0.45
+    opacity: 0.45,
   },
   buttonPressed: {
-    opacity: 0.8
+    opacity: 0.8,
   },
   buttonText: {
     color: "#ffffff",
     fontSize: 15,
-    fontWeight: "700"
-  }
-});
+    fontWeight: "700",
+  },
+})

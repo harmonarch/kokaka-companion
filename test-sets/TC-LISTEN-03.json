@@ -36,9 +36,7 @@
     "current_mood_score": 35
   },
   "input": {
-    "messages": [
-      "算了不说了"
-    ]
+    "messages": ["算了不说了"]
   },
   "expected": {
     "should_do": [
@@ -52,9 +50,5 @@
       "不要说“别想了”或“没必要在意”"
     ]
   },
-  "tags": [
-    "listening",
-    "withdrawal",
-    "vulnerable"
-  ]
+  "tags": ["listening", "withdrawal", "vulnerable"]
 }

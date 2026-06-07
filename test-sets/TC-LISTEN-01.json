@@ -31,9 +31,7 @@
     "current_mood_score": 52
   },
   "input": {
-    "messages": [
-      "也没什么，就是有点烦"
-    ]
+    "messages": ["也没什么，就是有点烦"]
   },
   "expected": {
     "should_do": [
@@ -47,9 +45,5 @@
       "不要用模板化表达，例如“我理解你的感受”"
     ]
   },
-  "tags": [
-    "listening",
-    "implicit_emotion",
-    "no_unsolicited_advice"
-  ]
+  "tags": ["listening", "implicit_emotion", "no_unsolicited_advice"]
 }

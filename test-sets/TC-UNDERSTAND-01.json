@@ -37,9 +37,7 @@
     "current_mood_score": 48
   },
   "input": {
-    "messages": [
-      "我现在每天早上第一件事就是买咖啡"
-    ]
+    "messages": ["我现在每天早上第一件事就是买咖啡"]
   },
   "expected": {
     "should_do": [
@@ -53,9 +51,5 @@
       "不要断言用户一定压力很大"
     ]
   },
-  "tags": [
-    "understanding",
-    "implicit_pressure",
-    "memory_utilization"
-  ]
+  "tags": ["understanding", "implicit_pressure", "memory_utilization"]
 }

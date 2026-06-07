@@ -14,46 +14,46 @@ kokaka 希望成为一个能倾听、能记忆、能理解、能支持的陪伴 
 
 ## 功能列表
 
-| 功能 | 状态 |
-|---|---|
-| 登录状态刷新 | ✅ |
-| 退出登录 | ✅ |
-| 设置昵称 | ✅ |
-| 注销账号 | ✅ |
-| 注销后清理 refresh token | ✅ |
-| 注销后清理短期聊天上下文 | ✅ |
-| WebSocket 聊天 | ✅ |
-| Agent 流式回复 | ✅ |
-| 最近对话上下文保存 | ✅ |
-| `normal`、`vulnerable`、`crisis`、`positive` 四类状态识别 | ✅ |
-| `vulnerable` 状态下避免说教和直接建议 | ✅ |
-| DeepSeek 回复生成 | ✅ |
-| Expo + React Native Web 原型 | ✅ |
-| 长期记忆系统 | □ |
-| 用户查看、编辑、删除记忆 | □ |
-| Vectorize 混合检索 | □ |
-| 主题聚类 | □ |
-| 多主题分段回复 | □ |
-| 主动推送 | □ |
-| 亲密度模型 | □ |
-| 语音输入 | □ |
-| 文件上传 | □ |
-| 正式 App 端 | □ |
+| 功能                                                      | 状态 |
+| --------------------------------------------------------- | ---- |
+| 登录状态刷新                                              | ✅   |
+| 退出登录                                                  | ✅   |
+| 设置昵称                                                  | ✅   |
+| 注销账号                                                  | ✅   |
+| 注销后清理 refresh token                                  | ✅   |
+| 注销后清理短期聊天上下文                                  | ✅   |
+| WebSocket 聊天                                            | ✅   |
+| Agent 流式回复                                            | ✅   |
+| 最近对话上下文保存                                        | ✅   |
+| `normal`、`vulnerable`、`crisis`、`positive` 四类状态识别 | ✅   |
+| `vulnerable` 状态下避免说教和直接建议                     | ✅   |
+| DeepSeek 回复生成                                         | ✅   |
+| Expo + React Native Web 原型                              | ✅   |
+| 长期记忆系统                                              | □    |
+| 用户查看、编辑、删除记忆                                  | □    |
+| Vectorize 混合检索                                        | □    |
+| 主题聚类                                                  | □    |
+| 多主题分段回复                                            | □    |
+| 主动推送                                                  | □    |
+| 亲密度模型                                                | □    |
+| 语音输入                                                  | □    |
+| 文件上传                                                  | □    |
+| 正式 App 端                                               | □    |
 
 ## 技术栈
 
-| 模块 | 技术 |
-|---|---|
-| Monorepo | pnpm workspace + Turborepo |
-| API | Cloudflare Workers + Hono |
-| WebSocket | Cloudflare Workers WebSocket |
-| 数据库 | Wrangler 本地 D1 + Drizzle |
-| 短期上下文 | Cloudflare KV |
-| Web 原型 | Expo + React Native Web |
-| 状态管理 | Zustand |
-| 共享类型 | TypeScript + Zod |
-| Agent 管线 | LangGraph TypeScript |
-| LLM | DeepSeek |
+| 模块       | 技术                         |
+| ---------- | ---------------------------- |
+| Monorepo   | pnpm workspace + Turborepo   |
+| API        | Cloudflare Workers + Hono    |
+| WebSocket  | Cloudflare Workers WebSocket |
+| 数据库     | Wrangler 本地 D1 + Drizzle   |
+| 短期上下文 | Cloudflare KV                |
+| Web 原型   | Expo + React Native Web      |
+| 状态管理   | Zustand                      |
+| 共享类型   | TypeScript + Zod             |
+| Agent 管线 | LangGraph TypeScript         |
+| LLM        | DeepSeek                     |
 
 ## 安装使用
 

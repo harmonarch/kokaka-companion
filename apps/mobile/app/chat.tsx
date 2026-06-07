@@ -1,36 +1,36 @@
-import { Redirect, router } from "expo-router";
-import { useEffect } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { AgentStatus } from "@/components/AgentStatus";
-import { ChatInput } from "@/components/ChatInput";
-import { MessageBubble } from "@/components/MessageBubble";
-import { useAuthStore } from "@/stores/authStore";
-import { useChatStore } from "@/stores/chatStore";
+import { Redirect, router } from "expo-router"
+import { useEffect } from "react"
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native"
+import { AgentStatus } from "@/components/AgentStatus"
+import { ChatInput } from "@/components/ChatInput"
+import { MessageBubble } from "@/components/MessageBubble"
+import { useAuthStore } from "@/stores/authStore"
+import { useChatStore } from "@/stores/chatStore"
 
 export default function Chat() {
-  const user = useAuthStore((state) => state.user);
-  const messages = useChatStore((state) => state.messages);
-  const status = useChatStore((state) => state.status);
-  const connection = useChatStore((state) => state.connection);
-  const historyLoaded = useChatStore((state) => state.historyLoaded);
-  const historyLoading = useChatStore((state) => state.historyLoading);
-  const emotionState = useChatStore((state) => state.emotionState);
-  const error = useChatStore((state) => state.error);
-  const connect = useChatStore((state) => state.connect);
-  const loadHistory = useChatStore((state) => state.loadHistory);
-  const loadOlderHistory = useChatStore((state) => state.loadOlderHistory);
-  const disconnect = useChatStore((state) => state.disconnect);
-  const send = useChatStore((state) => state.send);
+  const user = useAuthStore((state) => state.user)
+  const messages = useChatStore((state) => state.messages)
+  const status = useChatStore((state) => state.status)
+  const connection = useChatStore((state) => state.connection)
+  const historyLoaded = useChatStore((state) => state.historyLoaded)
+  const historyLoading = useChatStore((state) => state.historyLoading)
+  const emotionState = useChatStore((state) => state.emotionState)
+  const error = useChatStore((state) => state.error)
+  const connect = useChatStore((state) => state.connect)
+  const loadHistory = useChatStore((state) => state.loadHistory)
+  const loadOlderHistory = useChatStore((state) => state.loadOlderHistory)
+  const disconnect = useChatStore((state) => state.disconnect)
+  const send = useChatStore((state) => state.send)
 
   useEffect(() => {
     if (user) {
-      loadHistory();
-      connect();
+      loadHistory()
+      connect()
     }
-    return () => disconnect();
-  }, [connect, disconnect, loadHistory, user]);
+    return () => disconnect()
+  }, [connect, disconnect, loadHistory, user])
 
-  if (!user) return <Redirect href="/login" />;
+  if (!user) return <Redirect href="/login" />
 
   return (
     <View style={styles.page}>
@@ -39,7 +39,10 @@ export default function Chat() {
           <Text style={styles.title}>聊天</Text>
           <Text style={styles.subtitle}>{user.nickname ?? user.email}</Text>
         </View>
-        <Pressable onPress={() => router.push("/settings")} style={styles.secondary}>
+        <Pressable
+          onPress={() => router.push("/settings")}
+          style={styles.secondary}
+        >
           <Text style={styles.secondaryText}>设置</Text>
         </Pressable>
       </View>
@@ -49,7 +52,7 @@ export default function Chat() {
         style={styles.list}
         contentContainerStyle={[
           styles.listContent,
-          messages.length === 0 && styles.emptyListContent
+          messages.length === 0 && styles.emptyListContent,
         ]}
         data={messages}
         showsVerticalScrollIndicator={false}
@@ -58,7 +61,9 @@ export default function Chat() {
         keyExtractor={(message) => message.id}
         renderItem={({ item }) => <MessageBubble message={item} />}
         ListFooterComponent={
-          historyLoading ? <Text style={styles.historyStatus}>正在载入历史聊天记录</Text> : null
+          historyLoading ? (
+            <Text style={styles.historyStatus}>正在载入历史聊天记录</Text>
+          ) : null
         }
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -70,9 +75,12 @@ export default function Chat() {
         onEndReachedThreshold={0.2}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <ChatInput disabled={connection !== "connected" || status !== "idle"} onSend={send} />
+      <ChatInput
+        disabled={connection !== "connected" || status !== "idle"}
+        onSend={send}
+      />
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
@@ -83,69 +91,69 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     padding: 20,
     gap: 14,
-    backgroundColor: "#f7f6f1"
+    backgroundColor: "#f7f6f1",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12
+    gap: 12,
   },
   title: {
     color: "#17211c",
     fontSize: 30,
-    fontWeight: "800"
+    fontWeight: "800",
   },
   subtitle: {
     color: "#526057",
     fontSize: 14,
-    marginTop: 2
+    marginTop: 2,
   },
   secondary: {
     borderWidth: 1,
     borderColor: "#cfd6ce",
     borderRadius: 8,
     paddingHorizontal: 14,
-    paddingVertical: 10
+    paddingVertical: 10,
   },
   secondaryText: {
     color: "#17211c",
-    fontWeight: "700"
+    fontWeight: "700",
   },
   list: {
     flex: 1,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: "#dfe4df"
+    borderColor: "#dfe4df",
   },
   listContent: {
-    paddingVertical: 18
+    paddingVertical: 18,
   },
   emptyListContent: {
-    flexGrow: 1
+    flexGrow: 1,
   },
   historyStatus: {
     color: "#526057",
     fontSize: 13,
     textAlign: "center",
-    marginBottom: 12
+    marginBottom: 12,
   },
   empty: {
     flex: 1,
     justifyContent: "center",
-    alignItems: "center"
+    alignItems: "center",
   },
   emptyTitle: {
     color: "#17211c",
     fontSize: 20,
-    fontWeight: "800"
+    fontWeight: "800",
   },
   emptyText: {
     color: "#526057",
     marginTop: 8,
-    fontSize: 15
+    fontSize: 15,
   },
   error: {
-    color: "#b13434"
-  }
-});
+    color: "#b13434",
+  },
+})

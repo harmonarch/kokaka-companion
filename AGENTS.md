@@ -20,6 +20,7 @@ packages/core  session 与聊天控制逻辑
 ## 开发原则
 
 - 优先沿用现有代码风格和模块边界。
+- TypeScript、TSX、JavaScript 与脚本代码不使用句尾分号；确实属于语法必需或非 TS/JS 语句分隔的分号可以保留。
 - 共享请求、响应、WebSocket 消息结构时，先更新 `packages/shared` 的 Zod schema 和类型。
 - API 行为变更需要同步更新 `packages/api-client`。
 - 不要把本地临时文件、构建产物、密钥、`.wrangler/state` 提交进仓库。
