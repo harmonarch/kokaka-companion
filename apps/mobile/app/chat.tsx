@@ -46,7 +46,12 @@ export default function Chat() {
     <View style={[styles.page, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
         <View>
-          <Text style={[styles.title, { color: theme.text }]}>聊天</Text>
+          <Text style={[styles.kicker, { color: theme.accent }]}>
+            Kokaka 在听
+          </Text>
+          <Text style={[styles.title, { color: theme.text }]}>
+            今天想说什么
+          </Text>
           <Text style={[styles.subtitle, { color: theme.muted }]}>
             {user.nickname ?? user.email}
           </Text>
@@ -88,7 +93,15 @@ export default function Chat() {
           ) : null
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
+          <View
+            style={[
+              styles.empty,
+              {
+                backgroundColor: theme.elevated,
+                borderColor: theme.softBorder,
+              },
+            ]}
+          >
             <Text style={[styles.emptyTitle, { color: theme.text }]}>
               可以从一句很小的话开始。
             </Text>
@@ -119,8 +132,9 @@ const styles = StyleSheet.create({
     maxWidth: 860,
     width: "100%",
     alignSelf: "center",
-    padding: 20,
-    gap: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    gap: 16,
   },
   header: {
     flexDirection: "row",
@@ -128,8 +142,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
+  kicker: {
+    fontSize: 13,
+    fontWeight: "800",
+    marginBottom: 2,
+  },
   title: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: "800",
   },
   subtitle: {
@@ -139,8 +158,8 @@ const styles = StyleSheet.create({
   secondary: {
     borderWidth: 1,
     borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
   },
   secondaryText: {
     fontWeight: "700",
@@ -151,7 +170,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   listContent: {
-    paddingVertical: 18,
+    paddingVertical: 16,
   },
   emptyListContent: {
     flexGrow: 1,
@@ -165,6 +184,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
   },
   emptyTitle: {
     fontSize: 20,

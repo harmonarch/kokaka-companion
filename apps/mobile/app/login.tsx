@@ -34,11 +34,29 @@ export default function Login() {
   return (
     <View style={[styles.page, { backgroundColor: theme.background }]}>
       <View style={styles.panel}>
-        <Text style={[styles.title, { color: theme.text }]}>
-          Kokaka Companion
-        </Text>
+        <View style={styles.brand}>
+          <View
+            style={[
+              styles.mark,
+              {
+                backgroundColor: theme.primarySoft,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <Text style={[styles.markText, { color: theme.primary }]}>ko</Text>
+          </View>
+          <View style={styles.copy}>
+            <Text style={[styles.kicker, { color: theme.accent }]}>
+              阳光、大海、微风
+            </Text>
+            <Text style={[styles.title, { color: theme.text }]}>
+              Kokaka Companion
+            </Text>
+          </View>
+        </View>
         <Text style={[styles.subtitle, { color: theme.muted }]}>
-          把想说的话慢慢放下来，Kokaka 会陪你整理。
+          把想说的话慢慢放下来，Kokaka 会陪你整理，也会记住长期的你。
         </Text>
         <View style={[styles.tabs, { borderColor: theme.border }]}>
           <Pressable
@@ -154,15 +172,40 @@ const styles = StyleSheet.create({
   panel: {
     width: "100%",
     maxWidth: 420,
-    gap: 14,
+    gap: 16,
+  },
+  brand: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  mark: {
+    width: 54,
+    height: 54,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  markText: {
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  copy: {
+    flex: 1,
+  },
+  kicker: {
+    fontSize: 13,
+    fontWeight: "800",
+    marginBottom: 2,
   },
   title: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: "800",
   },
   subtitle: {
     fontSize: 16,
-    lineHeight: 24,
+    lineHeight: 25,
     marginBottom: 10,
   },
   tabs: {

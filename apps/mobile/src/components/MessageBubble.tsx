@@ -18,7 +18,7 @@ export function MessageBubble({
           isUser
             ? { backgroundColor: theme.primary }
             : {
-                backgroundColor: theme.softSurface,
+                backgroundColor: theme.elevated,
                 borderColor: theme.bubbleBorder,
                 borderWidth: 1,
               },
@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
   row: {
     width: "100%",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   rowRight: {
     alignItems: "flex-end",
@@ -49,8 +49,8 @@ const styles = StyleSheet.create({
   bubble: {
     maxWidth: "82%",
     borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 15,
+    paddingVertical: 11,
   },
   text: {
     fontSize: 16,

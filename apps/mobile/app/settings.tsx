@@ -43,42 +43,55 @@ export default function Settings() {
   return (
     <View style={[styles.page, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]}>设置</Text>
+        <View>
+          <Text style={[styles.kicker, { color: theme.accent }]}>账号</Text>
+          <Text style={[styles.title, { color: theme.text }]}>设置</Text>
+        </View>
         <Pressable onPress={() => router.back()} style={styles.link}>
           <Text style={[styles.linkText, { color: theme.primary }]}>返回</Text>
         </Pressable>
       </View>
-      <Text style={[styles.label, { color: theme.muted }]}>昵称</Text>
-      <TextInput
-        value={nickname}
-        onChangeText={setNickname}
+      <View
         style={[
-          styles.input,
+          styles.section,
           {
-            backgroundColor: theme.surface,
-            borderColor: theme.border,
-            color: theme.text,
-          },
-        ]}
-        placeholder="希望 Kokaka 怎么称呼你"
-        placeholderTextColor={theme.subtle}
-      />
-      {error ? (
-        <Text style={[styles.error, { color: theme.danger }]}>{error}</Text>
-      ) : null}
-      <Pressable
-        onPress={save}
-        style={({ pressed }) => [
-          styles.primary,
-          {
-            backgroundColor: pressed ? theme.primaryPressed : theme.primary,
+            backgroundColor: theme.elevated,
+            borderColor: theme.softBorder,
           },
         ]}
       >
-        <Text style={[styles.primaryText, { color: theme.primaryText }]}>
-          保存昵称
-        </Text>
-      </Pressable>
+        <Text style={[styles.label, { color: theme.muted }]}>昵称</Text>
+        <TextInput
+          value={nickname}
+          onChangeText={setNickname}
+          style={[
+            styles.input,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              color: theme.text,
+            },
+          ]}
+          placeholder="希望 Kokaka 怎么称呼你"
+          placeholderTextColor={theme.subtle}
+        />
+        {error ? (
+          <Text style={[styles.error, { color: theme.danger }]}>{error}</Text>
+        ) : null}
+        <Pressable
+          onPress={save}
+          style={({ pressed }) => [
+            styles.primary,
+            {
+              backgroundColor: pressed ? theme.primaryPressed : theme.primary,
+            },
+          ]}
+        >
+          <Text style={[styles.primaryText, { color: theme.primaryText }]}>
+            保存昵称
+          </Text>
+        </Pressable>
+      </View>
       <Pressable
         onPress={signOut}
         style={[styles.secondary, { borderColor: theme.border }]}
@@ -159,6 +172,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 18,
   },
+  kicker: {
+    fontSize: 13,
+    fontWeight: "800",
+    marginBottom: 2,
+  },
   title: {
     fontSize: 30,
     fontWeight: "800",
@@ -172,6 +190,12 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: "700",
+  },
+  section: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 14,
+    gap: 12,
   },
   input: {
     borderWidth: 1,

@@ -26,10 +26,18 @@ export function AgentStatus({
 }) {
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.text, { color: theme.muted }]}>
-        {connectionLabels[connection] ?? "正在确认陪伴状态"}
-      </Text>
-      <Text style={[styles.text, { color: theme.muted }]}>
+      <View
+        style={[
+          styles.pill,
+          { backgroundColor: theme.primarySoft, borderColor: theme.border },
+        ]}
+      >
+        <Text style={[styles.dot, { color: theme.primary }]}>•</Text>
+        <Text style={[styles.text, { color: theme.text }]}>
+          {connectionLabels[connection] ?? "正在确认陪伴状态"}
+        </Text>
+      </View>
+      <Text style={[styles.text, styles.mood, { color: theme.muted }]}>
         {emotionState ? emotionLabels[emotionState] : "可以从任何一句话开始"}
       </Text>
     </View>
@@ -39,11 +47,28 @@ export function AgentStatus({
 const styles = StyleSheet.create({
   wrap: {
     flexDirection: "row",
-    gap: 16,
+    alignItems: "center",
+    gap: 10,
     flexWrap: "wrap",
+  },
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  dot: {
+    fontSize: 18,
+    lineHeight: 18,
   },
   text: {
     fontSize: 13,
     lineHeight: 19,
+  },
+  mood: {
+    flexShrink: 1,
   },
 })

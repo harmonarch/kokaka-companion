@@ -19,9 +19,16 @@ export function ChatInput({
   return (
     <View style={[styles.wrap, { borderTopColor: theme.softBorder }]}>
       {disabled && disabledReason ? (
-        <Text style={[styles.note, { color: theme.muted }]}>
-          {disabledReason}
-        </Text>
+        <View
+          style={[
+            styles.noteBox,
+            { backgroundColor: theme.primarySoft, borderColor: theme.border },
+          ]}
+        >
+          <Text style={[styles.note, { color: theme.text }]}>
+            {disabledReason}
+          </Text>
+        </View>
       ) : null}
       <View style={styles.row}>
         <TextInput
@@ -68,29 +75,35 @@ const styles = StyleSheet.create({
   wrap: {
     gap: 8,
     borderTopWidth: 1,
-    paddingTop: 14,
+    paddingTop: 12,
   },
   row: {
     flexDirection: "row",
     alignItems: "flex-end",
     gap: 10,
   },
+  noteBox: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   note: {
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 19,
   },
   input: {
     flex: 1,
-    minHeight: 46,
+    minHeight: 48,
     maxHeight: 120,
     borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 11,
     fontSize: 16,
   },
   button: {
-    height: 46,
+    height: 48,
     minWidth: 72,
     alignItems: "center",
     justifyContent: "center",
