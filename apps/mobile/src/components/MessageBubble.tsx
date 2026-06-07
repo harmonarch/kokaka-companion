@@ -16,7 +16,11 @@ export function MessageBubble({
         style={[
           styles.bubble,
           isUser
-            ? { backgroundColor: theme.primary }
+            ? {
+                backgroundColor: theme.primary,
+                borderColor: theme.primary,
+                borderWidth: 1,
+              }
             : {
                 backgroundColor: theme.elevated,
                 borderColor: theme.bubbleBorder,

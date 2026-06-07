@@ -32,7 +32,7 @@ export function AgentStatus({
           { backgroundColor: theme.primarySoft, borderColor: theme.border },
         ]}
       >
-        <Text style={[styles.dot, { color: theme.primary }]}>•</Text>
+        <View style={[styles.dot, { backgroundColor: theme.primary }]} />
         <Text style={[styles.text, { color: theme.text }]}>
           {connectionLabels[connection] ?? "正在确认陪伴状态"}
         </Text>
@@ -61,8 +61,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   dot: {
-    fontSize: 18,
-    lineHeight: 18,
+    width: 7,
+    height: 7,
+    borderRadius: 7,
   },
   text: {
     fontSize: 13,

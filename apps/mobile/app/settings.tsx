@@ -67,7 +67,7 @@ export default function Settings() {
           style={[
             styles.input,
             {
-              backgroundColor: theme.surface,
+              backgroundColor: theme.field,
               borderColor: theme.border,
               color: theme.text,
             },
@@ -84,6 +84,7 @@ export default function Settings() {
             styles.primary,
             {
               backgroundColor: pressed ? theme.primaryPressed : theme.primary,
+              transform: [{ translateY: pressed ? 1 : 0 }],
             },
           ]}
         >
@@ -94,7 +95,10 @@ export default function Settings() {
       </View>
       <Pressable
         onPress={signOut}
-        style={[styles.secondary, { borderColor: theme.border }]}
+        style={[
+          styles.secondary,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
       >
         <Text style={[styles.secondaryText, { color: theme.text }]}>
           退出登录
@@ -110,6 +114,9 @@ export default function Settings() {
             },
           ]}
         >
+          <Text style={[styles.confirmKicker, { color: theme.danger }]}>
+            谨慎操作
+          </Text>
           <Text style={[styles.confirmTitle, { color: theme.text }]}>
             确认注销账号？
           </Text>
@@ -146,7 +153,13 @@ export default function Settings() {
       ) : (
         <Pressable
           onPress={remove}
-          style={[styles.danger, { borderColor: theme.dangerBorder }]}
+          style={[
+            styles.danger,
+            {
+              backgroundColor: theme.dangerSurface,
+              borderColor: theme.dangerBorder,
+            },
+          ]}
         >
           <Text style={[styles.dangerText, { color: theme.danger }]}>
             注销账号
@@ -164,7 +177,7 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
     padding: 24,
-    gap: 14,
+    gap: 16,
   },
   header: {
     flexDirection: "row",
@@ -194,7 +207,7 @@ const styles = StyleSheet.create({
   section: {
     borderWidth: 1,
     borderRadius: 8,
-    padding: 14,
+    padding: 16,
     gap: 12,
   },
   input: {
@@ -236,8 +249,12 @@ const styles = StyleSheet.create({
   confirmBox: {
     borderWidth: 1,
     borderRadius: 8,
-    padding: 14,
-    gap: 10,
+    padding: 16,
+    gap: 9,
+  },
+  confirmKicker: {
+    fontSize: 13,
+    fontWeight: "800",
   },
   confirmTitle: {
     fontSize: 16,

@@ -102,6 +102,19 @@ export default function Chat() {
               },
             ]}
           >
+            <View
+              style={[
+                styles.emptyMark,
+                {
+                  backgroundColor: theme.primarySoft,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
+              <Text style={[styles.emptyMarkText, { color: theme.primary }]}>
+                ko
+              </Text>
+            </View>
             <Text style={[styles.emptyTitle, { color: theme.text }]}>
               可以从一句很小的话开始。
             </Text>
@@ -133,7 +146,7 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
     paddingHorizontal: 20,
-    paddingVertical: 18,
+    paddingVertical: 20,
     gap: 16,
   },
   header: {
@@ -170,7 +183,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   listContent: {
-    paddingVertical: 16,
+    paddingVertical: 18,
   },
   emptyListContent: {
     flexGrow: 1,
@@ -186,8 +199,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderRadius: 8,
-    paddingHorizontal: 24,
-    paddingVertical: 28,
+    paddingHorizontal: 26,
+    paddingVertical: 32,
+  },
+  emptyMark: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  emptyMarkText: {
+    fontSize: 15,
+    fontWeight: "900",
   },
   emptyTitle: {
     fontSize: 20,

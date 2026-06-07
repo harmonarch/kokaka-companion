@@ -41,7 +41,7 @@ export function ChatInput({
           style={[
             styles.input,
             {
-              backgroundColor: theme.surface,
+              backgroundColor: theme.field,
               borderColor: theme.border,
               color: theme.text,
             },
@@ -58,6 +58,7 @@ export function ChatInput({
             styles.button,
             {
               backgroundColor: pressed ? theme.primaryPressed : theme.primary,
+              transform: [{ translateY: pressed ? 1 : 0 }],
             },
             cannotSend && styles.buttonDisabled,
           ]}
@@ -101,6 +102,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 11,
     fontSize: 16,
+    lineHeight: 22,
   },
   button: {
     height: 48,
