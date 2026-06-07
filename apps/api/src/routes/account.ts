@@ -3,6 +3,7 @@ import type { AppBindings } from "@/middleware/auth"
 import { authMiddleware } from "@/middleware/auth"
 import { ensureChatMessagesTable } from "@/chat/history"
 import { invalidateLongTermMemoryCache } from "@/agent/memory/longTermMemory"
+import { ensureChatProfilesTable } from "@/routes/profiles"
 
 export const accountRoutes = new Hono<AppBindings>()
 
@@ -21,6 +22,10 @@ async function deleteLongTermMemory(
     .run()
   await ensureChatMessagesTable(env)
   await env.DB.prepare("DELETE FROM chat_messages WHERE user_id = ?")
+    .bind(userId)
+    .run()
+  await ensureChatProfilesTable(env)
+  await env.DB.prepare("DELETE FROM chat_profiles WHERE user_id = ?")
     .bind(userId)
     .run()
 }

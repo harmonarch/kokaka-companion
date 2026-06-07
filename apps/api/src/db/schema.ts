@@ -1,4 +1,10 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
+import {
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core"
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -34,6 +40,20 @@ export const userProfiles = sqliteTable("user_profiles", {
   location: text("location"),
   updatedAt: integer("updated_at").notNull(),
 })
+
+export const chatProfiles = sqliteTable(
+  "chat_profiles",
+  {
+    userId: text("user_id").notNull(),
+    role: text("role").notNull(),
+    nickname: text("nickname"),
+    avatarUrl: text("avatar_url"),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.role] }),
+  }),
+)
 
 export const memories = sqliteTable(
   "memories",

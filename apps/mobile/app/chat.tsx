@@ -6,6 +6,7 @@ import { ChatInput } from "@/components/ChatInput"
 import { MessageBubble } from "@/components/MessageBubble"
 import { useAuthStore } from "@/stores/authStore"
 import { useChatStore } from "@/stores/chatStore"
+import { useProfileStore } from "@/stores/profileStore"
 import { useAppTheme } from "@/theme"
 
 export default function Chat() {
@@ -18,6 +19,8 @@ export default function Chat() {
   const historyLoading = useChatStore((state) => state.historyLoading)
   const emotionState = useChatStore((state) => state.emotionState)
   const error = useChatStore((state) => state.error)
+  const profiles = useProfileStore((state) => state.profiles)
+  const loadProfiles = useProfileStore((state) => state.loadProfiles)
   const connect = useChatStore((state) => state.connect)
   const loadHistory = useChatStore((state) => state.loadHistory)
   const loadOlderHistory = useChatStore((state) => state.loadOlderHistory)
@@ -26,15 +29,18 @@ export default function Chat() {
 
   useEffect(() => {
     if (user) {
+      loadProfiles()
       loadHistory()
       connect()
     }
     return () => disconnect()
-  }, [connect, disconnect, loadHistory, user])
+  }, [connect, disconnect, loadHistory, loadProfiles, user])
 
   if (!user) return <Redirect href="/login" />
 
   const inputDisabled = connection !== "connected" || status !== "idle"
+  const agentNickname = profiles.agent.nickname?.trim()
+  const chatTitle = agentNickname || "今天想说什么"
   const disabledReason =
     connection !== "connected"
       ? "正在重新连接，马上就能继续说。"
@@ -50,7 +56,7 @@ export default function Chat() {
             Kokaka 在听
           </Text>
           <Text style={[styles.title, { color: theme.text }]}>
-            今天想说什么
+            {chatTitle}
           </Text>
           <Text style={[styles.subtitle, { color: theme.muted }]}>
             {user.nickname ?? user.email}
@@ -83,7 +89,7 @@ export default function Chat() {
         maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
         keyExtractor={(message) => message.id}
         renderItem={({ item }) => (
-          <MessageBubble message={item} theme={theme} />
+          <MessageBubble message={item} profiles={profiles} theme={theme} />
         )}
         ListFooterComponent={
           historyLoading ? (
@@ -102,19 +108,6 @@ export default function Chat() {
               },
             ]}
           >
-            <View
-              style={[
-                styles.emptyMark,
-                {
-                  backgroundColor: theme.primarySoft,
-                  borderColor: theme.border,
-                },
-              ]}
-            >
-              <Text style={[styles.emptyMarkText, { color: theme.primary }]}>
-                ko
-              </Text>
-            </View>
             <Text style={[styles.emptyTitle, { color: theme.text }]}>
               可以从一句很小的话开始。
             </Text>
@@ -201,19 +194,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 26,
     paddingVertical: 32,
-  },
-  emptyMark: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  emptyMarkText: {
-    fontSize: 15,
-    fontWeight: "900",
   },
   emptyTitle: {
     fontSize: 20,
