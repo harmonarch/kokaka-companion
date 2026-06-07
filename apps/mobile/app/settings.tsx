@@ -51,48 +51,38 @@ export default function Settings() {
           <Text style={[styles.linkText, { color: theme.primary }]}>返回</Text>
         </Pressable>
       </View>
-      <View
+      <Text style={[styles.label, { color: theme.muted }]}>昵称</Text>
+      <TextInput
+        value={nickname}
+        onChangeText={setNickname}
         style={[
-          styles.section,
+          styles.input,
           {
-            backgroundColor: theme.elevated,
-            borderColor: theme.softBorder,
+            backgroundColor: theme.field,
+            borderColor: theme.border,
+            color: theme.text,
+          },
+        ]}
+        placeholder="希望 Kokaka 怎么称呼你"
+        placeholderTextColor={theme.subtle}
+      />
+      {error ? (
+        <Text style={[styles.error, { color: theme.danger }]}>{error}</Text>
+      ) : null}
+      <Pressable
+        onPress={save}
+        style={({ pressed }) => [
+          styles.primary,
+          {
+            backgroundColor: pressed ? theme.primaryPressed : theme.primary,
+            transform: [{ translateY: pressed ? 1 : 0 }],
           },
         ]}
       >
-        <Text style={[styles.label, { color: theme.muted }]}>昵称</Text>
-        <TextInput
-          value={nickname}
-          onChangeText={setNickname}
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.field,
-              borderColor: theme.border,
-              color: theme.text,
-            },
-          ]}
-          placeholder="希望 Kokaka 怎么称呼你"
-          placeholderTextColor={theme.subtle}
-        />
-        {error ? (
-          <Text style={[styles.error, { color: theme.danger }]}>{error}</Text>
-        ) : null}
-        <Pressable
-          onPress={save}
-          style={({ pressed }) => [
-            styles.primary,
-            {
-              backgroundColor: pressed ? theme.primaryPressed : theme.primary,
-              transform: [{ translateY: pressed ? 1 : 0 }],
-            },
-          ]}
-        >
-          <Text style={[styles.primaryText, { color: theme.primaryText }]}>
-            保存昵称
-          </Text>
-        </Pressable>
-      </View>
+        <Text style={[styles.primaryText, { color: theme.primaryText }]}>
+          保存昵称
+        </Text>
+      </Pressable>
       <Pressable
         onPress={signOut}
         style={[
@@ -203,12 +193,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: "700",
-  },
-  section: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 16,
-    gap: 12,
   },
   input: {
     borderWidth: 1,
