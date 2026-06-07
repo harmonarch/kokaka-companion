@@ -1,10 +1,10 @@
-import { z } from "zod";
+import { z } from "zod"
 
 export const emotionStateSchema = z.enum([
   "normal",
   "vulnerable",
   "crisis",
-  "positive"
-]);
+  "positive",
+])
 
-export type EmotionState = z.infer<typeof emotionStateSchema>;
+export type EmotionState = z.infer<typeof emotionStateSchema>

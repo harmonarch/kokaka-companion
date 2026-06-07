@@ -41,9 +41,7 @@
     "current_mood_score": 62
   },
   "input": {
-    "messages": [
-      "他说这次数学终于及格了，我突然觉得这段时间没白忙"
-    ]
+    "messages": ["他说这次数学终于及格了，我突然觉得这段时间没白忙"]
   },
   "expected": {
     "should_do": [
@@ -57,9 +55,5 @@
       "不要泛泛夸“你真棒”而不接住具体场景"
     ]
   },
-  "tags": [
-    "memory",
-    "relevance_filtering",
-    "positive"
-  ]
+  "tags": ["memory", "relevance_filtering", "positive"]
 }

@@ -1,36 +1,75 @@
-import type { EmotionState } from "@ai-companion/shared";
-import { StyleSheet, Text, View } from "react-native";
+import type { EmotionState } from "@ai-companion/shared"
+import { StyleSheet, Text, View } from "react-native"
+import type { AppTheme } from "@/theme"
 
-const labels: Record<EmotionState, string> = {
-  normal: "平稳",
-  vulnerable: "低落",
-  crisis: "沉重",
-  positive: "开心"
-};
+const emotionLabels: Record<EmotionState, string> = {
+  normal: "现在看起来比较平稳",
+  vulnerable: "我会慢一点陪你",
+  crisis: "这段感受很重，我会认真陪着",
+  positive: "这份开心也值得被记住",
+}
+
+const connectionLabels: Record<string, string> = {
+  connected: "Kokaka 在这里",
+  connecting: "Kokaka 正在靠近",
+  disconnected: "正在重新靠近你",
+}
 
 export function AgentStatus({
   connection,
-  emotionState
+  emotionState,
+  theme,
 }: {
-  connection: string;
-  emotionState: EmotionState | null;
+  connection: string
+  emotionState: EmotionState | null
+  theme: AppTheme
 }) {
   return (
     <View style={styles.wrap}>
-      <Text style={styles.text}>连接：{connection}</Text>
-      <Text style={styles.text}>状态：{emotionState ? labels[emotionState] : "未识别"}</Text>
+      <View
+        style={[
+          styles.pill,
+          { backgroundColor: theme.primarySoft, borderColor: theme.border },
+        ]}
+      >
+        <View style={[styles.dot, { backgroundColor: theme.primary }]} />
+        <Text style={[styles.text, { color: theme.text }]}>
+          {connectionLabels[connection] ?? "正在确认陪伴状态"}
+        </Text>
+      </View>
+      <Text style={[styles.text, styles.mood, { color: theme.muted }]}>
+        {emotionState ? emotionLabels[emotionState] : "可以从任何一句话开始"}
+      </Text>
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
   wrap: {
     flexDirection: "row",
-    gap: 16,
-    flexWrap: "wrap"
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 7,
   },
   text: {
-    color: "#526057",
-    fontSize: 13
-  }
-});
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  mood: {
+    flexShrink: 1,
+  },
+})

@@ -36,9 +36,7 @@
     "current_mood_score": 64
   },
   "input": {
-    "messages": [
-      "我拿到 offer 了！！"
-    ]
+    "messages": ["我拿到 offer 了！！"]
   },
   "expected": {
     "should_do": [
@@ -52,9 +50,5 @@
       "不要把话题拉回之前的焦虑"
     ]
   },
-  "tags": [
-    "support",
-    "positive",
-    "celebration"
-  ]
+  "tags": ["support", "positive", "celebration"]
 }

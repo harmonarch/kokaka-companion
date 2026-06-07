@@ -9,14 +9,7 @@
       "@ai-companion/core": ["../../packages/core/src/index.ts"]
     },
     "jsx": "react-jsx",
-    "types": [
-      "react",
-      "react-native"
-    ]
+    "types": ["react", "react-native"]
   },
-  "include": [
-    "app",
-    "src",
-    "expo-env.d.ts"
-  ]
+  "include": ["app", "src", "expo-env.d.ts"]
 }

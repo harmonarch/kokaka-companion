@@ -1,4 +1,4 @@
-import { defineConfig } from "drizzle-kit";
+import { defineConfig } from "drizzle-kit"
 
 export default defineConfig({
   schema: "./src/db/schema.ts",
@@ -8,6 +8,6 @@ export default defineConfig({
   dbCredentials: {
     accountId: "local",
     databaseId: "local",
-    token: "local"
-  }
-});
+    token: "local",
+  },
+})

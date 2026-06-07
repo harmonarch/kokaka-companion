@@ -36,9 +36,7 @@
     "current_mood_score": 61
   },
   "input": {
-    "messages": [
-      "去吃了个新开的汉堡店，还不错"
-    ]
+    "messages": ["去吃了个新开的汉堡店，还不错"]
   },
   "expected": {
     "should_do": [
@@ -52,9 +50,5 @@
       "不要进入心理分析或健康建议"
     ]
   },
-  "tags": [
-    "understanding",
-    "avoid_over_inference",
-    "casual_chat"
-  ]
+  "tags": ["understanding", "avoid_over_inference", "casual_chat"]
 }

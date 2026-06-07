@@ -1,46 +1,63 @@
-import type { ChatMessage } from "@ai-companion/shared";
-import { StyleSheet, Text, View } from "react-native";
+import type { ChatMessage } from "@ai-companion/shared"
+import { StyleSheet, Text, View } from "react-native"
+import type { AppTheme } from "@/theme"
 
-export function MessageBubble({ message }: { message: ChatMessage }) {
-  const isUser = message.role === "user";
+export function MessageBubble({
+  message,
+  theme,
+}: {
+  message: ChatMessage
+  theme: AppTheme
+}) {
+  const isUser = message.role === "user"
   return (
     <View style={[styles.row, isUser && styles.rowRight]}>
-      <View style={[styles.bubble, isUser ? styles.userBubble : styles.agentBubble]}>
-        <Text style={[styles.text, isUser && styles.userText]}>{message.content}</Text>
+      <View
+        style={[
+          styles.bubble,
+          isUser
+            ? {
+                backgroundColor: theme.primary,
+                borderColor: theme.primary,
+                borderWidth: 1,
+              }
+            : {
+                backgroundColor: theme.elevated,
+                borderColor: theme.bubbleBorder,
+                borderWidth: 1,
+              },
+        ]}
+      >
+        <Text
+          style={[
+            styles.text,
+            { color: isUser ? theme.primaryText : theme.text },
+          ]}
+        >
+          {message.content}
+        </Text>
       </View>
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
   row: {
     width: "100%",
     alignItems: "flex-start",
-    marginBottom: 12
+    marginBottom: 10,
   },
   rowRight: {
-    alignItems: "flex-end"
+    alignItems: "flex-end",
   },
   bubble: {
     maxWidth: "82%",
     borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10
-  },
-  userBubble: {
-    backgroundColor: "#1f6f5b"
-  },
-  agentBubble: {
-    backgroundColor: "#eef1ed",
-    borderWidth: 1,
-    borderColor: "#d9ded8"
+    paddingHorizontal: 15,
+    paddingVertical: 11,
   },
   text: {
-    color: "#17211c",
     fontSize: 16,
-    lineHeight: 23
+    lineHeight: 23,
   },
-  userText: {
-    color: "#ffffff"
-  }
-});
+})

@@ -37,9 +37,7 @@
     "current_mood_score": 60
   },
   "input": {
-    "messages": [
-      "我下周开始去云杉做增长了"
-    ]
+    "messages": ["我下周开始去云杉做增长了"]
   },
   "expected": {
     "should_do": [
@@ -53,9 +51,5 @@
       "不要继续说“你在星河科技”"
     ]
   },
-  "tags": [
-    "memory",
-    "profile_update",
-    "life_event"
-  ]
+  "tags": ["memory", "profile_update", "life_event"]
 }

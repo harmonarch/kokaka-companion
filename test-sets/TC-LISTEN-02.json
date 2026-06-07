@@ -31,9 +31,7 @@
     "current_mood_score": 50
   },
   "input": {
-    "messages": [
-      "他说我这版还是不行，我当时就很想找个洞钻进去"
-    ]
+    "messages": ["他说我这版还是不行，我当时就很想找个洞钻进去"]
   },
   "expected": {
     "should_do": [
@@ -47,9 +45,5 @@
       "不要用“你应该更自信”之类的说教"
     ]
   },
-  "tags": [
-    "listening",
-    "vulnerable",
-    "empathy_first"
-  ]
+  "tags": ["listening", "vulnerable", "empathy_first"]
 }

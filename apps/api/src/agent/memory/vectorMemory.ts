@@ -1,0 +1,96 @@
+import type { Env } from "@/env"
+
+const VECTOR_NAMESPACE = "long_term_memory"
+
+function hasVectorize(env: Env) {
+  return Boolean(
+    env.MEMORY_VECTORIZE &&
+    env.EMBEDDING_BASE_URL &&
+    env.EMBEDDING_MODEL &&
+    env.EMBEDDING_API_KEY,
+  )
+}
+
+async function createEmbedding(env: Env, input: string) {
+  if (!hasVectorize(env)) return null
+  const response = await fetch(`${env.EMBEDDING_BASE_URL}/v1/embeddings`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${env.EMBEDDING_API_KEY}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: env.EMBEDDING_MODEL,
+      input,
+    }),
+  })
+  if (!response.ok) return null
+  const data = (await response.json()) as {
+    data?: Array<{ embedding?: number[] }>
+  }
+  return data.data?.[0]?.embedding ?? null
+}
+
+export async function upsertMemoryVector(
+  env: Env,
+  input: {
+    id: string
+    userId: string
+    conversationId: string
+    type: string
+    content: string
+    createdAt: number
+  },
+) {
+  const embedding = await createEmbedding(env, input.content)
+  if (!embedding || !env.MEMORY_VECTORIZE) return false
+  await env.MEMORY_VECTORIZE.upsert([
+    {
+      id: input.id,
+      values: embedding,
+      namespace: VECTOR_NAMESPACE,
+      metadata: {
+        userId: input.userId,
+        conversationId: input.conversationId,
+        type: input.type,
+        content: input.content,
+        createdAt: input.createdAt,
+      },
+    },
+  ])
+  return true
+}
+
+export async function queryMemoryVectors(
+  env: Env,
+  input: {
+    userId: string
+    query: string
+    topK?: number
+  },
+) {
+  const embedding = await createEmbedding(env, input.query)
+  if (!embedding || !env.MEMORY_VECTORIZE) return []
+  const result = await env.MEMORY_VECTORIZE.query(embedding, {
+    topK: input.topK ?? 8,
+    namespace: VECTOR_NAMESPACE,
+    filter: { userId: input.userId },
+    returnMetadata: "all",
+  })
+  return result.matches.map((match) => {
+    const metadata = match.metadata as
+      | {
+          type?: string
+          content?: string
+          createdAt?: number
+        }
+      | undefined
+    return {
+      id: match.id,
+      type: metadata?.type ?? "memory",
+      content: metadata?.content ?? "",
+      createdAt: Number(metadata?.createdAt ?? Date.now()),
+      score: match.score,
+    }
+  })
+}

@@ -36,9 +36,7 @@
     "current_mood_score": 34
   },
   "input": {
-    "messages": [
-      "哈哈没事啦，我还买了杯奶茶"
-    ]
+    "messages": ["哈哈没事啦，我还买了杯奶茶"]
   },
   "expected": {
     "should_do": [
@@ -52,9 +50,5 @@
       "不要突然变得过度沉重"
     ]
   },
-  "tags": [
-    "understanding",
-    "mixed_signal",
-    "vulnerable"
-  ]
+  "tags": ["understanding", "mixed_signal", "vulnerable"]
 }

@@ -31,9 +31,7 @@
     "current_mood_score": 58
   },
   "input": {
-    "messages": [
-      "那你还记得我生日是哪天吗"
-    ]
+    "messages": ["那你还记得我生日是哪天吗"]
   },
   "expected": {
     "should_do": [
@@ -47,9 +45,5 @@
       "不要要求用户重新告诉自己"
     ]
   },
-  "tags": [
-    "memory",
-    "profile_recall",
-    "exact_fact"
-  ]
+  "tags": ["memory", "profile_recall", "exact_fact"]
 }
