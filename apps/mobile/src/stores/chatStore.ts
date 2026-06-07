@@ -6,8 +6,7 @@ import type {
 import { ChatController } from "@ai-companion/core"
 import { create } from "zustand"
 import { useAuthStore } from "@/stores/authStore"
-
-const wsUrl = process.env.EXPO_PUBLIC_WS_URL ?? "ws://localhost:8787/ws/chat"
+import { chatWsUrl } from "@/config/api"
 
 type ChatStatus = "idle" | "sending" | "agent_replying" | "error"
 
@@ -63,7 +62,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   controller: null,
   connect: () => {
     const controller = new ChatController({
-      wsUrl,
+      wsUrl: chatWsUrl,
       getTokens: () => useAuthStore.getState().tokens,
       onStatus: (connection) => set({ connection }),
       onMessage: (message: ServerWsMessage) => {

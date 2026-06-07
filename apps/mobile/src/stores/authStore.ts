@@ -2,9 +2,7 @@ import type { AuthTokens, User } from "@ai-companion/shared"
 import { createHttpClient } from "@ai-companion/api-client"
 import { create } from "zustand"
 import { loadTokens, saveTokens } from "@/utils/storage"
-
-const apiBaseUrl =
-  process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8787"
+import { apiBaseUrl } from "@/config/api"
 
 type AuthState = {
   user: User | null
