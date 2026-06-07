@@ -6,8 +6,10 @@ import { ChatInput } from "@/components/ChatInput"
 import { MessageBubble } from "@/components/MessageBubble"
 import { useAuthStore } from "@/stores/authStore"
 import { useChatStore } from "@/stores/chatStore"
+import { useAppTheme } from "@/theme"
 
 export default function Chat() {
+  const theme = useAppTheme()
   const user = useAuthStore((state) => state.user)
   const messages = useChatStore((state) => state.messages)
   const status = useChatStore((state) => state.status)
@@ -32,24 +34,40 @@ export default function Chat() {
 
   if (!user) return <Redirect href="/login" />
 
+  const inputDisabled = connection !== "connected" || status !== "idle"
+  const disabledReason =
+    connection !== "connected"
+      ? "正在重新连接，马上就能继续说。"
+      : status !== "idle"
+        ? "Kokaka 正在读你的话，等这一句回来后就能继续。"
+        : undefined
+
   return (
-    <View style={styles.page}>
+    <View style={[styles.page, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>聊天</Text>
-          <Text style={styles.subtitle}>{user.nickname ?? user.email}</Text>
+          <Text style={[styles.title, { color: theme.text }]}>聊天</Text>
+          <Text style={[styles.subtitle, { color: theme.muted }]}>
+            {user.nickname ?? user.email}
+          </Text>
         </View>
         <Pressable
           onPress={() => router.push("/settings")}
-          style={styles.secondary}
+          style={[styles.secondary, { borderColor: theme.border }]}
         >
-          <Text style={styles.secondaryText}>设置</Text>
+          <Text style={[styles.secondaryText, { color: theme.text }]}>
+            设置
+          </Text>
         </Pressable>
       </View>
-      <AgentStatus connection={connection} emotionState={emotionState} />
+      <AgentStatus
+        connection={connection}
+        emotionState={emotionState}
+        theme={theme}
+      />
       <FlatList
         inverted
-        style={styles.list}
+        style={[styles.list, { borderColor: theme.softBorder }]}
         contentContainerStyle={[
           styles.listContent,
           messages.length === 0 && styles.emptyListContent,
@@ -59,25 +77,37 @@ export default function Chat() {
         showsHorizontalScrollIndicator={false}
         maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
         keyExtractor={(message) => message.id}
-        renderItem={({ item }) => <MessageBubble message={item} />}
+        renderItem={({ item }) => (
+          <MessageBubble message={item} theme={theme} />
+        )}
         ListFooterComponent={
           historyLoading ? (
-            <Text style={styles.historyStatus}>正在载入历史聊天记录</Text>
+            <Text style={[styles.historyStatus, { color: theme.muted }]}>
+              正在载入更早的聊天
+            </Text>
           ) : null
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>可以开始说话了。</Text>
-            <Text style={styles.emptyText}>试试输入：今天有点累。</Text>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>
+              可以从一句很小的话开始。
+            </Text>
+            <Text style={[styles.emptyText, { color: theme.muted }]}>
+              例如：今天有点累，但我还说不清楚。
+            </Text>
           </View>
         }
         onEndReached={historyLoaded ? loadOlderHistory : undefined}
         onEndReachedThreshold={0.2}
       />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <Text style={[styles.error, { color: theme.danger }]}>{error}</Text>
+      ) : null}
       <ChatInput
-        disabled={connection !== "connected" || status !== "idle"}
+        disabled={inputDisabled}
+        disabledReason={disabledReason}
         onSend={send}
+        theme={theme}
       />
     </View>
   )
@@ -91,7 +121,6 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     padding: 20,
     gap: 14,
-    backgroundColor: "#f7f6f1",
   },
   header: {
     flexDirection: "row",
@@ -100,31 +129,26 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
-    color: "#17211c",
     fontSize: 30,
     fontWeight: "800",
   },
   subtitle: {
-    color: "#526057",
     fontSize: 14,
     marginTop: 2,
   },
   secondary: {
     borderWidth: 1,
-    borderColor: "#cfd6ce",
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   secondaryText: {
-    color: "#17211c",
     fontWeight: "700",
   },
   list: {
     flex: 1,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: "#dfe4df",
   },
   listContent: {
     paddingVertical: 18,
@@ -133,7 +157,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   historyStatus: {
-    color: "#526057",
     fontSize: 13,
     textAlign: "center",
     marginBottom: 12,
@@ -144,16 +167,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   emptyTitle: {
-    color: "#17211c",
     fontSize: 20,
     fontWeight: "800",
+    textAlign: "center",
   },
   emptyText: {
-    color: "#526057",
     marginTop: 8,
     fontSize: 15,
+    textAlign: "center",
+    lineHeight: 22,
   },
   error: {
-    color: "#b13434",
+    fontSize: 14,
   },
 })

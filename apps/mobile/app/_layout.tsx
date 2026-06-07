@@ -1,8 +1,10 @@
 import { Stack } from "expo-router"
 import { useEffect } from "react"
 import { useAuthStore } from "@/stores/authStore"
+import { useAppTheme } from "@/theme"
 
 export default function Layout() {
+  const theme = useAppTheme()
   const hydrate = useAuthStore((state) => state.hydrate)
   useEffect(() => {
     hydrate()
@@ -12,7 +14,7 @@ export default function Layout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: "#f7f6f1" },
+        contentStyle: { backgroundColor: theme.background },
       }}
     />
   )

@@ -1,52 +1,83 @@
 import { useState } from "react"
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"
+import type { AppTheme } from "@/theme"
 
 export function ChatInput({
   disabled,
+  disabledReason,
   onSend,
+  theme,
 }: {
   disabled?: boolean
+  disabledReason?: string
   onSend: (content: string) => void
+  theme: AppTheme
 }) {
   const [value, setValue] = useState("")
+  const cannotSend = disabled || !value.trim()
+
   return (
-    <View style={styles.wrap}>
-      <TextInput
-        value={value}
-        onChangeText={setValue}
-        editable={!disabled}
-        multiline
-        placeholder="输入想说的话"
-        placeholderTextColor="#778078"
-        style={styles.input}
-      />
-      <Pressable
-        accessibilityRole="button"
-        disabled={disabled || !value.trim()}
-        onPress={() => {
-          onSend(value)
-          setValue("")
-        }}
-        style={({ pressed }) => [
-          styles.button,
-          (disabled || !value.trim()) && styles.buttonDisabled,
-          pressed && styles.buttonPressed,
-        ]}
-      >
-        <Text style={styles.buttonText}>发送</Text>
-      </Pressable>
+    <View style={[styles.wrap, { borderTopColor: theme.softBorder }]}>
+      {disabled && disabledReason ? (
+        <Text style={[styles.note, { color: theme.muted }]}>
+          {disabledReason}
+        </Text>
+      ) : null}
+      <View style={styles.row}>
+        <TextInput
+          value={value}
+          onChangeText={setValue}
+          editable={!disabled}
+          multiline
+          placeholder="慢慢说，想到哪里都可以"
+          placeholderTextColor={theme.subtle}
+          style={[
+            styles.input,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              color: theme.text,
+            },
+          ]}
+        />
+        <Pressable
+          accessibilityRole="button"
+          disabled={cannotSend}
+          onPress={() => {
+            onSend(value)
+            setValue("")
+          }}
+          style={({ pressed }) => [
+            styles.button,
+            {
+              backgroundColor: pressed ? theme.primaryPressed : theme.primary,
+            },
+            cannotSend && styles.buttonDisabled,
+          ]}
+        >
+          <Text style={[styles.buttonText, { color: theme.primaryText }]}>
+            发送
+          </Text>
+        </Pressable>
+      </View>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
   wrap: {
+    gap: 8,
+    borderTopWidth: 1,
+    paddingTop: 14,
+  },
+  row: {
     flexDirection: "row",
     alignItems: "flex-end",
     gap: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#dfe4df",
-    paddingTop: 14,
+  },
+  note: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   input: {
     flex: 1,
@@ -54,12 +85,9 @@ const styles = StyleSheet.create({
     maxHeight: 120,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#cfd6ce",
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: "#17211c",
     fontSize: 16,
-    backgroundColor: "#ffffff",
   },
   button: {
     height: 46,
@@ -67,16 +95,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 8,
-    backgroundColor: "#1f6f5b",
   },
   buttonDisabled: {
     opacity: 0.45,
   },
-  buttonPressed: {
-    opacity: 0.8,
-  },
   buttonText: {
-    color: "#ffffff",
     fontSize: 15,
     fontWeight: "700",
   },

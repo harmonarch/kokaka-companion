@@ -2,13 +2,16 @@ import { Redirect, router } from "expo-router"
 import { useState } from "react"
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"
 import { useAuthStore } from "@/stores/authStore"
+import { useAppTheme } from "@/theme"
 
 export default function Settings() {
+  const theme = useAppTheme()
   const user = useAuthStore((state) => state.user)
   const updateNickname = useAuthStore((state) => state.updateNickname)
   const logout = useAuthStore((state) => state.logout)
   const deleteAccount = useAuthStore((state) => state.deleteAccount)
   const [nickname, setNickname] = useState(user?.nickname ?? "")
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   if (!user) return <Redirect href="/login" />
@@ -29,34 +32,114 @@ export default function Settings() {
   }
 
   async function remove() {
+    if (!confirmDelete) {
+      setConfirmDelete(true)
+      return
+    }
     await deleteAccount()
     router.replace("/login")
   }
 
   return (
-    <View style={styles.page}>
+    <View style={[styles.page, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>设置</Text>
+        <Text style={[styles.title, { color: theme.text }]}>设置</Text>
         <Pressable onPress={() => router.back()} style={styles.link}>
-          <Text style={styles.linkText}>返回</Text>
+          <Text style={[styles.linkText, { color: theme.primary }]}>返回</Text>
         </Pressable>
       </View>
-      <Text style={styles.label}>昵称</Text>
+      <Text style={[styles.label, { color: theme.muted }]}>昵称</Text>
       <TextInput
         value={nickname}
         onChangeText={setNickname}
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+            color: theme.text,
+          },
+        ]}
+        placeholder="希望 Kokaka 怎么称呼你"
+        placeholderTextColor={theme.subtle}
       />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Pressable onPress={save} style={styles.primary}>
-        <Text style={styles.primaryText}>保存昵称</Text>
+      {error ? (
+        <Text style={[styles.error, { color: theme.danger }]}>{error}</Text>
+      ) : null}
+      <Pressable
+        onPress={save}
+        style={({ pressed }) => [
+          styles.primary,
+          {
+            backgroundColor: pressed ? theme.primaryPressed : theme.primary,
+          },
+        ]}
+      >
+        <Text style={[styles.primaryText, { color: theme.primaryText }]}>
+          保存昵称
+        </Text>
       </Pressable>
-      <Pressable onPress={signOut} style={styles.secondary}>
-        <Text style={styles.secondaryText}>退出登录</Text>
+      <Pressable
+        onPress={signOut}
+        style={[styles.secondary, { borderColor: theme.border }]}
+      >
+        <Text style={[styles.secondaryText, { color: theme.text }]}>
+          退出登录
+        </Text>
       </Pressable>
-      <Pressable onPress={remove} style={styles.danger}>
-        <Text style={styles.dangerText}>注销账号</Text>
-      </Pressable>
+      {confirmDelete ? (
+        <View
+          style={[
+            styles.confirmBox,
+            {
+              backgroundColor: theme.dangerSurface,
+              borderColor: theme.dangerBorder,
+            },
+          ]}
+        >
+          <Text style={[styles.confirmTitle, { color: theme.text }]}>
+            确认注销账号？
+          </Text>
+          <Text style={[styles.confirmText, { color: theme.muted }]}>
+            账号资料和聊天相关数据会被清理，这个操作不能撤回。
+          </Text>
+          <View style={styles.confirmActions}>
+            <Pressable
+              onPress={() => setConfirmDelete(false)}
+              style={[styles.confirmSecondary, { borderColor: theme.border }]}
+            >
+              <Text style={[styles.secondaryText, { color: theme.text }]}>
+                先保留
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={remove}
+              style={[styles.confirmDanger, { backgroundColor: theme.danger }]}
+            >
+              <Text
+                style={[
+                  styles.dangerText,
+                  {
+                    color:
+                      theme.mode === "dark" ? theme.background : theme.surface,
+                  },
+                ]}
+              >
+                确认注销
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <Pressable
+          onPress={remove}
+          style={[styles.danger, { borderColor: theme.dangerBorder }]}
+        >
+          <Text style={[styles.dangerText, { color: theme.danger }]}>
+            注销账号
+          </Text>
+        </Pressable>
+      )}
     </View>
   )
 }
@@ -69,7 +152,6 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     padding: 24,
     gap: 14,
-    backgroundColor: "#f7f6f1",
   },
   header: {
     flexDirection: "row",
@@ -78,7 +160,6 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   title: {
-    color: "#17211c",
     fontSize: 30,
     fontWeight: "800",
   },
@@ -86,59 +167,82 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   linkText: {
-    color: "#1f6f5b",
     fontWeight: "800",
   },
   label: {
-    color: "#526057",
     fontSize: 14,
     fontWeight: "700",
   },
   input: {
     borderWidth: 1,
-    borderColor: "#cfd6ce",
     borderRadius: 8,
     paddingHorizontal: 12,
     height: 48,
-    backgroundColor: "#ffffff",
     fontSize: 16,
   },
   primary: {
     height: 48,
     borderRadius: 8,
-    backgroundColor: "#1f6f5b",
     alignItems: "center",
     justifyContent: "center",
   },
   primaryText: {
-    color: "#ffffff",
     fontWeight: "800",
   },
   secondary: {
     height: 48,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#cfd6ce",
     alignItems: "center",
     justifyContent: "center",
   },
   secondaryText: {
-    color: "#17211c",
     fontWeight: "800",
   },
   danger: {
     height: 48,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#c44",
     alignItems: "center",
     justifyContent: "center",
   },
   dangerText: {
-    color: "#b13434",
     fontWeight: "800",
   },
+  confirmBox: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 14,
+    gap: 10,
+  },
+  confirmTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  confirmText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  confirmActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  confirmSecondary: {
+    flex: 1,
+    height: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmDanger: {
+    flex: 1,
+    height: 44,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   error: {
-    color: "#b13434",
+    fontSize: 14,
   },
 })

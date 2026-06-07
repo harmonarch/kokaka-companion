@@ -2,15 +2,17 @@ import { useState } from "react"
 import { Redirect, router } from "expo-router"
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"
 import { useAuthStore } from "@/stores/authStore"
+import { useAppTheme } from "@/theme"
 
 export default function Login() {
+  const theme = useAppTheme()
   const user = useAuthStore((state) => state.user)
   const login = useAuthStore((state) => state.login)
   const register = useAuthStore((state) => state.register)
   const [mode, setMode] = useState<"login" | "register">("register")
-  const [email, setEmail] = useState("demo@example.com")
-  const [password, setPassword] = useState("password123")
-  const [nickname, setNickname] = useState("Kokaka")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [nickname, setNickname] = useState("")
   const [error, setError] = useState<string | null>(null)
 
   if (user) return <Redirect href="/chat" />
@@ -30,18 +32,27 @@ export default function Login() {
   }
 
   return (
-    <View style={styles.page}>
+    <View style={[styles.page, { backgroundColor: theme.background }]}>
       <View style={styles.panel}>
-        <Text style={styles.title}>Kokaka Companion</Text>
-        <Text style={styles.subtitle}>注册或登录后进入聊天。</Text>
-        <View style={styles.tabs}>
+        <Text style={[styles.title, { color: theme.text }]}>
+          Kokaka Companion
+        </Text>
+        <Text style={[styles.subtitle, { color: theme.muted }]}>
+          把想说的话慢慢放下来，Kokaka 会陪你整理。
+        </Text>
+        <View style={[styles.tabs, { borderColor: theme.border }]}>
           <Pressable
             onPress={() => setMode("register")}
-            style={[styles.tab, mode === "register" && styles.tabActive]}
+            style={[
+              styles.tab,
+              mode === "register" && { backgroundColor: theme.primary },
+            ]}
           >
             <Text
               style={
-                mode === "register" ? styles.tabTextActive : styles.tabText
+                mode === "register"
+                  ? [styles.tabTextActive, { color: theme.primaryText }]
+                  : [styles.tabText, { color: theme.muted }]
               }
             >
               注册
@@ -49,10 +60,17 @@ export default function Login() {
           </Pressable>
           <Pressable
             onPress={() => setMode("login")}
-            style={[styles.tab, mode === "login" && styles.tabActive]}
+            style={[
+              styles.tab,
+              mode === "login" && { backgroundColor: theme.primary },
+            ]}
           >
             <Text
-              style={mode === "login" ? styles.tabTextActive : styles.tabText}
+              style={
+                mode === "login"
+                  ? [styles.tabTextActive, { color: theme.primaryText }]
+                  : [styles.tabText, { color: theme.muted }]
+              }
             >
               登录
             </Text>
@@ -61,28 +79,64 @@ export default function Login() {
         <TextInput
           value={email}
           onChangeText={setEmail}
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              color: theme.text,
+            },
+          ]}
           placeholder="邮箱"
+          placeholderTextColor={theme.subtle}
+          autoCapitalize="none"
+          keyboardType="email-address"
         />
         <TextInput
           value={password}
           onChangeText={setPassword}
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              color: theme.text,
+            },
+          ]}
           placeholder="密码"
+          placeholderTextColor={theme.subtle}
           secureTextEntry
         />
         {mode === "register" ? (
           <TextInput
             value={nickname}
             onChangeText={setNickname}
-            style={styles.input}
-            placeholder="昵称"
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                color: theme.text,
+              },
+            ]}
+            placeholder="希望 Kokaka 怎么称呼你"
+            placeholderTextColor={theme.subtle}
           />
         ) : null}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <Pressable onPress={submit} style={styles.primary}>
-          <Text style={styles.primaryText}>
-            {mode === "register" ? "创建账号" : "登录"}
+        {error ? (
+          <Text style={[styles.error, { color: theme.danger }]}>{error}</Text>
+        ) : null}
+        <Pressable
+          onPress={submit}
+          style={({ pressed }) => [
+            styles.primary,
+            {
+              backgroundColor: pressed ? theme.primaryPressed : theme.primary,
+            },
+          ]}
+        >
+          <Text style={[styles.primaryText, { color: theme.primaryText }]}>
+            {mode === "register" ? "开始陪伴" : "回到聊天"}
           </Text>
         </Pressable>
       </View>
@@ -96,7 +150,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
-    backgroundColor: "#f7f6f1",
   },
   panel: {
     width: "100%",
@@ -105,18 +158,16 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 34,
-    color: "#17211c",
     fontWeight: "800",
   },
   subtitle: {
-    color: "#526057",
     fontSize: 16,
+    lineHeight: 24,
     marginBottom: 10,
   },
   tabs: {
     flexDirection: "row",
     borderWidth: 1,
-    borderColor: "#cfd6ce",
     borderRadius: 8,
     overflow: "hidden",
   },
@@ -125,38 +176,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 10,
   },
-  tabActive: {
-    backgroundColor: "#1f6f5b",
-  },
   tabText: {
-    color: "#526057",
     fontWeight: "700",
   },
   tabTextActive: {
-    color: "#ffffff",
     fontWeight: "700",
   },
   input: {
     borderWidth: 1,
-    borderColor: "#cfd6ce",
     borderRadius: 8,
     paddingHorizontal: 12,
     height: 48,
     fontSize: 16,
-    backgroundColor: "#ffffff",
   },
   error: {
-    color: "#b13434",
+    fontSize: 14,
   },
   primary: {
     height: 48,
     borderRadius: 8,
-    backgroundColor: "#1f6f5b",
     alignItems: "center",
     justifyContent: "center",
   },
   primaryText: {
-    color: "#ffffff",
     fontSize: 16,
     fontWeight: "800",
   },

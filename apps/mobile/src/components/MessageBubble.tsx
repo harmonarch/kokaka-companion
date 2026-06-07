@@ -1,14 +1,35 @@
 import type { ChatMessage } from "@ai-companion/shared"
 import { StyleSheet, Text, View } from "react-native"
+import type { AppTheme } from "@/theme"
 
-export function MessageBubble({ message }: { message: ChatMessage }) {
+export function MessageBubble({
+  message,
+  theme,
+}: {
+  message: ChatMessage
+  theme: AppTheme
+}) {
   const isUser = message.role === "user"
   return (
     <View style={[styles.row, isUser && styles.rowRight]}>
       <View
-        style={[styles.bubble, isUser ? styles.userBubble : styles.agentBubble]}
+        style={[
+          styles.bubble,
+          isUser
+            ? { backgroundColor: theme.primary }
+            : {
+                backgroundColor: theme.softSurface,
+                borderColor: theme.bubbleBorder,
+                borderWidth: 1,
+              },
+        ]}
       >
-        <Text style={[styles.text, isUser && styles.userText]}>
+        <Text
+          style={[
+            styles.text,
+            { color: isUser ? theme.primaryText : theme.text },
+          ]}
+        >
           {message.content}
         </Text>
       </View>
@@ -31,20 +52,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  userBubble: {
-    backgroundColor: "#1f6f5b",
-  },
-  agentBubble: {
-    backgroundColor: "#eef1ed",
-    borderWidth: 1,
-    borderColor: "#d9ded8",
-  },
   text: {
-    color: "#17211c",
     fontSize: 16,
     lineHeight: 23,
-  },
-  userText: {
-    color: "#ffffff",
   },
 })
