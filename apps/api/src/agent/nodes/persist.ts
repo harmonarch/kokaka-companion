@@ -4,6 +4,8 @@ import type { Env } from "@/env";
 import type { AgentState } from "@/agent/state";
 import { saveChatMessages } from "@/chat/history";
 
+const RECENT_CONTEXT_TTL_SECONDS = 60 * 60 * 6;
+
 export async function loadContext(env: Env, userId: string) {
   const raw = await env.CHAT_CONTEXT.get(`ctx:${userId}`);
   if (!raw) return [];
@@ -39,7 +41,7 @@ export function createPersistContextNode(env: Env) {
     ].slice(-20);
     const context: RecentContext = { messages };
     await env.CHAT_CONTEXT.put(`ctx:${state.userId}`, JSON.stringify(context), {
-      expirationTtl: 60 * 60 * 24
+      expirationTtl: RECENT_CONTEXT_TTL_SECONDS
     });
     await env.CHAT_CONTEXT.put(`mood:${state.userId}`, state.emotionState, {
       expirationTtl: 60 * 60 * 24 * 7
