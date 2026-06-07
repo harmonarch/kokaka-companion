@@ -4,13 +4,16 @@ import type {
   LogoutRequest,
   RefreshRequest,
   RegisterRequest,
+  UpdateChatProfilesRequest,
   UpdateMeRequest,
   User,
   ChatHistoryResponse,
+  ChatProfiles,
 } from "@ai-companion/shared"
 import {
   authResponseSchema,
   chatHistoryResponseSchema,
+  chatProfilesSchema,
   userSchema,
 } from "@ai-companion/shared"
 
@@ -151,6 +154,27 @@ export function createHttpClient(options: HttpClientOptions) {
     await options.tokenStore?.setTokens(null)
   }
 
+  async function chatProfiles(): Promise<ChatProfiles> {
+    const data = await request<unknown>("/profiles/chat", undefined, {
+      auth: true,
+    })
+    return chatProfilesSchema.parse(data)
+  }
+
+  async function updateChatProfiles(
+    input: UpdateChatProfilesRequest,
+  ): Promise<ChatProfiles> {
+    const data = await request<unknown>(
+      "/profiles/chat",
+      {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      },
+      { auth: true },
+    )
+    return chatProfilesSchema.parse(data)
+  }
+
   async function chatHistory(input?: {
     beforeId?: string
     limit?: number
@@ -175,6 +199,8 @@ export function createHttpClient(options: HttpClientOptions) {
     me,
     updateMe,
     deleteAccount,
+    chatProfiles,
+    updateChatProfiles,
     chatHistory,
   }
 }

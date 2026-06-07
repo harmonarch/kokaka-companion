@@ -76,6 +76,7 @@ describe("account routes", () => {
       "memories",
       "conversation_summaries",
       "chat_messages",
+      "chat_profiles",
     ])
   })
 })
