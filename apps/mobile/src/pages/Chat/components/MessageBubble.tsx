@@ -146,8 +146,8 @@ const styles = StyleSheet.create({
     borderLeftWidth: 7,
   },
   avatar: {
-    width: 26,
-    height: 26,
+    width: 40,
+    height: 40,
     borderRadius: 8,
     borderWidth: 1,
     alignItems: "center",

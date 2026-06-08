@@ -17,7 +17,14 @@ export function ChatInput({
   const cannotSend = disabled || !value.trim()
 
   return (
-    <View style={[styles.wrap, { borderTopColor: theme.softBorder }]}>
+    <View
+      style={[
+        styles.wrap,
+        {
+          backgroundColor: theme.surface,
+        },
+      ]}
+    >
       {disabled && disabledReason ? (
         <View
           style={[
@@ -75,12 +82,15 @@ export function ChatInput({
 const styles = StyleSheet.create({
   wrap: {
     gap: 8,
-    borderTopWidth: 1,
+    marginHorizontal: -20,
+    marginBottom: -20,
+    paddingHorizontal: 20,
     paddingTop: 12,
+    paddingBottom: 20,
   },
   row: {
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "flex-start",
     gap: 10,
   },
   noteBox: {
@@ -96,11 +106,11 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     minHeight: 48,
-    maxHeight: 120,
-    borderRadius: 8,
+    maxHeight: 400,
+    borderRadius: 4,
     borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     fontSize: 16,
     lineHeight: 22,
   },
@@ -109,7 +119,7 @@ const styles = StyleSheet.create({
     minWidth: 72,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
+    borderRadius: 4,
   },
   buttonDisabled: {
     opacity: 0.45,
