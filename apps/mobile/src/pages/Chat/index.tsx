@@ -1,51 +1,29 @@
-import { Redirect, router } from "expo-router"
-import { useEffect } from "react"
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native"
-import { ChatInput } from "@/components/ChatInput"
-import { MessageBubble } from "@/components/MessageBubble"
-import { useAuthStore } from "@/stores/authStore"
-import { useChatStore } from "@/stores/chatStore"
-import { useProfileStore } from "@/stores/profileStore"
+import { Redirect, router } from "expo-router"
 import { useAppTheme } from "@/theme"
+import { useChat } from "@/pages/Chat/useChat"
+import { ChatInput } from "./components/ChatInput"
+import { MessageBubble } from "./components/MessageBubble"
+
 
 export default function Chat() {
   const theme = useAppTheme()
-  const user = useAuthStore((state) => state.user)
-  const messages = useChatStore((state) => state.messages)
-  const status = useChatStore((state) => state.status)
-  const connection = useChatStore((state) => state.connection)
-  const historyLoaded = useChatStore((state) => state.historyLoaded)
-  const historyLoading = useChatStore((state) => state.historyLoading)
-  const emotionState = useChatStore((state) => state.emotionState)
-  const error = useChatStore((state) => state.error)
-  const profiles = useProfileStore((state) => state.profiles)
-  const loadProfiles = useProfileStore((state) => state.loadProfiles)
-  const connect = useChatStore((state) => state.connect)
-  const loadHistory = useChatStore((state) => state.loadHistory)
-  const loadOlderHistory = useChatStore((state) => state.loadOlderHistory)
-  const disconnect = useChatStore((state) => state.disconnect)
-  const send = useChatStore((state) => state.send)
-
-  useEffect(() => {
-    if (user) {
-      loadProfiles()
-      loadHistory()
-      connect()
-    }
-    return () => disconnect()
-  }, [connect, disconnect, loadHistory, loadProfiles, user])
-
+ 
+  const {
+    user,
+    chatTitle,
+    messages,
+    profiles,
+    inputDisabled,
+    disabledReason,
+    error,
+    historyLoading,
+    historyLoaded,
+    loadOlderHistory,
+    send,
+  } = useChat()
+  
   if (!user) return <Redirect href="/login" />
-
-  const inputDisabled = connection !== "connected" || status !== "idle"
-  const agentNickname = profiles.agent.nickname?.trim()
-  const chatTitle = agentNickname || "今天想说什么"
-  const disabledReason =
-    connection !== "connected"
-      ? "正在重新连接，马上就能继续说。"
-      : status !== "idle"
-        ? "Kokaka 正在读你的话，等这一句回来后就能继续。"
-        : undefined
 
   return (
     <View style={[styles.page, { backgroundColor: theme.background }]}>

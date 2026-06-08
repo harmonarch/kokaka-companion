@@ -3,13 +3,28 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@ai-companion/shared": ["../../packages/shared/src/index.ts"],
-      "@ai-companion/api-client": ["../../packages/api-client/src/index.ts"],
-      "@ai-companion/core": ["../../packages/core/src/index.ts"]
+      "@/*": [
+        "src/*"
+      ],
+      "@ai-companion/shared": [
+        "../../packages/shared/src/index.ts"
+      ],
+      "@ai-companion/api-client": [
+        "../../packages/api-client/src/index.ts"
+      ],
+      "@ai-companion/core": [
+        "../../packages/core/src/index.ts"
+      ]
     },
     "jsx": "react-jsx",
-    "types": ["react", "react-native"]
+    "types": [
+      "react",
+      "react-native"
+    ]
   },
-  "include": ["app", "src", "expo-env.d.ts"]
+  "include": [
+    "app",
+    "src",
+    "expo-env.d.ts"
+  ]
 }

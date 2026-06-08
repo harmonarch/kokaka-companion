@@ -1,59 +1,26 @@
 import { useState } from "react"
-import { Redirect, router } from "expo-router"
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"
-import { useAuthStore } from "@/stores/authStore"
 import { useAppTheme } from "@/theme"
+import { useLogin } from "@/pages/Login/useLogin"
 
 export default function Login() {
   const theme = useAppTheme()
-  const user = useAuthStore((state) => state.user)
-  const login = useAuthStore((state) => state.login)
-  const register = useAuthStore((state) => state.register)
   const [mode, setMode] = useState<"login" | "register">("register")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [nickname, setNickname] = useState("")
-  const [error, setError] = useState<string | null>(null)
+  
+  const { error, submit } = useLogin()
 
-  if (user) return <Redirect href="/chat" />
-
-  async function submit() {
-    setError(null)
-    try {
-      if (mode === "register") {
-        await register(email, password, nickname)
-      } else {
-        await login(email, password)
-      }
-      router.replace("/chat")
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "操作失败")
-    }
-  }
+  const press = () => submit(email, password, nickname, mode)
 
   return (
     <View style={[styles.page, { backgroundColor: theme.background }]}>
       <View style={styles.panel}>
         <View style={styles.brand}>
-          <View
-            style={[
-              styles.mark,
-              {
-                backgroundColor: theme.primarySoft,
-                borderColor: theme.border,
-              },
-            ]}
-          >
-            <Text style={[styles.markText, { color: theme.primary }]}>ko</Text>
-          </View>
-          <View style={styles.copy}>
-            <Text style={[styles.kicker, { color: theme.accent }]}>
-              阳光、大海、微风
-            </Text>
-            <Text style={[styles.title, { color: theme.text }]}>
-              Kokaka Companion
-            </Text>
-          </View>
+          <Text style={[styles.title, { color: theme.text }]}>
+            Kokaka Companion
+          </Text>
         </View>
         <Text style={[styles.subtitle, { color: theme.muted }]}>
           把想说的话慢慢放下来，Kokaka 会陪你整理，也会记住长期的你。
@@ -145,7 +112,7 @@ export default function Login() {
           <Text style={[styles.error, { color: theme.danger }]}>{error}</Text>
         ) : null}
         <Pressable
-          onPress={submit}
+          onPress={press}
           style={({ pressed }) => [
             styles.primary,
             {
@@ -179,26 +146,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-  },
-  mark: {
-    width: 54,
-    height: 54,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    flex: 1,
   },
   markText: {
     fontSize: 18,
     fontWeight: "900",
-  },
-  copy: {
-    flex: 1,
-  },
-  kicker: {
-    fontSize: 13,
-    fontWeight: "800",
-    marginBottom: 2,
   },
   title: {
     fontSize: 32,
