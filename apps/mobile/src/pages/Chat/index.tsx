@@ -5,7 +5,6 @@ import { useChat } from "@/pages/Chat/useChat"
 import { ChatInput } from "./components/ChatInput"
 import { MessageBubble } from "./components/MessageBubble"
 
-
 export default function Chat() {
   const theme = useAppTheme()
  

@@ -36,9 +36,7 @@ export const useChat = () => {
       loadProfiles()
       loadHistory()
       connect()
-    } else {
-      router.replace("/login")
-    }
+    } 
 
     return () => disconnect()
   }, [connect, disconnect, loadHistory, loadProfiles, user])
