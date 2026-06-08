@@ -1,7 +1,6 @@
 import { Redirect, router } from "expo-router"
 import { useEffect } from "react"
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native"
-import { AgentStatus } from "@/components/AgentStatus"
 import { ChatInput } from "@/components/ChatInput"
 import { MessageBubble } from "@/components/MessageBubble"
 import { useAuthStore } from "@/stores/authStore"
@@ -52,15 +51,10 @@ export default function Chat() {
     <View style={[styles.page, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
         <View>
-          <Text style={[styles.kicker, { color: theme.accent }]}>
-            Kokaka 在听
-          </Text>
-          <Text style={[styles.title, { color: theme.text }]}>
+          <Text style={[styles.title, { color: theme.accent }]}>
             {chatTitle}
           </Text>
-          <Text style={[styles.subtitle, { color: theme.muted }]}>
-            {user.nickname ?? user.email}
-          </Text>
+         
         </View>
         <Pressable
           onPress={() => router.push("/settings")}
@@ -71,11 +65,6 @@ export default function Chat() {
           </Text>
         </Pressable>
       </View>
-      <AgentStatus
-        connection={connection}
-        emotionState={emotionState}
-        theme={theme}
-      />
       <View style={styles.chatBody}>
         <FlatList
           inverted
@@ -149,11 +138,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
-  },
-  kicker: {
-    fontSize: 13,
-    fontWeight: "800",
-    marginBottom: 2,
   },
   title: {
     fontSize: 28,
