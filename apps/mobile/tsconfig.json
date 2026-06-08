@@ -24,7 +24,6 @@
   },
   "include": [
     "app",
-    "src",
-    "expo-env.d.ts"
+    "src"
   ]
 }
