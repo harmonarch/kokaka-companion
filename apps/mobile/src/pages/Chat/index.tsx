@@ -1,18 +1,14 @@
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native"
-import { Redirect, router } from "expo-router"
+import { Redirect } from "expo-router"
 import { useAppTheme } from "@/theme"
 import { useChat } from "@/pages/Chat/useChat"
 import { AccountActionsMenu } from "./components/AccountActionsMenu"
 import { ChatInput } from "./components/ChatInput"
 import { MessageBubble } from "./components/MessageBubble"
 import { ProfileEditorModal } from "./components/ProfileEditorModal"
-import { useAccountActionsMenu } from "./useAccountActionsMenu"
-import { useProfileEditorModal } from "./useProfileEditorModal"
 
 export default function Chat() {
   const theme = useAppTheme()
-  const profileEditor = useProfileEditorModal()
-  const accountActions = useAccountActionsMenu()
  
   const {
     user,
@@ -26,6 +22,9 @@ export default function Chat() {
     historyLoaded,
     loadOlderHistory,
     send,
+    profileEditor,
+    accountActions,
+    goBack,
   } = useChat()
   
   if (!user) return <Redirect href="/login" />
@@ -41,7 +40,7 @@ export default function Chat() {
         ]}
       >
         <View style={[styles.header, { borderColor: theme.border }]}>
-          <Pressable onPress={() => router.back()} style={styles.iconButton}>
+          <Pressable onPress={goBack} style={styles.iconButton}>
             <Text style={[styles.iconText, { color: theme.text }]}>‹</Text>
           </Pressable>
           <View style={styles.headerTitle}>
