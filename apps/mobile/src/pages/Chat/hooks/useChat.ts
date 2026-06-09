@@ -3,7 +3,6 @@ import { useChatHeader } from "./useChatHeader"
 import { useChatMessages } from "./useChatMessages"
 import { useChatSession } from "./useChatSession"
 import { useAccountActionsMenu } from "./useAccountActionsMenu"
-import { useChatBackAction } from "./useChatBackAction"
 import { useProfileEditorModal } from "./useProfileEditorModal"
 
 export const useChat = () => {
@@ -13,7 +12,6 @@ export const useChat = () => {
   const messages = useChatMessages()
   const profileEditor = useProfileEditorModal()
   const accountActions = useAccountActionsMenu()
-  const navigation = useChatBackAction()
 
   return {
     user: session.user,
@@ -22,7 +20,6 @@ export const useChat = () => {
     disabledReason: composer.disabledReason,
     profileEditor,
     accountActions,
-    goBack: navigation.goBack,
     ...messages,
   }
 }

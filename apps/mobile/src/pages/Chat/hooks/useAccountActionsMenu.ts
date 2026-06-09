@@ -1,6 +1,6 @@
-import { useAccountMenuState } from "./hooks/useAccountMenuState"
-import { useAccountSessionActions } from "./hooks/useAccountSessionActions"
-import { useDeleteAccountConfirm } from "./hooks/useDeleteAccountConfirm"
+import { useAccountMenuState } from "./useAccountMenuState"
+import { useAccountSessionActions } from "./useAccountSessionActions"
+import { useDeleteAccountConfirm } from "./useDeleteAccountConfirm"
 
 export function useAccountActionsMenu() {
   const deleteConfirm = useDeleteAccountConfirm()

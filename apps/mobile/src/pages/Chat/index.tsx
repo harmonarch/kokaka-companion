@@ -1,7 +1,7 @@
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native"
 import { Redirect } from "expo-router"
 import { useAppTheme } from "@/theme"
-import { useChat } from "@/pages/Chat/useChat"
+import { useChat } from "@/pages/Chat/hooks/useChat"
 import { AccountActionsMenu } from "./components/AccountActionsMenu"
 import { ChatInput } from "./components/ChatInput"
 import { MessageBubble } from "./components/MessageBubble"
@@ -24,7 +24,6 @@ export default function Chat() {
     send,
     profileEditor,
     accountActions,
-    goBack,
   } = useChat()
   
   if (!user) return <Redirect href="/login" />
@@ -40,15 +39,10 @@ export default function Chat() {
         ]}
       >
         <View style={[styles.header, { borderColor: theme.border }]}>
-          <Pressable onPress={goBack} style={styles.iconButton}>
-            <Text style={[styles.iconText, { color: theme.text }]}>‹</Text>
-          </Pressable>
+          <View style={styles.iconButton} />
           <View style={styles.headerTitle}>
             <Text style={[styles.title, { color: theme.accent }]}>
               {chatTitle}
-            </Text>
-            <Text style={[styles.subtitle, { color: theme.muted }]}>
-              Kokaka 在线
             </Text>
           </View>
           <Pressable

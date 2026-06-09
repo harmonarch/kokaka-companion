@@ -1,12 +1,12 @@
 import {
   useEditableChatProfile,
   type EditableChatProfile,
-} from "./profile/useEditableChatProfile"
-import type { ProfileRole } from "./profile/types"
-import { useChatProfilesForm } from "./profile/useChatProfilesForm"
-import { useProfileEditorError } from "./profile/useProfileEditorError"
-import { useProfileEditorState } from "./hooks/useProfileEditorState"
-import { useProfileSaveAction } from "./hooks/useProfileSaveAction"
+} from "../profile/useEditableChatProfile"
+import type { ProfileRole } from "../profile/types"
+import { useChatProfilesForm } from "../profile/useChatProfilesForm"
+import { useProfileEditorError } from "../profile/useProfileEditorError"
+import { useProfileEditorState } from "./useProfileEditorState"
+import { useProfileSaveAction } from "./useProfileSaveAction"
 
 export function useProfileEditorModal() {
   const editorError = useProfileEditorError()
