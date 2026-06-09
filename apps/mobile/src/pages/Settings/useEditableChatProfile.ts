@@ -57,3 +57,5 @@ export function useEditableChatProfile({
     createProfile,
   }
 }
+
+export type EditableChatProfile = ReturnType<typeof useEditableChatProfile>

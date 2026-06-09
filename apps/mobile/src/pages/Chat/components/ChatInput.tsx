@@ -21,6 +21,7 @@ export function ChatInput({
         styles.wrap,
         {
           backgroundColor: theme.surface,
+          borderColor: theme.border,
         },
       ]}
     >
@@ -47,8 +48,7 @@ export function ChatInput({
           style={[
             styles.input,
             {
-              backgroundColor: theme.field,
-              borderColor: theme.border,
+              backgroundColor: "transparent",
               color: theme.text,
             },
           ]}
@@ -77,17 +77,14 @@ export function ChatInput({
 
 const styles = StyleSheet.create({
   wrap: {
-    gap: 8,
-    marginHorizontal: -20,
-    marginBottom: -20,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 20,
+    gap: 7,
+    borderTopWidth: 1,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 10,
   },
   row: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
+    gap: 8,
   },
   noteBox: {
     borderWidth: 1,
@@ -100,19 +97,17 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   input: {
-    flex: 1,
-    minHeight: 48,
-    maxHeight: 400,
-    borderRadius: 4,
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    minHeight: 65,
+    maxHeight: 145,
+    paddingHorizontal: 0,
+    paddingVertical: 3,
     fontSize: 16,
     lineHeight: 22,
   },
   button: {
-    height: 48,
-    minWidth: 72,
+    alignSelf: "flex-end",
+    height: 34,
+    minWidth: 76,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 4,

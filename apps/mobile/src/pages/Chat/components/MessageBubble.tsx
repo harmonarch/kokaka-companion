@@ -1,51 +1,56 @@
 import type { ChatMessage, ChatProfiles } from "@ai-companion/shared"
-import { Image, StyleSheet, Text, View } from "react-native"
+import { Image, Pressable, StyleSheet, Text, View } from "react-native"
 import type { AppTheme } from "@/theme"
+import type { ProfileRole } from "@/pages/Settings/types"
 
 export function MessageBubble({
   message,
   profiles,
   theme,
+  onAvatarPress,
 }: {
   message: ChatMessage
   profiles: ChatProfiles
   theme: AppTheme
+  onAvatarPress: (role: ProfileRole) => void
 }) {
   const isUser = message.role === "user"
   const profile = isUser ? profiles.user : profiles.agent
   const avatar = profile.avatar_url?.trim() ?? ""
   const hasAvatar = Boolean(avatar)
+  const fallbackInitial = isUser ? "我" : "K"
 
   return (
     <View style={[styles.row, isUser && styles.rowRight]}>
       <View style={[styles.messageLine, isUser && styles.messageLineRight]}>
-        {hasAvatar ? (
-          <View
+          <Pressable
+            onPress={() => onAvatarPress(isUser ? "user" : "agent")}
             style={[
               styles.avatar,
               {
-                backgroundColor: isUser ? theme.primarySoft : theme.elevated,
+              backgroundColor: isUser ? "#7fa18c" : "#d8c18b",
                 borderColor: theme.border,
               },
             ]}
           >
+          {hasAvatar ? (
             <Image source={{ uri: avatar }} style={styles.avatarImage} />
-          </View>
-        ) : null}
+          ) : (
+            <Text style={styles.avatarText}>{fallbackInitial}</Text>
+          )}
+          </Pressable>
         <View style={[styles.message, isUser && styles.messageRight]}>
           <View style={[styles.bubbleWrap, isUser && styles.bubbleWrapRight]}>
-            {hasAvatar ? (
               <View
                 style={[
                   styles.tail,
                   isUser ? styles.tailRight : styles.tailLeft,
                   {
-                    borderRightColor: isUser ? "transparent" : theme.elevated,
+                  borderRightColor: isUser ? "transparent" : theme.surface,
                     borderLeftColor: isUser ? theme.primary : "transparent",
                   },
                 ]}
               />
-            ) : null}
             <View
               style={[
                 styles.bubble,
@@ -56,7 +61,7 @@ export function MessageBubble({
                       borderWidth: 1,
                     }
                   : {
-                      backgroundColor: theme.elevated,
+                      backgroundColor: theme.surface,
                       borderColor: theme.bubbleBorder,
                       borderWidth: 1,
                     },
@@ -98,16 +103,16 @@ const styles = StyleSheet.create({
   row: {
     width: "100%",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 14,
   },
   rowRight: {
     alignItems: "flex-end",
   },
   messageLine: {
-    maxWidth: "82%",
+    maxWidth: "91%",
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 10,
+    gap: 9,
   },
   messageLineRight: {
     flexDirection: "row-reverse",
@@ -146,9 +151,9 @@ const styles = StyleSheet.create({
     borderLeftWidth: 7,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 4,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -158,14 +163,19 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  avatarText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "800",
+  },
   bubble: {
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    paddingVertical: 11,
+    borderRadius: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
   },
   text: {
-    fontSize: 16,
-    lineHeight: 23,
+    fontSize: 15,
+    lineHeight: 22,
   },
   time: {
     fontSize: 12,
