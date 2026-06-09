@@ -1,6 +1,6 @@
-import { useState } from "react"
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"
 import type { AppTheme } from "@/theme"
+import { useChatInputDraft } from "./useChatInputDraft"
 
 export function ChatInput({
   disabled,
@@ -13,8 +13,7 @@ export function ChatInput({
   onSend: (content: string) => void
   theme: AppTheme
 }) {
-  const [value, setValue] = useState("")
-  const cannotSend = disabled || !value.trim()
+  const draft = useChatInputDraft({ disabled, onSend })
 
   return (
     <View
@@ -39,8 +38,8 @@ export function ChatInput({
       ) : null}
       <View style={styles.row}>
         <TextInput
-          value={value}
-          onChangeText={setValue}
+          value={draft.value}
+          onChangeText={draft.setValue}
           editable={!disabled}
           multiline
           placeholder="慢慢说，想到哪里都可以"
@@ -56,18 +55,15 @@ export function ChatInput({
         />
         <Pressable
           accessibilityRole="button"
-          disabled={cannotSend}
-          onPress={() => {
-            onSend(value)
-            setValue("")
-          }}
+          disabled={draft.cannotSend}
+          onPress={draft.submit}
           style={({ pressed }) => [
             styles.button,
             {
               backgroundColor: pressed ? theme.primaryPressed : theme.primary,
               transform: [{ translateY: pressed ? 1 : 0 }],
             },
-            cannotSend && styles.buttonDisabled,
+            draft.cannotSend && styles.buttonDisabled,
           ]}
         >
           <Text style={[styles.buttonText, { color: theme.primaryText }]}>

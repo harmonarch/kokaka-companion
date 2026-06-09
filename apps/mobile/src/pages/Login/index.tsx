@@ -1,18 +1,16 @@
-import { useState } from "react"
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"
 import { useAppTheme } from "@/theme"
 import { useLogin } from "@/pages/Login/useLogin"
+import { useLoginForm } from "@/pages/Login/useLoginForm"
 
 export default function Login() {
   const theme = useAppTheme()
-  const [mode, setMode] = useState<"login" | "register">("register")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [nickname, setNickname] = useState("")
+  const form = useLoginForm()
   
   const { error, submit } = useLogin()
 
-  const press = () => submit(email, password, nickname, mode)
+  const press = () =>
+    submit(form.email, form.password, form.nickname, form.mode)
 
   return (
     <View style={[styles.page, { backgroundColor: theme.background }]}>
@@ -27,15 +25,15 @@ export default function Login() {
         </Text>
         <View style={[styles.tabs, { borderColor: theme.border }]}>
           <Pressable
-            onPress={() => setMode("register")}
+            onPress={() => form.setMode("register")}
             style={[
               styles.tab,
-              mode === "register" && { backgroundColor: theme.primary },
+              form.mode === "register" && { backgroundColor: theme.primary },
             ]}
           >
             <Text
               style={
-                mode === "register"
+                form.mode === "register"
                   ? [styles.tabTextActive, { color: theme.primaryText }]
                   : [styles.tabText, { color: theme.muted }]
               }
@@ -44,15 +42,15 @@ export default function Login() {
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => setMode("login")}
+            onPress={() => form.setMode("login")}
             style={[
               styles.tab,
-              mode === "login" && { backgroundColor: theme.primary },
+              form.mode === "login" && { backgroundColor: theme.primary },
             ]}
           >
             <Text
               style={
-                mode === "login"
+                form.mode === "login"
                   ? [styles.tabTextActive, { color: theme.primaryText }]
                   : [styles.tabText, { color: theme.muted }]
               }
@@ -62,8 +60,8 @@ export default function Login() {
           </Pressable>
         </View>
         <TextInput
-          value={email}
-          onChangeText={setEmail}
+          value={form.email}
+          onChangeText={form.setEmail}
           style={[
             styles.input,
             {
@@ -78,8 +76,8 @@ export default function Login() {
           keyboardType="email-address"
         />
         <TextInput
-          value={password}
-          onChangeText={setPassword}
+          value={form.password}
+          onChangeText={form.setPassword}
           style={[
             styles.input,
             {
@@ -92,10 +90,10 @@ export default function Login() {
           placeholderTextColor={theme.subtle}
           secureTextEntry
         />
-        {mode === "register" ? (
+        {form.mode === "register" ? (
           <TextInput
-            value={nickname}
-            onChangeText={setNickname}
+            value={form.nickname}
+            onChangeText={form.setNickname}
             style={[
               styles.input,
               {
@@ -122,7 +120,7 @@ export default function Login() {
           ]}
         >
           <Text style={[styles.primaryText, { color: theme.primaryText }]}>
-            {mode === "register" ? "开始陪伴" : "回到聊天"}
+            {form.mode === "register" ? "开始陪伴" : "回到聊天"}
           </Text>
         </Pressable>
       </View>

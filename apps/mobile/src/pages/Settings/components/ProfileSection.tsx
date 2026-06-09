@@ -1,29 +1,8 @@
-import type { ChatProfile } from "@ai-companion/shared"
 import { StyleSheet, Text, TextInput, View } from "react-native"
 import type { AppTheme } from "@/theme"
+import type { ProfileRole } from "../types"
 import { AvatarActions } from "./AvatarActions"
 import { ProfilePreview } from "./ProfilePreview"
-import { useAvatarActions } from "./useAvatarActions"
-import { useProfilePreview } from "./useProfilePreview"
-
-type ProfileRole = "user" | "agent"
-
-export function useProfileSection({
-  role,
-  onError,
-}: {
-  role: ProfileRole
-  onError: (error: string | null) => void
-}) {
-  const avatar = useAvatarActions({ role, onError })
-  const profile = useProfilePreview({ role })
-
-  return {
-    avatar,
-    profile,
-    createProfile: (): ChatProfile => profile.createProfile(avatar.avatar),
-  }
-}
 
 export function ProfileSection({
   title,
@@ -33,7 +12,12 @@ export function ProfileSection({
   role: ProfileRole
   title: string
   theme: AppTheme
-  value: ReturnType<typeof useProfileSection>
+  value: {
+    avatar: string
+    pickAvatar: () => void
+    nickname: string
+    setNickname: (nickname: string) => void
+  }
 }) {
   return (
     <View
@@ -44,19 +28,19 @@ export function ProfileSection({
     >
       <Text style={[styles.sectionTitle, { color: theme.text }]}>{title}</Text>
       <ProfilePreview
-        avatar={value.avatar.avatar}
-        nickname={value.profile.nickname}
+        avatar={value.avatar}
+        nickname={value.nickname}
         theme={theme}
       />
       <AvatarActions
-        avatar={value.avatar.avatar}
-        onPick={value.avatar.pickAvatar}
+        avatar={value.avatar}
+        onPick={value.pickAvatar}
         theme={theme}
       />
       <Text style={[styles.label, { color: theme.muted }]}>昵称</Text>
       <TextInput
-        value={value.profile.nickname}
-        onChangeText={value.profile.setNickname}
+        value={value.nickname}
+        onChangeText={value.setNickname}
         style={[
           styles.input,
           {

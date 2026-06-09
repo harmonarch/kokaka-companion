@@ -1,11 +1,8 @@
-import { Redirect, router } from "expo-router"
+import { Redirect } from "expo-router"
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native"
 import { useSettings } from "@/pages/Settings/useSettings"
 import { useAppTheme } from "@/theme"
-import {
-  ProfileSection,
-  useProfileSection,
-} from "./components/ProfileSection"
+import { ProfileSection } from "./components/ProfileSection"
 
 export default function Settings() {
   const theme = useAppTheme()
@@ -13,16 +10,16 @@ export default function Settings() {
     user,
     nickname,
     setNickname,
+    userProfile,
+    agentProfile,
     confirmDelete,
     error,
-    setError,
     save,
     signOut,
     remove,
     cancelDelete,
+    goBack,
   } = useSettings()
-  const userProfile = useProfileSection({ role: "user", onError: setError })
-  const agentProfile = useProfileSection({ role: "agent", onError: setError })
 
   if (!user) return <Redirect href="/login" />
 
@@ -40,7 +37,7 @@ export default function Settings() {
           <Text style={[styles.kicker, { color: theme.accent }]}>账号</Text>
           <Text style={[styles.title, { color: theme.text }]}>设置</Text>
         </View>
-        <Pressable onPress={() => router.back()} style={styles.link}>
+        <Pressable onPress={goBack} style={styles.link}>
           <Text style={[styles.linkText, { color: theme.primary }]}>返回</Text>
         </Pressable>
       </View>
@@ -76,12 +73,7 @@ export default function Settings() {
         <Text style={[styles.error, { color: theme.danger }]}>{error}</Text>
       ) : null}
       <Pressable
-        onPress={() =>
-          save({
-            userProfile: userProfile.createProfile(),
-            agentProfile: agentProfile.createProfile(),
-          })
-        }
+        onPress={save}
         style={({ pressed }) => [
           styles.primary,
           {

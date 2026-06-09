@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
-import { Redirect, router } from "expo-router"
+import { router } from "expo-router"
 import { useAuthStore } from "@/stores/authStore"
+import type { LoginMode } from "./useLoginForm"
 
 export function useLogin() {
 
@@ -16,7 +17,7 @@ export function useLogin() {
     }
   }, [user, router])
 
-  async function submit(email: string, password: string, nickname: string, mode: "login" | "register") {
+  async function submit(email: string, password: string, nickname: string, mode: LoginMode) {
     setError(null)
     try {
       if (mode === "register") {
