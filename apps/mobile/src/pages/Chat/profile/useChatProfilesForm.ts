@@ -1,6 +1,6 @@
 import { useEditableChatProfile } from "./useEditableChatProfile"
 
-export function useSettingsProfilesForm({
+export function useChatProfilesForm({
   onError,
 }: {
   onError: (error: string | null) => void

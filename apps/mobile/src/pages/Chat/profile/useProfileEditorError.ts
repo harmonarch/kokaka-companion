@@ -1,6 +1,6 @@
 import { useState } from "react"
 
-export function useSettingsError() {
+export function useProfileEditorError() {
   const [error, setError] = useState<string | null>(null)
 
   return {

@@ -1,7 +1,7 @@
 import { Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native"
 import type { AppTheme } from "@/theme"
-import type { ProfileRole } from "@/pages/Settings/types"
-import type { EditableChatProfile } from "@/pages/Settings/useEditableChatProfile"
+import type { ProfileRole } from "../profile/types"
+import type { EditableChatProfile } from "../profile/useEditableChatProfile"
 
 export function ProfileEditorModal({
   role,

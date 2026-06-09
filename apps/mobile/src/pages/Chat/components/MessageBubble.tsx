@@ -1,7 +1,7 @@
 import type { ChatMessage, ChatProfiles } from "@ai-companion/shared"
 import { Image, Pressable, StyleSheet, Text, View } from "react-native"
 import type { AppTheme } from "@/theme"
-import type { ProfileRole } from "@/pages/Settings/types"
+import type { ProfileRole } from "../profile/types"
 
 export function MessageBubble({
   message,
