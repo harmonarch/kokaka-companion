@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { router } from "expo-router"
 import { useAuthStore } from "@/stores/authStore"
 import type { LoginMode } from "./useLoginForm"
 
 export function useLogin() {
-
   const [error, setError] = useState<string | null>(null)
 
   const login = useAuthStore((state) => state.login)
@@ -15,9 +14,14 @@ export function useLogin() {
     if (user) {
       router.replace("/chat")
     }
-  }, [user, router])
+  }, [user])
 
-  async function submit(email: string, password: string, nickname: string, mode: LoginMode) {
+  async function submit(
+    email: string,
+    password: string,
+    nickname: string,
+    mode: LoginMode,
+  ) {
     setError(null)
     try {
       if (mode === "register") {
@@ -35,5 +39,4 @@ export function useLogin() {
     error,
     submit,
   }
-
 }

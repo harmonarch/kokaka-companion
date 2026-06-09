@@ -8,11 +8,12 @@ export function useChatInputDraft({
   onSend: (content: string) => void
 }) {
   const [value, setValue] = useState("")
-  const cannotSend = disabled || !value.trim()
+  const trimmedValue = value.trim()
+  const cannotSend = disabled || !trimmedValue
 
   function submit() {
     if (cannotSend) return
-    onSend(value)
+    onSend(trimmedValue)
     setValue("")
   }
 
