@@ -1,62 +1,40 @@
-import type { ChatProfiles } from "@ai-companion/shared"
-import { useState } from "react"
-import { useProfileStore } from "@/stores/profileStore"
 import {
   useEditableChatProfile,
   type EditableChatProfile,
-} from "@/pages/Settings/useEditableChatProfile"
-import type { ProfileRole } from "@/pages/Settings/types"
-import { useSettingsError } from "@/pages/Settings/useSettingsError"
+} from "./profile/useEditableChatProfile"
+import type { ProfileRole } from "./profile/types"
+import { useChatProfilesForm } from "./profile/useChatProfilesForm"
+import { useProfileEditorError } from "./profile/useProfileEditorError"
+import { useProfileEditorState } from "./hooks/useProfileEditorState"
+import { useProfileSaveAction } from "./hooks/useProfileSaveAction"
 
 export function useProfileEditorModal() {
-  const [activeRole, setActiveRole] = useState<ProfileRole | null>(null)
-  const updateProfiles = useProfileStore((state) => state.updateProfiles)
-  const settingsError = useSettingsError()
-  const userProfile = useEditableChatProfile({
-    role: "user",
-    onError: settingsError.setError,
+  const editorError = useProfileEditorError()
+  const editorState = useProfileEditorState(() => editorError.setError(null))
+  const profiles = useChatProfilesForm({
+    onError: editorError.setError,
   })
-  const agentProfile = useEditableChatProfile({
-    role: "agent",
-    onError: settingsError.setError,
+  const saveAction = useProfileSaveAction({
+    createProfiles: profiles.createProfiles,
+    closeProfileEditor: editorState.closeProfileEditor,
+    setError: editorError.setError,
   })
 
-  const activeProfile = activeRole
-    ? getProfileByRole(activeRole, userProfile, agentProfile)
+  const activeProfile = editorState.activeRole
+    ? getProfileByRole(
+        editorState.activeRole,
+        profiles.userProfile,
+        profiles.agentProfile,
+      )
     : null
 
-  function openProfileEditor(role: ProfileRole) {
-    settingsError.setError(null)
-    setActiveRole(role)
-  }
-
-  function closeProfileEditor() {
-    settingsError.setError(null)
-    setActiveRole(null)
-  }
-
-  async function saveProfile() {
-    if (!activeRole) return
-    settingsError.setError(null)
-    try {
-      const profiles: ChatProfiles = {
-        user: userProfile.createProfile(),
-        agent: agentProfile.createProfile(),
-      }
-      await updateProfiles(profiles)
-      setActiveRole(null)
-    } catch (err) {
-      settingsError.setError(err instanceof Error ? err.message : "保存失败")
-    }
-  }
-
   return {
-    activeRole,
+    activeRole: editorState.activeRole,
     activeProfile,
-    error: settingsError.error,
-    openProfileEditor,
-    closeProfileEditor,
-    saveProfile,
+    error: editorError.error,
+    openProfileEditor: editorState.openProfileEditor,
+    closeProfileEditor: editorState.closeProfileEditor,
+    saveProfile: saveAction.saveProfile,
   }
 }
 
