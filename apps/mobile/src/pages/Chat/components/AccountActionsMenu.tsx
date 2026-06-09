@@ -90,7 +90,6 @@ const styles = StyleSheet.create({
   },
   menu: {
     width: 170,
-    alignSelf: "center",
     borderWidth: 1,
     borderRadius: 8,
     overflow: "visible",
@@ -102,7 +101,7 @@ const styles = StyleSheet.create({
   arrow: {
     position: "absolute",
     top: -7,
-    right: 15,
+    right: 1,
     width: 14,
     height: 14,
     borderLeftWidth: 1,
