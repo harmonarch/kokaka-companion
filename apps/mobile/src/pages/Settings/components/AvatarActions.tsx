@@ -14,9 +14,14 @@ export function AvatarActions({
     <View style={styles.avatarActions}>
       <Pressable
         onPress={onPick}
-        style={[styles.avatarButton, { borderColor: theme.border }]}
+        style={[
+          styles.avatarButton,
+          {
+            backgroundColor: theme.primary,
+          },
+        ]}
       >
-        <Text style={[styles.avatarButtonText, { color: theme.text }]}>
+        <Text style={[styles.avatarButtonText, { color: theme.primaryText }]}>
           {avatar ? "更换头像" : "选择头像"}
         </Text>
       </Pressable>
@@ -32,8 +37,7 @@ const styles = StyleSheet.create({
   avatarButton: {
     flex: 1,
     height: 44,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 5,
     alignItems: "center",
     justifyContent: "center",
   },

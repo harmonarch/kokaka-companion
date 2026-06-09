@@ -24,23 +24,41 @@ export default function Settings() {
   if (!user) return <Redirect href="/login" />
 
   return (
-    <ScrollView
-      style={{ backgroundColor: theme.background }}
-      contentContainerStyle={[
+    <View
+      style={[
         styles.page,
-        { backgroundColor: theme.background },
+        {
+          backgroundColor: theme.background,
+        },
       ]}
-      showsVerticalScrollIndicator={false}
     >
-      <View style={styles.header}>
-        <View>
-          <Text style={[styles.kicker, { color: theme.accent }]}>账号</Text>
+      <View
+        style={[
+          styles.shell,
+          {
+            backgroundColor: theme.background,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <View style={[styles.header, { borderColor: theme.border }]}>
+          <Pressable onPress={goBack} style={styles.iconButton}>
+            <Text style={[styles.iconText, { color: theme.text }]}>‹</Text>
+          </Pressable>
+          <View style={styles.headerTitle}>
           <Text style={[styles.title, { color: theme.text }]}>设置</Text>
+            <Text style={[styles.kicker, { color: theme.muted }]}>
+              头像与昵称
+            </Text>
         </View>
-        <Pressable onPress={goBack} style={styles.link}>
-          <Text style={[styles.linkText, { color: theme.primary }]}>返回</Text>
-        </Pressable>
+          <View style={styles.iconButton}>
+            <Text style={[styles.moreText, { color: theme.text }]}>···</Text>
       </View>
+        </View>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
       <Text style={[styles.sectionTitle, { color: theme.text }]}>账号资料</Text>
       <Text style={[styles.label, { color: theme.muted }]}>账号昵称</Text>
       <TextInput
@@ -159,17 +177,33 @@ export default function Settings() {
           </Text>
         </Pressable>
       )}
-    </ScrollView>
+        </ScrollView>
+      </View>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
   page: {
-    flexGrow: 1,
-    maxWidth: 520,
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 18,
+  },
+  shell: {
+    flex: 1,
+    maxWidth: 390,
     width: "100%",
-    alignSelf: "center",
-    padding: 24,
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.14,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 18 },
+  },
+  content: {
+    flexGrow: 1,
+    padding: 18,
     gap: 16,
   },
   sectionTitle: {
@@ -178,24 +212,39 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 18,
+    minHeight: 56,
+    borderBottomWidth: 1,
+    paddingHorizontal: 12,
   },
   kicker: {
-    fontSize: 13,
-    fontWeight: "800",
-    marginBottom: 2,
+    fontSize: 12,
+    lineHeight: 17,
   },
   title: {
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  headerTitle: {
+    flex: 1,
+    alignItems: "center",
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconText: {
     fontSize: 30,
-    fontWeight: "800",
+    lineHeight: 34,
+    fontWeight: "300",
   },
-  link: {
-    padding: 8,
-  },
-  linkText: {
-    fontWeight: "800",
+  moreText: {
+    fontSize: 22,
+    lineHeight: 24,
+    fontWeight: "700",
+    marginTop: -7,
   },
   label: {
     fontSize: 14,
@@ -203,14 +252,14 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 5,
     paddingHorizontal: 12,
-    height: 48,
-    fontSize: 16,
+    height: 46,
+    fontSize: 15,
   },
   primary: {
     height: 48,
-    borderRadius: 8,
+    borderRadius: 5,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -219,7 +268,7 @@ const styles = StyleSheet.create({
   },
   secondary: {
     height: 48,
-    borderRadius: 8,
+    borderRadius: 5,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -229,7 +278,7 @@ const styles = StyleSheet.create({
   },
   danger: {
     height: 48,
-    borderRadius: 8,
+    borderRadius: 5,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -239,7 +288,7 @@ const styles = StyleSheet.create({
   },
   confirmBox: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 5,
     padding: 16,
     gap: 9,
   },

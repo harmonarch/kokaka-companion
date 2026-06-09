@@ -26,7 +26,13 @@ export function ProfileSection({
         { backgroundColor: theme.surface, borderColor: theme.softBorder },
       ]}
     >
-      <Text style={[styles.sectionTitle, { color: theme.text }]}>{title}</Text>
+      <View style={[styles.sectionHeader, { borderColor: theme.softBorder }]}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>
+          {title}
+        </Text>
+        <Text style={[styles.closeMark, { color: theme.muted }]}>×</Text>
+      </View>
+      <Text style={[styles.label, { color: theme.text }]}>头像</Text>
       <ProfilePreview
         avatar={value.avatar}
         nickname={value.nickname}
@@ -60,12 +66,28 @@ const styles = StyleSheet.create({
   section: {
     borderWidth: 1,
     borderRadius: 8,
-    padding: 16,
+    overflow: "hidden",
     gap: 12,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+  },
+  sectionHeader: {
+    minHeight: 50,
+    marginHorizontal: -14,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
+  },
+  closeMark: {
+    fontSize: 26,
+    lineHeight: 28,
+    fontWeight: "300",
   },
   label: {
     fontSize: 14,
@@ -73,9 +95,9 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 5,
     paddingHorizontal: 12,
-    height: 48,
-    fontSize: 16,
+    height: 46,
+    fontSize: 15,
   },
 })

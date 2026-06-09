@@ -28,12 +28,22 @@ export function ProfilePreview({
           />
         </View>
       ) : null}
+      {!trimmedAvatar ? (
+        <View
+          style={[
+            styles.previewAvatar,
+            { backgroundColor: theme.primarySoft, borderColor: theme.border },
+          ]}
+        >
+          <Text style={styles.previewAvatarText}>我</Text>
+        </View>
+      ) : null}
       <View style={styles.previewText}>
         <Text style={[styles.previewName, { color: theme.text }]}>
-          {trimmedNickname || "聊天里不显示昵称"}
+          {trimmedNickname || "更新头像和昵称"}
         </Text>
         <Text style={[styles.previewHint, { color: theme.muted }]}>
-          未填写头像或昵称时，聊天里对应内容会隐藏。
+          点击上传新的头像
         </Text>
       </View>
     </View>
@@ -50,8 +60,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   previewAvatar: {
-    width: 42,
-    height: 42,
+    width: 54,
+    height: 54,
     borderRadius: 8,
     borderWidth: 1,
     alignItems: "center",
@@ -61,6 +71,11 @@ const styles = StyleSheet.create({
   previewAvatarImage: {
     width: "100%",
     height: "100%",
+  },
+  previewAvatarText: {
+    color: "#ffffff",
+    fontSize: 22,
+    fontWeight: "900",
   },
   previewName: {
     fontSize: 15,
