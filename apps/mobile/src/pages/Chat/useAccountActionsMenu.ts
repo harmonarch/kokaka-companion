@@ -1,45 +1,36 @@
-import { router } from "expo-router"
-import { useState } from "react"
-import { useAuthStore } from "@/stores/authStore"
+import { useAccountMenuState } from "./hooks/useAccountMenuState"
+import { useAccountSessionActions } from "./hooks/useAccountSessionActions"
+import { useDeleteAccountConfirm } from "./hooks/useDeleteAccountConfirm"
 
 export function useAccountActionsMenu() {
-  const logout = useAuthStore((state) => state.logout)
-  const deleteAccount = useAuthStore((state) => state.deleteAccount)
-  const [visible, setVisible] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const deleteConfirm = useDeleteAccountConfirm()
+  const menu = useAccountMenuState()
+  const sessionActions = useAccountSessionActions(menu.closeMenu)
 
   function openMenu() {
-    setVisible(true)
-    setConfirmDelete(false)
+    deleteConfirm.cancelDelete()
+    menu.openMenu()
   }
 
   function closeMenu() {
-    setVisible(false)
-    setConfirmDelete(false)
-  }
-
-  async function signOut() {
-    await logout()
-    closeMenu()
-    router.replace("/login")
+    deleteConfirm.cancelDelete()
+    menu.closeMenu()
   }
 
   async function remove() {
-    if (!confirmDelete) {
-      setConfirmDelete(true)
+    if (!deleteConfirm.confirmDelete) {
+      deleteConfirm.requestDeleteConfirmation()
       return
     }
-    await deleteAccount()
-    closeMenu()
-    router.replace("/login")
+    await sessionActions.deleteCurrentAccount()
   }
 
   return {
-    visible,
-    confirmDelete,
+    visible: menu.visible,
+    confirmDelete: deleteConfirm.confirmDelete,
     openMenu,
     closeMenu,
-    signOut,
+    signOut: sessionActions.signOut,
     remove,
   }
 }
