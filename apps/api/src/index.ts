@@ -7,6 +7,7 @@ import { authRoutes } from "@/routes/auth"
 import { meRoutes } from "@/routes/me"
 import { accountRoutes } from "@/routes/account"
 import { chatRoutes } from "@/routes/chat"
+import { memoryRoutes } from "@/routes/memories"
 import { profileRoutes } from "@/routes/profiles"
 import { handleChatWebSocket } from "@/ws/chat"
 
@@ -36,6 +37,7 @@ app.route("/auth", authRoutes)
 app.route("/me", meRoutes)
 app.route("/account", accountRoutes)
 app.route("/chat", chatRoutes)
+app.route("/memories", memoryRoutes)
 app.route("/profiles", profileRoutes)
 
 app.get("/ws/chat", (c) =>

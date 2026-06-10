@@ -9,11 +9,18 @@ import type {
   User,
   ChatHistoryResponse,
   ChatProfiles,
+  MemoriesResponse,
+  MemoryContextResponse,
+  Memory,
+  UpdateMemoryRequest,
 } from "@ai-companion/shared"
 import {
   authResponseSchema,
   chatHistoryResponseSchema,
   chatProfilesSchema,
+  memoryContextResponseSchema,
+  memoriesResponseSchema,
+  memorySchema,
   userSchema,
 } from "@ai-companion/shared"
 
@@ -191,6 +198,45 @@ export function createHttpClient(options: HttpClientOptions) {
     return chatHistoryResponseSchema.parse(data)
   }
 
+  async function memories(): Promise<MemoriesResponse> {
+    const data = await request<unknown>("/memories", undefined, {
+      auth: true,
+    })
+    return memoriesResponseSchema.parse(data)
+  }
+
+  async function memoryContext(id: string): Promise<MemoryContextResponse> {
+    const data = await request<unknown>(
+      `/memories/${encodeURIComponent(id)}/context`,
+      undefined,
+      { auth: true },
+    )
+    return memoryContextResponseSchema.parse(data)
+  }
+
+  async function updateMemory(
+    id: string,
+    input: UpdateMemoryRequest,
+  ): Promise<Memory> {
+    const data = await request<unknown>(
+      `/memories/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      },
+      { auth: true },
+    )
+    return memorySchema.parse(data)
+  }
+
+  async function deleteMemory(id: string) {
+    await request<{ ok: true }>(
+      `/memories/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+      { auth: true },
+    )
+  }
+
   return {
     register,
     login,
@@ -202,5 +248,9 @@ export function createHttpClient(options: HttpClientOptions) {
     chatProfiles,
     updateChatProfiles,
     chatHistory,
+    memories,
+    memoryContext,
+    updateMemory,
+    deleteMemory,
   }
 }
