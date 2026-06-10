@@ -61,6 +61,17 @@ export async function upsertMemoryVector(
   return true
 }
 
+export async function deleteMemoryVector(env: Env, id: string) {
+  const index = env.MEMORY_VECTORIZE as
+    | (VectorizeIndex & {
+        deleteByIds?: (ids: string[]) => Promise<unknown>
+      })
+    | undefined
+  if (!index?.deleteByIds) return false
+  await index.deleteByIds([id])
+  return true
+}
+
 export async function queryMemoryVectors(
   env: Env,
   input: {
