@@ -1,6 +1,7 @@
 import { useAccountMenuState } from "./useAccountMenuState"
 import { useAccountSessionActions } from "./useAccountSessionActions"
 import { useDeleteAccountConfirm } from "./useDeleteAccountConfirm"
+import { router } from "expo-router"
 
 export function useAccountActionsMenu() {
   const deleteConfirm = useDeleteAccountConfirm()
@@ -17,6 +18,11 @@ export function useAccountActionsMenu() {
     menu.closeMenu()
   }
 
+  function openMemoryManager() {
+    closeMenu()
+    router.push("/memory")
+  }
+
   async function remove() {
     if (!deleteConfirm.confirmDelete) {
       deleteConfirm.requestDeleteConfirmation()
@@ -30,6 +36,7 @@ export function useAccountActionsMenu() {
     confirmDelete: deleteConfirm.confirmDelete,
     openMenu,
     closeMenu,
+    openMemoryManager,
     signOut: sessionActions.signOut,
     remove,
   }

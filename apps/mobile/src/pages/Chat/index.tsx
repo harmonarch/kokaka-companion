@@ -132,6 +132,7 @@ export default function Chat() {
           visible={accountActions.visible}
           confirmDelete={accountActions.confirmDelete}
           onClose={accountActions.closeMenu}
+          onOpenMemories={accountActions.openMemoryManager}
           onSignOut={accountActions.signOut}
           onRemove={accountActions.remove}
           theme={theme}

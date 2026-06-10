@@ -5,6 +5,7 @@ export function AccountActionsMenu({
   visible,
   confirmDelete,
   onClose,
+  onOpenMemories,
   onSignOut,
   onRemove,
   theme,
@@ -12,6 +13,7 @@ export function AccountActionsMenu({
   visible: boolean
   confirmDelete: boolean
   onClose: () => void
+  onOpenMemories: () => void
   onSignOut: () => void
   onRemove: () => void
   theme: AppTheme
@@ -44,6 +46,19 @@ export function AccountActionsMenu({
                 },
               ]}
             />
+            <Pressable
+              onPress={onOpenMemories}
+              style={({ pressed }) => [
+                styles.menuItem,
+                pressed && { backgroundColor: theme.elevated },
+              ]}
+            >
+              <Text style={[styles.itemIcon, { color: theme.text }]}>◎</Text>
+              <Text style={[styles.itemText, { color: theme.text }]}>
+                管理记忆
+              </Text>
+            </Pressable>
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
             <Pressable
               onPress={onSignOut}
               style={({ pressed }) => [
