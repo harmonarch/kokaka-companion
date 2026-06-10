@@ -1,6 +1,9 @@
 import type { ChatMessage } from "@ai-companion/shared"
 import type { Env } from "@/env"
-import { upsertMemoryVector } from "@/agent/memory/vectorMemory"
+import {
+  deleteMemoryVector,
+  upsertMemoryVector,
+} from "@/agent/memory/vectorMemory"
 
 export type LongTermMemoryProfile = {
   userId: string
@@ -44,6 +47,8 @@ export type ExtractedLongTermMemory = {
   emotionSnapshot: string | null
 }
 
+type MemoryType = "event" | "preference" | "emotion_snapshot"
+
 const profileFields = new Set<ExtractedFact["field"]>([
   "name",
   "birthday",
@@ -75,6 +80,33 @@ function uniq(values: string[]) {
 
 function cleanFactValue(value: string) {
   return value.trim().replace(/[了啦呢啊呀。！？!?，,]+$/g, "")
+}
+
+function hasSelfReference(value: string) {
+  return /(^|[\s，,。！？!?])(我|我的|自己|本人|咱|咱们|我们)/.test(value)
+}
+
+function asksAboutAssistant(value: string) {
+  const assistantRef = /(你|您|你们|小练|助手|助理|模型|Kokaka|kokaka)/
+  const questionLike = /[?？]|什么|吗|呢|如何|怎么|是不是|能不能|会不会|有没有/
+  const personalTopic =
+    /(喜欢|讨厌|生日|名字|叫|工作|公司|住|在哪|心情|想法|建议)/
+  return (
+    assistantRef.test(value) &&
+    questionLike.test(value) &&
+    personalTopic.test(value) &&
+    !hasSelfReference(value)
+  )
+}
+
+function canStoreUserUtterance(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return false
+  if (asksAboutAssistant(trimmed)) return false
+  if (/^[你您]/.test(trimmed) && /[?？]?$/.test(trimmed)) {
+    return hasSelfReference(trimmed)
+  }
+  return true
 }
 
 function parseJsonObject(value: string) {
@@ -139,6 +171,148 @@ function normalizeExtraction(value: unknown): ExtractedLongTermMemory {
       : null
 
   return { facts, events, preferences, emotionSnapshot }
+}
+
+function removeAssistantSourcedMemory(
+  memory: ExtractedLongTermMemory,
+): ExtractedLongTermMemory {
+  const assistantPattern =
+    /(?:助手|助理|模型|系统)(?:说|表示|认为|判断|建议|提醒|回复|回答)|(?:建议用户|提醒用户)|(?:助手|助理|模型|系统)的/
+  const isUserSourced = (value: string) => !assistantPattern.test(value)
+
+  return {
+    facts: memory.facts.filter((fact) => isUserSourced(fact.value)),
+    events: memory.events.filter(isUserSourced),
+    preferences: memory.preferences.filter(isUserSourced),
+    emotionSnapshot:
+      memory.emotionSnapshot && isUserSourced(memory.emotionSnapshot)
+        ? memory.emotionSnapshot
+        : null,
+  }
+}
+
+function normalizeForSourceCheck(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{Script=Han}\p{Letter}\p{Number}]/gu, "")
+}
+
+function digitSignature(value: string) {
+  return value.replace(/\D/g, "").replace(/^0+/, "")
+}
+
+function sourceFragments(value: string) {
+  const normalized = normalizeForSourceCheck(value)
+  const ignored = new Set([
+    "用户",
+    "喜欢",
+    "不喜欢",
+    "讨厌",
+    "提到",
+    "觉得",
+    "现在",
+    "今天",
+    "明天",
+    "下周",
+    "当前",
+    "情绪",
+    "状态",
+  ])
+  const fragments = new Set<string>()
+
+  for (let size = 2; size <= Math.min(8, normalized.length); size += 1) {
+    for (let index = 0; index <= normalized.length - size; index += 1) {
+      const fragment = normalized.slice(index, index + size)
+      if (!ignored.has(fragment)) {
+        fragments.add(fragment)
+      }
+    }
+  }
+  return fragments
+}
+
+function hasUserSource(value: string, userMessage: string) {
+  const normalizedValue = normalizeForSourceCheck(value)
+  const normalizedUserMessage = normalizeForSourceCheck(userMessage)
+  if (!normalizedValue || !normalizedUserMessage) return false
+  if (
+    normalizedValue.includes(normalizedUserMessage) ||
+    normalizedUserMessage.includes(normalizedValue)
+  ) {
+    return true
+  }
+
+  const valueDigits = digitSignature(value)
+  const userDigits = digitSignature(userMessage)
+  if (
+    valueDigits.length >= 2 &&
+    userDigits.length >= 2 &&
+    (valueDigits.includes(userDigits) || userDigits.includes(valueDigits))
+  ) {
+    return true
+  }
+
+  for (const fragment of sourceFragments(userMessage)) {
+    if (normalizedValue.includes(fragment)) return true
+  }
+  return false
+}
+
+function keepUserSupportedMemory(
+  memory: ExtractedLongTermMemory,
+  userMessage: string,
+): ExtractedLongTermMemory {
+  return {
+    facts: memory.facts.filter((fact) => hasUserSource(fact.value, userMessage)),
+    events: memory.events.filter((event) => hasUserSource(event, userMessage)),
+    preferences: memory.preferences.filter((preference) =>
+      hasUserSource(preference, userMessage),
+    ),
+    emotionSnapshot:
+      memory.emotionSnapshot &&
+      hasUserSource(memory.emotionSnapshot, userMessage)
+        ? memory.emotionSnapshot
+        : null,
+  }
+}
+
+function mergeExtractions(
+  fallback: ExtractedLongTermMemory,
+  extracted: ExtractedLongTermMemory,
+): ExtractedLongTermMemory {
+  const factsByField = new Map<ExtractedFact["field"], ExtractedFact>()
+  for (const fact of fallback.facts) {
+    factsByField.set(fact.field, fact)
+  }
+  for (const fact of extracted.facts) {
+    factsByField.set(fact.field, fact)
+  }
+
+  return {
+    facts: [...factsByField.values()],
+    events: uniq([...fallback.events, ...extracted.events]),
+    preferences: uniq([...fallback.preferences, ...extracted.preferences]),
+    emotionSnapshot: extracted.emotionSnapshot ?? fallback.emotionSnapshot,
+  }
+}
+
+function latestMemoryRows(memory: ExtractedLongTermMemory) {
+  const rowsByType = new Map<MemoryType, string>()
+
+  for (const content of memory.events) {
+    rowsByType.set("event", content)
+  }
+  for (const content of memory.preferences) {
+    rowsByType.set("preference", content)
+  }
+  if (memory.emotionSnapshot) {
+    rowsByType.set("emotion_snapshot", memory.emotionSnapshot)
+  }
+
+  return [...rowsByType.entries()].map(([type, content]) => ({
+    type,
+    content,
+  }))
 }
 
 export async function isLongTermMemoryEnabled(env: Env, userId: string) {
@@ -299,6 +473,7 @@ export function heuristicExtractLongTermMemory(
   const events: string[] = []
   const preferences: string[] = []
   const text = userMessage.trim()
+  const canStoreText = canStoreUserUtterance(text)
 
   const birthday = text.match(
     /(?:生日(?:是|在)?|我(?:的)?生日(?:是|在)?)(\d{1,2})\s*(?:月|-)\s*(\d{1,2})\s*(?:日|号)?/,
@@ -327,7 +502,7 @@ export function heuristicExtractLongTermMemory(
   const jobChange = text.match(
     /(?:我)?(?:下周|明天|今天|现在|刚刚|之后|开始)?(?:去|在)([\u4e00-\u9fa5A-Za-z0-9]{2,20})(?:做|当|负责)([\u4e00-\u9fa5A-Za-z0-9]{1,16})/,
   )
-  if (jobChange) {
+  if (canStoreText && jobChange) {
     const company = cleanFactValue(jobChange[1])
     const occupation = cleanFactValue(jobChange[2])
     facts.push({ field: "company", value: company })
@@ -338,18 +513,22 @@ export function heuristicExtractLongTermMemory(
   const occupation = text.match(
     /(?:我是|我做|我的工作是)([\u4e00-\u9fa5A-Za-z0-9]{2,16})/,
   )
-  if (occupation && !text.includes("我叫")) {
+  if (canStoreText && occupation && !text.includes("我叫")) {
     facts.push({ field: "occupation", value: cleanFactValue(occupation[1]) })
   }
 
-  if (/(喜欢|爱|偏爱)/.test(text)) {
+  if (canStoreText && /(喜欢|爱|偏爱)/.test(text)) {
     preferences.push(`用户${text}`)
   }
-  if (/(不喜欢|讨厌|反感|别.*说教|不要.*说教|不想.*建议)/.test(text)) {
+  if (
+    canStoreText &&
+    /(不喜欢|讨厌|反感|别.*说教|不要.*说教|不想.*建议)/.test(text)
+  ) {
     preferences.push(`用户${text}`)
   }
 
   if (
+    canStoreText &&
     /(被裁|分手|离职|换工作|入职|面试|吵架|搬家|生病|住院|毕业|结婚)/.test(text)
   ) {
     events.push(`用户提到重要事件：${text}`)
@@ -371,6 +550,9 @@ export async function extractLongTermMemory(
     emotionState: string
   },
 ): Promise<ExtractedLongTermMemory> {
+  const canStoreText = canStoreUserUtterance(input.userMessage)
+  if (!canStoreText) return emptyExtraction
+
   const fallback = heuristicExtractLongTermMemory(
     input.userMessage,
     input.emotionState === "normal"
@@ -398,14 +580,14 @@ export async function extractLongTermMemory(
                 "JSON 格式：",
                 '{"facts":[{"field":"name|birthday|occupation|company|location","value":"..."}],"events":["..."],"preferences":["..."],"emotionSnapshot":"...或null"}',
                 "只提取用户主动透露的个人事实、重大生活事件、明确偏好和明显情绪。",
-                "忽略闲聊、一次性请求、助手说的话和无法确认的信息。",
+                "输入只包含用户原文，不要补充、推测或使用助手表达过的信息。",
+                "忽略闲聊、一次性请求和无法确认的信息。",
               ].join("\n"),
             },
             {
               role: "user",
               content: [
-                `用户：${input.userMessage}`,
-                `助手：${input.reply}`,
+                `用户原文：${input.userMessage}`,
                 `情绪状态：${input.emotionState}`,
               ].join("\n"),
             },
@@ -421,7 +603,13 @@ export async function extractLongTermMemory(
     }
     const content = data.choices?.[0]?.message?.content
     if (!content) return fallback
-    return normalizeExtraction(parseJsonObject(content))
+    return mergeExtractions(
+      fallback,
+      keepUserSupportedMemory(
+        removeAssistantSourcedMemory(normalizeExtraction(parseJsonObject(content))),
+        input.userMessage,
+      ),
+    )
   } catch {
     return fallback
   }
@@ -453,19 +641,24 @@ export async function saveLongTermMemory(
     changed = true
   }
 
-  const rows = [
-    ...input.memory.events.map((content) => ({ type: "event", content })),
-    ...input.memory.preferences.map((content) => ({
-      type: "preference",
-      content,
-    })),
-    ...(input.memory.emotionSnapshot
-      ? [{ type: "emotion_snapshot", content: input.memory.emotionSnapshot }]
-      : []),
-  ]
+  const rows = latestMemoryRows(input.memory)
 
   for (const row of rows) {
     const id = crypto.randomUUID()
+    const existingRows = await env.DB.prepare(
+      "SELECT id FROM memories WHERE user_id = ? AND type = ?",
+    )
+      .bind(input.userId, row.type)
+      .all<{ id: string }>()
+      .then((result) => result.results ?? [])
+
+    await env.DB.prepare("DELETE FROM memories WHERE user_id = ? AND type = ?")
+      .bind(input.userId, row.type)
+      .run()
+    for (const existing of existingRows) {
+      await deleteMemoryVector(env, existing.id)
+    }
+
     await env.DB.prepare(
       `INSERT INTO memories (id, user_id, conversation_id, type, content, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,

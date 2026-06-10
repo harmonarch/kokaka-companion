@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
+  extractLongTermMemory,
   formatLongTermMemory,
   heuristicExtractLongTermMemory,
   longTermMemoryCacheKey,
@@ -185,6 +186,16 @@ function createEnvFixture(input?: {
           return null
         },
         async all<T>() {
+          if (sql.includes("SELECT id FROM memories")) {
+            const userId = String(this.values[0])
+            const type = String(this.values[1])
+            const results = memories
+              .filter(
+                (memory) => memory.user_id === userId && memory.type === type,
+              )
+              .map((memory) => ({ id: memory.id })) as T[]
+            return { results }
+          }
           if (sql.includes("FROM memories")) {
             const userId = String(this.values[0])
             const results = memories
@@ -249,6 +260,16 @@ function createEnvFixture(input?: {
               created_at: Number(this.values[5]),
             })
           }
+          if (sql.includes("DELETE FROM memories")) {
+            const userId = String(this.values[0])
+            const type = String(this.values[1])
+            for (let index = memories.length - 1; index >= 0; index -= 1) {
+              const memory = memories[index]
+              if (memory.user_id === userId && memory.type === type) {
+                memories.splice(index, 1)
+              }
+            }
+          }
           if (sql.includes("INSERT INTO conversation_summaries")) {
             summaries.push({
               id: String(this.values[0]),
@@ -285,6 +306,12 @@ function createEnvFixture(input?: {
       MEMORY_VECTORIZE: {
         async upsert(items: typeof vectors) {
           vectors.push(...items)
+        },
+        async deleteByIds(ids: string[]) {
+          for (const id of ids) {
+            const index = vectors.findIndex((vector) => vector.id === id)
+            if (index >= 0) vectors.splice(index, 1)
+          }
         },
       },
       DEEPSEEK_API_KEY: "",
@@ -434,10 +461,12 @@ describe("long-term memory behavior", () => {
   it("overwrites profile facts and appends event memories", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ data: [{ embedding: [0.1, 0.2] }] }), {
-          status: 200,
-        }),
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ data: [{ embedding: [0.1, 0.2] }] }), {
+            status: 200,
+          }),
+        ),
       ),
     )
     const { env, profiles, memories, kv, vectors } = createEnvFixture({
@@ -473,10 +502,129 @@ describe("long-term memory behavior", () => {
     ).toBe(true)
   })
 
+  it("keeps only the latest memory for each type", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ data: [{ embedding: [0.1, 0.2] }] }), {
+            status: 200,
+          }),
+        ),
+      ),
+    )
+    const { env, memories } = createEnvFixture({
+      memories: [
+        {
+          id: "old-event",
+          user_id: "u1",
+          conversation_id: "old-c1",
+          type: "event",
+          content: "用户之前提到旧事件",
+          created_at: 1,
+        },
+        {
+          id: "old-preference",
+          user_id: "u1",
+          conversation_id: "old-c2",
+          type: "preference",
+          content: "用户之前喜欢旧回复",
+          created_at: 2,
+        },
+      ],
+    })
+
+    await saveLongTermMemory(env, {
+      userId: "u1",
+      conversationId: "c2",
+      memory: {
+        facts: [],
+        events: ["用户提到第一个新事件", "用户提到最新事件"],
+        preferences: ["用户喜欢更直接"],
+        emotionSnapshot: "用户当前情绪状态：开心",
+      },
+    })
+
+    expect(memories.map((memory) => memory.type).sort()).toEqual([
+      "emotion_snapshot",
+      "event",
+      "preference",
+    ])
+    expect(memories.find((memory) => memory.type === "event")?.content).toBe(
+      "用户提到最新事件",
+    )
+    expect(
+      memories.find((memory) => memory.type === "preference")?.content,
+    ).toBe("用户喜欢更直接")
+  })
+
+  it("does not keep assistant-sourced model output as memory", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes("/v1/chat/completions")) {
+          return Promise.resolve(
+            Response.json({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      facts: [],
+                      events: ["助手建议用户每天冥想"],
+                      preferences: ["用户喜欢喝乌龙茶"],
+                      emotionSnapshot: "助手判断用户很焦虑",
+                    }),
+                  },
+                },
+              ],
+            }),
+          )
+        }
+        return Promise.resolve(Response.json({ data: [{ embedding: [0.1] }] }))
+      }),
+    )
+    const { env } = createEnvFixture()
+    env.DEEPSEEK_API_KEY = "deepseek-key"
+
+    const memory = await extractLongTermMemory(env, {
+      userMessage: "我喜欢喝乌龙茶",
+      reply: "可以试试每天冥想",
+      emotionState: "normal",
+    })
+
+    expect(memory.events).toEqual([])
+    expect(memory.preferences).toContain("用户喜欢喝乌龙茶")
+    expect(memory.emotionSnapshot).toBeNull()
+  })
+
   it("extracts explicit preferences without external model calls", () => {
     const extracted = heuristicExtractLongTermMemory("我不喜欢太说教的回复")
 
     expect(extracted.preferences.join("\n")).toContain("不喜欢太说教")
+  })
+
+  it("does not turn questions about the assistant into user memories", async () => {
+    const heuristic = heuristicExtractLongTermMemory("你喜欢喝什么？")
+    const { env } = createEnvFixture()
+
+    const extracted = await extractLongTermMemory(env, {
+      userMessage: "你喜欢喝什么？",
+      reply: "我喜欢暖暖的甜饮",
+      emotionState: "normal",
+    })
+
+    expect(heuristic).toEqual({
+      facts: [],
+      events: [],
+      preferences: [],
+      emotionSnapshot: null,
+    })
+    expect(extracted).toEqual({
+      facts: [],
+      events: [],
+      preferences: [],
+      emotionSnapshot: null,
+    })
   })
 
   it("writes a conversation summary after enough recent messages", async () => {
