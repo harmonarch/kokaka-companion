@@ -117,5 +117,10 @@ export const chatMessages = sqliteTable(
       table.userId,
       table.createdAt,
     ),
+    conversationTimeIdx: index("idx_chat_messages_conversation_time").on(
+      table.userId,
+      table.conversationId,
+      table.createdAt,
+    ),
   }),
 )
