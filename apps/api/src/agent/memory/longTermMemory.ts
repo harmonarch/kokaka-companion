@@ -45,9 +45,17 @@ export type ExtractedLongTermMemory = {
   events: string[]
   preferences: string[]
   emotionSnapshot: string | null
+  forgets?: string[]
 }
 
 type MemoryType = "event" | "preference" | "emotion_snapshot"
+
+type MemoryRow = {
+  id: string
+  type: string
+  content: string
+  createdAt: number
+}
 
 const profileFields = new Set<ExtractedFact["field"]>([
   "name",
@@ -65,6 +73,16 @@ const emptyExtraction: ExtractedLongTermMemory = {
 }
 
 const LONG_TERM_MEMORY_CACHE_TTL_SECONDS = 60 * 15
+const internalEmotionLabels = new Set([
+  "normal",
+  "happy",
+  "positive",
+  "vulnerable",
+  "crisis",
+  "开心",
+  "高兴",
+  "正常",
+])
 
 export function longTermMemoryCacheKey(userId: string) {
   return `ltm:${userId}`
@@ -80,6 +98,19 @@ function uniq(values: string[]) {
 
 function cleanFactValue(value: string) {
   return value.trim().replace(/[了啦呢啊呀。！？!?，,]+$/g, "")
+}
+
+function cleanMemoryContent(value: string) {
+  return value
+    .trim()
+    .replace(/^用户(?:明确)?(?:提到|表示|说到|说|告诉我)?[:：\s]*/g, "")
+    .replace(/[了啦呢啊呀。！？!?，,]+$/g, "")
+}
+
+function withUserPrefix(value: string) {
+  const cleaned = cleanMemoryContent(value)
+  if (!cleaned) return ""
+  return cleaned.startsWith("用户") ? cleaned : `用户${cleaned}`
 }
 
 function hasSelfReference(value: string) {
@@ -103,10 +134,39 @@ function canStoreUserUtterance(value: string) {
   const trimmed = value.trim()
   if (!trimmed) return false
   if (asksAboutAssistant(trimmed)) return false
-  if (/^[你您]/.test(trimmed) && /[?？]?$/.test(trimmed)) {
+  if (/^[你您]/.test(trimmed) && /[?？]$/.test(trimmed)) {
     return hasSelfReference(trimmed)
   }
   return true
+}
+
+function asksAboutUserMemory(value: string) {
+  if (/你刚刚|刚刚那样|这样说|那样说/.test(value)) return false
+  return (
+    /[?？]/.test(value) ||
+    /^(?:你)?(?:还)?(?:记得|知道|说说|讲讲|告诉我)/.test(value)
+  ) && /(我|我的).*(喜欢|讨厌|不喜欢|叫什么|名字|生日|记忆)/.test(value)
+}
+
+function isOneOffRequest(value: string) {
+  return /^(?:今晚|今天|明天|等会儿|一会儿|这次|刚刚|现在).*(?:想|要|去|吃|喝|买|看|试试)/.test(
+    value,
+  )
+}
+
+function isForgetRequest(value: string) {
+  return /(忘掉|忘了|删掉|删除|别记|不要记|不用记)/.test(value)
+}
+
+function extractForgetTargets(value: string) {
+  if (!isForgetRequest(value)) return []
+  const normalized = cleanMemoryContent(
+    value
+      .replace(/请你/g, "")
+      .replace(/记住/g, "")
+      .replace(/(忘掉|忘了|删掉|删除|别记|不要记|不用记)/g, ""),
+  )
+  return normalized ? [withUserPrefix(normalized)] : []
 }
 
 function parseJsonObject(value: string) {
@@ -127,6 +187,7 @@ function normalizeExtraction(value: unknown): ExtractedLongTermMemory {
     events?: unknown
     preferences?: unknown
     emotionSnapshot?: unknown
+    forgets?: unknown
   }
 
   const facts = Array.isArray(raw.facts)
@@ -169,8 +230,11 @@ function normalizeExtraction(value: unknown): ExtractedLongTermMemory {
     typeof raw.emotionSnapshot === "string" && raw.emotionSnapshot.trim()
       ? raw.emotionSnapshot.trim()
       : null
+  const forgets = Array.isArray(raw.forgets)
+    ? uniq(raw.forgets.filter((forget): forget is string => typeof forget === "string"))
+    : []
 
-  return { facts, events, preferences, emotionSnapshot }
+  return { facts, events, preferences, emotionSnapshot, forgets }
 }
 
 function removeAssistantSourcedMemory(
@@ -188,6 +252,7 @@ function removeAssistantSourcedMemory(
       memory.emotionSnapshot && isUserSourced(memory.emotionSnapshot)
         ? memory.emotionSnapshot
         : null,
+    forgets: memory.forgets?.filter(isUserSourced) ?? [],
   }
 }
 
@@ -273,6 +338,9 @@ function keepUserSupportedMemory(
       hasUserSource(memory.emotionSnapshot, userMessage)
         ? memory.emotionSnapshot
         : null,
+    forgets:
+      memory.forgets?.filter((forget) => hasUserSource(forget, userMessage)) ??
+      [],
   }
 }
 
@@ -293,26 +361,404 @@ function mergeExtractions(
     events: uniq([...fallback.events, ...extracted.events]),
     preferences: uniq([...fallback.preferences, ...extracted.preferences]),
     emotionSnapshot: extracted.emotionSnapshot ?? fallback.emotionSnapshot,
+    forgets: uniq([...(fallback.forgets ?? []), ...(extracted.forgets ?? [])]),
   }
 }
 
-function latestMemoryRows(memory: ExtractedLongTermMemory) {
-  const rowsByType = new Map<MemoryType, string>()
+function contextBeforeCurrent(
+  messages: ChatMessage[] | undefined,
+  userMessage: string,
+) {
+  if (!messages) return []
+  const lastCurrentIndex = messages
+    .map((message) => message.content)
+    .lastIndexOf(userMessage)
+  return lastCurrentIndex >= 0 ? messages.slice(0, lastCurrentIndex) : messages
+}
 
-  for (const content of memory.events) {
-    rowsByType.set("event", content)
-  }
-  for (const content of memory.preferences) {
-    rowsByType.set("preference", content)
-  }
-  if (memory.emotionSnapshot) {
-    rowsByType.set("emotion_snapshot", memory.emotionSnapshot)
+function titleFromText(value: string) {
+  const explicit = value.match(/《([^》]{1,40})》/)?.[1]
+  if (explicit) return `《${explicit}》`
+  const loose = value.match(/(?:读|阅读|看)([\u4e00-\u9fa5A-Za-z0-9]{2,20})/)
+    ?.[1]
+  return loose ? `《${loose}》` : null
+}
+
+function directPreferenceFromText(value: string) {
+  const text = value.trim()
+  const preferences: string[] = []
+  if (!canStoreUserUtterance(text) || asksAboutUserMemory(text)) return []
+  if (isForgetRequest(text)) return []
+  if (isOneOffRequest(text)) return []
+
+  if (/工作学习时|工作学习的时候/.test(text) && /(咖啡|茶)/.test(text)) {
+    const drink = text.includes("咖啡") ? "咖啡" : "茶"
+    preferences.push(`工作学习时喝${drink}`)
   }
 
-  return [...rowsByType.entries()].map(([type, content]) => ({
-    type,
-    content,
-  }))
+  if (/(?:每天|天天).{0,8}(?:咖啡|茶|奶茶)/.test(text)) {
+    const drink = text.match(/(咖啡|茶|奶茶)/)?.[1]
+    if (drink) preferences.push(`喜欢每天喝${drink}`)
+  }
+
+  if (/平时不喝太甜的奶茶/.test(text)) {
+    preferences.push("平时不喝太甜的奶茶")
+  }
+
+  const noDrink = text.match(/(?:我)?不喝([\u4e00-\u9fa5A-Za-z0-9]{1,12})/)
+  if (noDrink) preferences.push(`不喝${cleanFactValue(noDrink[1])}`)
+
+  const noEat = text.match(/(?:我)?不吃([\u4e00-\u9fa5A-Za-z0-9]{1,12})/)
+  if (noEat) preferences.push(`不吃${cleanFactValue(noEat[1])}`)
+
+  const negative = text.match(
+    /(?:我)?(?:不喜欢|讨厌|反感|不爱)([\u4e00-\u9fa5A-Za-z0-9《》、，,的太]{1,28})/,
+  )
+  if (negative) {
+    preferences.push(`不喜欢${cleanFactValue(negative[1])}`)
+  }
+
+  const positive = text.match(
+    /(?:我)?(?:一直|平时|每天|都|很|挺|真的|就是)?(?:喜欢|爱|偏爱)([\u4e00-\u9fa5A-Za-z0-9《》、，,的太不]{1,32})/,
+  )
+  if (
+    positive &&
+    !negative &&
+    !/(这种感觉|这种状态|这样|那样)/.test(positive[1])
+  ) {
+    preferences.push(`喜欢${cleanFactValue(positive[1])}`)
+  }
+
+  const title = titleFromText(text)
+  if (title && /(最近在读|正在读|喜欢读|喜欢阅读)/.test(text)) {
+    preferences.push(`喜欢阅读${title}`)
+  }
+
+  return uniq(preferences.map(withUserPrefix))
+}
+
+function feelingPhraseFromUserText(value: string) {
+  const matches = value.match(
+    /[\u4e00-\u9fa5A-Za-z0-9、，,的在时]+(?:感觉|状态|氛围)/g,
+  )
+  const phrase = matches
+    ?.map((item) => cleanFactValue(item))
+    .filter((item) => !/(这种|这样|那样|什么)/.test(item))
+    .sort((a, b) => b.length - a.length)[0]
+  return phrase ?? null
+}
+
+function preferenceFromAssistantReply(value: string) {
+  const text = value.trim()
+  if (!text) return null
+  if (/(肯定|夸|做得|不错|厉害|棒|替你高兴)/.test(text)) {
+    return "用户喜欢被具体肯定"
+  }
+  if (/(理解|懂|听见|听到了|不用解释)/.test(text)) {
+    return "用户喜欢被理解"
+  }
+  if (/(慢慢|不用急|陪你|在这里|别一个人)/.test(text)) {
+    return "用户喜欢温和陪伴式回应"
+  }
+  if (/(具体|直接|清楚)/.test(text)) {
+    return "用户喜欢具体清楚的回应"
+  }
+  return "用户喜欢 Kokaka 用具体、温和的方式回应"
+}
+
+function resolveContextualPreferences(
+  userMessage: string,
+  context?: ChatMessage[],
+) {
+  const text = userMessage.trim()
+  if (!/(喜欢|爱|挺好|不错)/.test(text)) return []
+  if (asksAboutUserMemory(text)) return []
+  if (!/(这种感觉|这种状态|这种氛围|这样|那样|刚刚那样|你刚刚)/.test(text)) {
+    return []
+  }
+
+  const previous = contextBeforeCurrent(context, userMessage)
+  if (/你刚刚|刚刚那样|这样说|那样说/.test(text)) {
+    const assistant = [...previous].reverse().find((message) => message.role === "agent")
+    const preference = assistant ? preferenceFromAssistantReply(assistant.content) : null
+    return preference ? [preference] : []
+  }
+
+  const user = [...previous].reverse().find((message) => message.role === "user")
+  const phrase = user ? feelingPhraseFromUserText(user.content) : null
+  return phrase ? [withUserPrefix(`喜欢${phrase}`)] : []
+}
+
+function extractLongTermEmotion(userMessage: string) {
+  const text = userMessage.trim()
+  if (
+    !/(最近|一直|持续|这两周|两周|一段时间|长期|总是)/.test(text) ||
+    !/(焦虑|难过|低落|害怕|压力|失眠|崩溃|烦躁)/.test(text)
+  ) {
+    return null
+  }
+  return withUserPrefix(`最近的持续情绪状态：${cleanMemoryContent(text)}`)
+}
+
+function normalizedMemory(value: string) {
+  return normalizeForSourceCheck(value)
+    .replace(/用户/g, "")
+    .replace(/我/g, "")
+    .replace(/的/g, "")
+}
+
+function preferencePolarity(value: string) {
+  return /(不喜欢|讨厌|反感|不喝|不吃|不爱|不想)/.test(value)
+    ? "negative"
+    : "positive"
+}
+
+function preferenceObject(value: string) {
+  const text = normalizedMemory(value)
+  if (/咖啡/.test(text)) return "coffee"
+  if (/奶茶/.test(text)) return "milk_tea"
+  if (/茶/.test(text)) return "tea"
+  if (/折耳根/.test(text)) return "zheergen"
+  if (/烧烤/.test(text)) return "barbecue"
+  if (/暖饮|甜饮/.test(text)) return "warm_drink"
+  if (/(读书|阅读|思考快与慢)/.test(text)) return "reading"
+  if (/(啤酒|红酒|白酒|酒精|喝酒|不喝酒|酒)/.test(text)) return "alcohol"
+  return text.slice(0, 12)
+}
+
+function isContextSpecificPreference(value: string) {
+  return /(工作学习时|工作学习的时候|早上|晚上|每天|平时|生日|读书时)/.test(
+    value,
+  )
+}
+
+function preferenceRelation(existing: string, incoming: string) {
+  const existingNormalized = normalizedMemory(existing)
+  const incomingNormalized = normalizedMemory(incoming)
+  if (existingNormalized === incomingNormalized) return "duplicate"
+
+  const sameObject = preferenceObject(existing) === preferenceObject(incoming)
+  const samePolarity = preferencePolarity(existing) === preferencePolarity(incoming)
+  if (sameObject && !samePolarity) return "conflict"
+
+  if (sameObject && samePolarity) {
+    if (
+      !isContextSpecificPreference(existing) &&
+      !isContextSpecificPreference(incoming) &&
+      incoming.length > existing.length
+    ) {
+      return "update"
+    }
+    if (
+      existingNormalized.includes(incomingNormalized) ||
+      incomingNormalized.includes(existingNormalized) ||
+      textSimilarity(existing, incoming) >= 0.82
+    ) {
+      if (
+        isContextSpecificPreference(existing) !==
+        isContextSpecificPreference(incoming)
+      ) {
+        return "independent"
+      }
+      return incoming.length > existing.length ? "update" : "duplicate"
+    }
+  }
+
+  return "independent"
+}
+
+function textSimilarity(a: string, b: string) {
+  const left = new Set([...normalizedMemory(a)])
+  const right = new Set([...normalizedMemory(b)])
+  if (left.size === 0 && right.size === 0) return 1
+  const intersection = [...left].filter((item) => right.has(item)).length
+  const union = new Set([...left, ...right]).size
+  return union === 0 ? 0 : intersection / union
+}
+
+function isAllowedEmotionSnapshot(value: string | null) {
+  if (!value) return false
+  const cleaned = cleanMemoryContent(value)
+  if (internalEmotionLabels.has(cleaned.toLowerCase())) return false
+  if (internalEmotionLabels.has(cleaned)) return false
+  return /(最近|持续|两周|一段时间|长期|总是)/.test(cleaned)
+}
+
+function prepareMemoryForStorage(
+  memory: ExtractedLongTermMemory,
+): ExtractedLongTermMemory {
+  const events = uniq(
+    memory.events
+      .map((event) => withUserPrefix(event))
+      .filter((event) => event.length >= 5)
+      .filter((event) => !asksAboutUserMemory(event))
+      .filter((event) => !isOneOffRequest(cleanMemoryContent(event))),
+  )
+  const preferences = uniq(
+    memory.preferences
+      .map((preference) => withUserPrefix(preference))
+      .filter((preference) => preference.length >= 5)
+      .filter((preference) => !asksAboutUserMemory(preference))
+      .filter((preference) => !isOneOffRequest(cleanMemoryContent(preference))),
+  )
+  const emotionSnapshot = isAllowedEmotionSnapshot(memory.emotionSnapshot)
+    ? withUserPrefix(memory.emotionSnapshot ?? "")
+    : null
+  const forgets = uniq((memory.forgets ?? []).map(withUserPrefix).filter(Boolean))
+
+  return {
+    facts: memory.facts,
+    events,
+    preferences,
+    emotionSnapshot,
+    ...(forgets.length > 0 ? { forgets } : {}),
+  }
+}
+
+function memoryMatchesForgetTarget(memory: MemoryRow, target: string) {
+  if (memory.type !== "preference" && memory.type !== "event") return false
+  const relation =
+    memory.type === "preference"
+      ? preferenceRelation(memory.content, target)
+      : textSimilarity(memory.content, target) >= 0.7
+        ? "duplicate"
+        : "independent"
+  return relation !== "independent"
+}
+
+async function loadStoredMemories(env: Env, userId: string) {
+  const result = await env.DB.prepare(
+    `SELECT id, type, content, created_at AS createdAt
+     FROM memories
+     WHERE user_id = ?
+     ORDER BY created_at DESC`,
+  )
+    .bind(userId)
+    .all<MemoryRow>()
+  return result.results ?? []
+}
+
+async function deleteStoredMemory(env: Env, userId: string, id: string) {
+  await env.DB.prepare("DELETE FROM memories WHERE user_id = ? AND id = ?")
+    .bind(userId, id)
+    .run()
+  await deleteMemoryVector(env, id)
+}
+
+async function insertStoredMemory(
+  env: Env,
+  input: {
+    userId: string
+    conversationId: string
+    type: MemoryType
+    content: string
+    createdAt: number
+  },
+) {
+  const id = crypto.randomUUID()
+  await env.DB.prepare(
+    `INSERT INTO memories (id, user_id, conversation_id, type, content, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(
+      id,
+      input.userId,
+      input.conversationId,
+      input.type,
+      input.content,
+      input.createdAt,
+    )
+    .run()
+  await upsertMemoryVector(env, {
+    id,
+    userId: input.userId,
+    conversationId: input.conversationId,
+    type: input.type,
+    content: input.content,
+    createdAt: input.createdAt,
+  })
+  return id
+}
+
+async function updateStoredMemory(
+  env: Env,
+  input: {
+    userId: string
+    conversationId: string
+    id: string
+    type: string
+    content: string
+    createdAt: number
+  },
+) {
+  await env.DB.prepare(
+    `UPDATE memories
+     SET content = ?, created_at = ?
+     WHERE user_id = ? AND id = ?`,
+  )
+    .bind(input.content, input.createdAt, input.userId, input.id)
+    .run()
+  await upsertMemoryVector(env, {
+    id: input.id,
+    userId: input.userId,
+    conversationId: input.conversationId,
+    type: input.type,
+    content: input.content,
+    createdAt: input.createdAt,
+  })
+}
+
+async function storeMemoryBySemanticRelation(
+  env: Env,
+  input: {
+    userId: string
+    conversationId: string
+    existing: MemoryRow[]
+    type: MemoryType
+    content: string
+    createdAt: number
+  },
+) {
+  const sameType = input.existing.filter((memory) => memory.type === input.type)
+  for (const memory of sameType) {
+    const relation =
+      input.type === "preference"
+        ? preferenceRelation(memory.content, input.content)
+        : textSimilarity(memory.content, input.content) >= 0.85
+          ? input.content.length > memory.content.length
+            ? "update"
+            : "duplicate"
+          : "independent"
+
+    if (relation === "duplicate") return false
+    if (relation === "update") {
+      await updateStoredMemory(env, {
+        userId: input.userId,
+        conversationId: input.conversationId,
+        id: memory.id,
+        type: memory.type,
+        content: input.content,
+        createdAt: input.createdAt,
+      })
+      memory.content = input.content
+      memory.createdAt = input.createdAt
+      return true
+    }
+    if (relation === "conflict") {
+      await deleteStoredMemory(env, input.userId, memory.id)
+      const index = input.existing.findIndex((item) => item.id === memory.id)
+      if (index >= 0) input.existing.splice(index, 1)
+    }
+  }
+
+  const id = await insertStoredMemory(env, input)
+  input.existing.unshift({
+    id,
+    type: input.type,
+    content: input.content,
+    createdAt: input.createdAt,
+  })
+  return true
 }
 
 export async function isLongTermMemoryEnabled(env: Env, userId: string) {
@@ -468,12 +914,24 @@ export function formatLongTermMemory(context: LongTermMemoryContext) {
 export function heuristicExtractLongTermMemory(
   userMessage: string,
   emotionSnapshot: string | null = null,
+  context?: ChatMessage[],
 ): ExtractedLongTermMemory {
   const facts: ExtractedFact[] = []
   const events: string[] = []
-  const preferences: string[] = []
+  const preferences: string[] = directPreferenceFromText(userMessage)
+  const forgets: string[] = extractForgetTargets(userMessage)
   const text = userMessage.trim()
   const canStoreText = canStoreUserUtterance(text)
+
+  if (!canStoreText || asksAboutUserMemory(text)) {
+    return {
+      facts,
+      events,
+      preferences: [],
+      emotionSnapshot: null,
+      ...(forgets.length > 0 ? { forgets } : {}),
+    }
+  }
 
   const birthday = text.match(
     /(?:生日(?:是|在)?|我(?:的)?生日(?:是|在)?)(\d{1,2})\s*(?:月|-)\s*(\d{1,2})\s*(?:日|号)?/,
@@ -517,15 +975,7 @@ export function heuristicExtractLongTermMemory(
     facts.push({ field: "occupation", value: cleanFactValue(occupation[1]) })
   }
 
-  if (canStoreText && /(喜欢|爱|偏爱)/.test(text)) {
-    preferences.push(`用户${text}`)
-  }
-  if (
-    canStoreText &&
-    /(不喜欢|讨厌|反感|别.*说教|不要.*说教|不想.*建议)/.test(text)
-  ) {
-    preferences.push(`用户${text}`)
-  }
+  preferences.push(...resolveContextualPreferences(text, context))
 
   if (
     canStoreText &&
@@ -533,12 +983,17 @@ export function heuristicExtractLongTermMemory(
   ) {
     events.push(`用户提到重要事件：${text}`)
   }
+  const finishedTitle = titleFromText(text)
+  if (finishedTitle && /(读完|看完|读完了|看完了)/.test(text)) {
+    events.push(`用户读完了${finishedTitle}`)
+  }
 
   return {
     facts,
     events: uniq(events),
     preferences: uniq(preferences),
-    emotionSnapshot,
+    emotionSnapshot: extractLongTermEmotion(text) ?? emotionSnapshot,
+    ...(forgets.length > 0 ? { forgets } : {}),
   }
 }
 
@@ -548,6 +1003,7 @@ export async function extractLongTermMemory(
     userMessage: string
     reply: string
     emotionState: string
+    context?: ChatMessage[]
   },
 ): Promise<ExtractedLongTermMemory> {
   const canStoreText = canStoreUserUtterance(input.userMessage)
@@ -555,9 +1011,8 @@ export async function extractLongTermMemory(
 
   const fallback = heuristicExtractLongTermMemory(
     input.userMessage,
-    input.emotionState === "normal"
-      ? null
-      : `用户当前情绪状态：${input.emotionState}`,
+    null,
+    input.context,
   )
   if (!env.DEEPSEEK_API_KEY) return fallback
 
@@ -578,15 +1033,20 @@ export async function extractLongTermMemory(
               content: [
                 "请从这轮对话提取长期记忆，并只返回 JSON。",
                 "JSON 格式：",
-                '{"facts":[{"field":"name|birthday|occupation|company|location","value":"..."}],"events":["..."],"preferences":["..."],"emotionSnapshot":"...或null"}',
+                '{"facts":[{"field":"name|birthday|occupation|company|location","value":"..."}],"events":["..."],"preferences":["..."],"emotionSnapshot":"...或null","forgets":["..."]}',
                 "只提取用户主动透露的个人事实、重大生活事件、明确偏好和明显情绪。",
-                "输入只包含用户原文，不要补充、推测或使用助手表达过的信息。",
+                "可以使用上下文解析“这种感觉/这样/刚刚那样”等指代，但必须是用户明确说喜欢。",
+                "不要补充、推测或使用助手单方面表达过的信息。",
                 "忽略闲聊、一次性请求和无法确认的信息。",
               ].join("\n"),
             },
             {
               role: "user",
               content: [
+                `最近上下文：${(input.context ?? [])
+                  .slice(-6)
+                  .map((message) => `${message.role}: ${message.content}`)
+                  .join("\n")}`,
                 `用户原文：${input.userMessage}`,
                 `情绪状态：${input.emotionState}`,
               ].join("\n"),
@@ -626,9 +1086,10 @@ export async function saveLongTermMemory(
   const enabled = await isLongTermMemoryEnabled(env, input.userId)
   if (!enabled) return
 
+  const memory = prepareMemoryForStorage(input.memory)
   const timestamp = now()
   let changed = false
-  for (const fact of input.memory.facts) {
+  for (const fact of memory.facts) {
     await env.DB.prepare(
       `INSERT INTO user_profiles (user_id, ${fact.field}, updated_at)
        VALUES (?, ?, ?)
@@ -641,46 +1102,38 @@ export async function saveLongTermMemory(
     changed = true
   }
 
-  const rows = latestMemoryRows(input.memory)
+  const existing = await loadStoredMemories(env, input.userId)
+  for (const forget of memory.forgets ?? []) {
+    for (const stored of [...existing]) {
+      if (!memoryMatchesForgetTarget(stored, forget)) continue
+      await deleteStoredMemory(env, input.userId, stored.id)
+      const index = existing.findIndex((item) => item.id === stored.id)
+      if (index >= 0) existing.splice(index, 1)
+      changed = true
+    }
+  }
+
+  const rows: Array<{ type: MemoryType; content: string }> = [
+    ...memory.events.map((content) => ({ type: "event" as const, content })),
+    ...memory.preferences.map((content) => ({
+      type: "preference" as const,
+      content,
+    })),
+    ...(memory.emotionSnapshot
+      ? [{ type: "emotion_snapshot" as const, content: memory.emotionSnapshot }]
+      : []),
+  ]
 
   for (const row of rows) {
-    const id = crypto.randomUUID()
-    const existingRows = await env.DB.prepare(
-      "SELECT id FROM memories WHERE user_id = ? AND type = ?",
-    )
-      .bind(input.userId, row.type)
-      .all<{ id: string }>()
-      .then((result) => result.results ?? [])
-
-    await env.DB.prepare("DELETE FROM memories WHERE user_id = ? AND type = ?")
-      .bind(input.userId, row.type)
-      .run()
-    for (const existing of existingRows) {
-      await deleteMemoryVector(env, existing.id)
-    }
-
-    await env.DB.prepare(
-      `INSERT INTO memories (id, user_id, conversation_id, type, content, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-    )
-      .bind(
-        id,
-        input.userId,
-        input.conversationId,
-        row.type,
-        row.content,
-        timestamp,
-      )
-      .run()
-    await upsertMemoryVector(env, {
-      id,
+    const rowChanged = await storeMemoryBySemanticRelation(env, {
       userId: input.userId,
       conversationId: input.conversationId,
+      existing,
       type: row.type,
       content: row.content,
       createdAt: timestamp,
     })
-    changed = true
+    changed = rowChanged || changed
   }
 
   if (changed) {
@@ -692,9 +1145,20 @@ function summarizeMessages(messages: ChatMessage[]) {
   const userLines = messages
     .filter((message) => message.role === "user")
     .map((message) => message.content.trim())
-    .filter(Boolean)
+    .filter((line) => hasLongTermSummaryValue(line))
   const latest = userLines.slice(-5).join("；")
   return latest ? `这段对话主要围绕：${latest}` : "这段对话暂无明确主题。"
+}
+
+function hasLongTermSummaryValue(value: string) {
+  if (!canStoreUserUtterance(value)) return false
+  if (asksAboutUserMemory(value) || isOneOffRequest(value)) return false
+  if (/^(hello|hi|嗨|晚上好|早上好|好|可以|爱你|想你|111|1)$/i.test(value)) {
+    return false
+  }
+  return /(?:我叫|生日|我是|我的工作|公司|入职|离职|换工作|被裁|分手|结婚|毕业|搬家|生病|住院|最近.*焦虑|持续.*焦虑|一直.*压力|喜欢|不喜欢|讨厌|不喝|不吃|读完|最近在读)/.test(
+    value,
+  )
 }
 
 export async function maybeSaveConversationSummary(
@@ -730,6 +1194,9 @@ export async function maybeSaveConversationSummary(
   if (unsummarized.length < windowSize) return
 
   const window = unsummarized.slice(-windowSize)
+  const summary = summarizeMessages(window)
+  if (summary === "这段对话暂无明确主题。") return
+
   await env.DB.prepare(
     `INSERT INTO conversation_summaries (
        id,
@@ -747,7 +1214,7 @@ export async function maybeSaveConversationSummary(
       crypto.randomUUID(),
       input.userId,
       input.conversationId,
-      summarizeMessages(window),
+      summary,
       window[0].created_at,
       window[window.length - 1].created_at,
       window.length,

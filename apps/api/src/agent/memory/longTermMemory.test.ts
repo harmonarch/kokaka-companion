@@ -186,6 +186,19 @@ function createEnvFixture(input?: {
           return null
         },
         async all<T>() {
+          if (sql.includes("SELECT id, type, content, created_at AS createdAt")) {
+            const userId = String(this.values[0])
+            const results = memories
+              .filter((memory) => memory.user_id === userId)
+              .sort((a, b) => b.created_at - a.created_at)
+              .map((memory) => ({
+                id: memory.id,
+                type: memory.type,
+                content: memory.content,
+                createdAt: memory.created_at,
+              })) as T[]
+            return { results }
+          }
           if (sql.includes("SELECT id FROM memories")) {
             const userId = String(this.values[0])
             const type = String(this.values[1])
@@ -260,7 +273,29 @@ function createEnvFixture(input?: {
               created_at: Number(this.values[5]),
             })
           }
-          if (sql.includes("DELETE FROM memories")) {
+          if (sql.includes("UPDATE memories")) {
+            const content = String(this.values[0])
+            const createdAt = Number(this.values[1])
+            const userId = String(this.values[2])
+            const id = String(this.values[3])
+            const memory = memories.find(
+              (item) => item.user_id === userId && item.id === id,
+            )
+            if (memory) {
+              memory.content = content
+              memory.created_at = createdAt
+            }
+          }
+          if (sql.includes("DELETE FROM memories WHERE user_id = ? AND id = ?")) {
+            const userId = String(this.values[0])
+            const id = String(this.values[1])
+            for (let index = memories.length - 1; index >= 0; index -= 1) {
+              const memory = memories[index]
+              if (memory.user_id === userId && memory.id === id) {
+                memories.splice(index, 1)
+              }
+            }
+          } else if (sql.includes("DELETE FROM memories")) {
             const userId = String(this.values[0])
             const type = String(this.values[1])
             for (let index = memories.length - 1; index >= 0; index -= 1) {
@@ -502,7 +537,7 @@ describe("long-term memory behavior", () => {
     ).toBe(true)
   })
 
-  it("keeps only the latest memory for each type", async () => {
+  it("stores preferences by semantic relation instead of replacing the whole type", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(() =>
@@ -516,19 +551,19 @@ describe("long-term memory behavior", () => {
     const { env, memories } = createEnvFixture({
       memories: [
         {
-          id: "old-event",
+          id: "old-alcohol",
           user_id: "u1",
           conversation_id: "old-c1",
-          type: "event",
-          content: "用户之前提到旧事件",
+          type: "preference",
+          content: "用户不喜欢喝酒",
           created_at: 1,
         },
         {
-          id: "old-preference",
+          id: "old-coffee",
           user_id: "u1",
           conversation_id: "old-c2",
           type: "preference",
-          content: "用户之前喜欢旧回复",
+          content: "用户喜欢喝咖啡",
           created_at: 2,
         },
       ],
@@ -539,23 +574,20 @@ describe("long-term memory behavior", () => {
       conversationId: "c2",
       memory: {
         facts: [],
-        events: ["用户提到第一个新事件", "用户提到最新事件"],
-        preferences: ["用户喜欢更直接"],
-        emotionSnapshot: "用户当前情绪状态：开心",
+        events: [],
+        preferences: ["用户不喜欢吃折耳根", "用户喜欢工作学习时喝咖啡"],
+        emotionSnapshot: null,
       },
     })
 
-    expect(memories.map((memory) => memory.type).sort()).toEqual([
-      "emotion_snapshot",
-      "event",
-      "preference",
-    ])
-    expect(memories.find((memory) => memory.type === "event")?.content).toBe(
-      "用户提到最新事件",
+    expect(memories.map((memory) => memory.content).sort()).toEqual(
+      [
+        "用户不喜欢喝酒",
+        "用户不喜欢吃折耳根",
+        "用户喜欢喝咖啡",
+        "用户喜欢工作学习时喝咖啡",
+      ].sort(),
     )
-    expect(
-      memories.find((memory) => memory.type === "preference")?.content,
-    ).toBe("用户喜欢更直接")
   })
 
   it("does not keep assistant-sourced model output as memory", async () => {
@@ -641,7 +673,10 @@ describe("long-term memory behavior", () => {
     const messages = Array.from({ length: 20 }, (_, index) => ({
       id: `msg-${index}`,
       role: index % 2 === 0 ? ("user" as const) : ("agent" as const),
-      content: index % 2 === 0 ? `用户话题 ${index}` : `回复 ${index}`,
+      content:
+        index % 2 === 0
+          ? `我最近一直在准备换工作，第 ${index} 次聊这个`
+          : `回复 ${index}`,
       created_at: index + 1,
     }))
 
@@ -652,7 +687,7 @@ describe("long-term memory behavior", () => {
     })
 
     expect(summaries).toHaveLength(1)
-    expect(summaries[0].summary).toContain("用户话题")
+    expect(summaries[0].summary).toContain("换工作")
     expect(summaries[0].message_count).toBe(20)
     expect(kv.has(longTermMemoryCacheKey("u1"))).toBe(false)
   })
