@@ -42,6 +42,7 @@ export class MessageCollector {
       content: input.content,
       receivedAt: this.now(),
     })
+    this.callbacks.onStatus?.("listening")
     this.startEvalLoop()
   }
 
@@ -154,10 +155,13 @@ export class MessageCollector {
     this.expressionGroupId = null
     this.nudgeSent = false
 
+    const replyingStartedAt = this.now()
+    this.callbacks.onStatus?.("replying")
     await this.callbacks.onSubmit({
       pending,
       expressionGroupId,
       gentle,
+      replyingStartedAt,
     })
   }
 

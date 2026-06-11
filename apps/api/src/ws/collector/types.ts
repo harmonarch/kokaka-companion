@@ -26,10 +26,12 @@ export type TimingConfig = {
 }
 
 export type MessageCollectorCallbacks = {
+  onStatus?: (status: "listening" | "replying") => void
   onSubmit: (input: {
     pending: PendingMessage[]
     expressionGroupId: string
     gentle: boolean
+    replyingStartedAt: number
   }) => Promise<void>
   onNudge: (text: string) => void
   onError: (error: unknown) => void

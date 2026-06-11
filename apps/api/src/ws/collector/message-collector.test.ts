@@ -15,14 +15,18 @@ function createHarness(evaluator: Partial<MessageEvaluator> = {}) {
     pending: PendingMessage[]
     expressionGroupId: string
     gentle: boolean
+    replyingStartedAt: number
   }> = []
   const nudges: string[] = []
   const errors: unknown[] = []
+  const statuses: Array<"listening" | "replying"> = []
   const completeEvaluator: MessageEvaluator = {
-    evaluate: vi.fn(async (): Promise<EvalResult> => ({
-      status: "complete",
-      emotionIntensity: 0.5,
-    })),
+    evaluate: vi.fn(
+      async (): Promise<EvalResult> => ({
+        status: "complete",
+        emotionIntensity: 0.5,
+      }),
+    ),
     generateNudge: vi.fn(async () => "嗯，我在听"),
     ...evaluator,
   }
@@ -32,6 +36,7 @@ function createHarness(evaluator: Partial<MessageEvaluator> = {}) {
       onSubmit: async (input) => {
         submissions.push(input)
       },
+      onStatus: (status) => statuses.push(status),
       onNudge: (text) => nudges.push(text),
       onError: (error) => errors.push(error),
     },
@@ -45,6 +50,7 @@ function createHarness(evaluator: Partial<MessageEvaluator> = {}) {
     submissions,
     nudges,
     errors,
+    statuses,
     setNow: (value: number) => {
       now = value
     },
@@ -76,6 +82,18 @@ describe("MessageCollector", () => {
     expect(harness.submissions).toHaveLength(0)
   })
 
+  it("reports listening as soon as a message is collected", () => {
+    vi.useFakeTimers()
+    const harness = createHarness()
+    harness.collector.addMessage({
+      id: "m1",
+      sessionId: "s1",
+      content: "我今天有点烦",
+    })
+
+    expect(harness.statuses).toEqual(["listening"])
+  })
+
   it("submits one expression after complete evaluation", async () => {
     vi.useFakeTimers()
     const harness = createHarness()
@@ -97,8 +115,10 @@ describe("MessageCollector", () => {
       "我今天有点烦",
       "其实也不是烦",
     ])
+    expect(harness.statuses.at(-1)).toBe("replying")
     expect(harness.submissions).toHaveLength(1)
     expect(harness.submissions[0].gentle).toBe(false)
+    expect(harness.submissions[0].replyingStartedAt).toBe(6000)
     expect(harness.submissions[0].pending.map((message) => message.id)).toEqual(
       ["m1", "m2"],
     )
@@ -107,10 +127,12 @@ describe("MessageCollector", () => {
   it("sends one nudge at 10 seconds without clearing pending", async () => {
     vi.useFakeTimers()
     const evaluator: MessageEvaluator = {
-      evaluate: vi.fn(async (): Promise<EvalResult> => ({
-        status: "trailing_off",
-        emotionIntensity: 0.5,
-      })),
+      evaluate: vi.fn(
+        async (): Promise<EvalResult> => ({
+          status: "trailing_off",
+          emotionIntensity: 0.5,
+        }),
+      ),
       generateNudge: vi.fn(async () => "嗯，我在听"),
     }
     const harness = createHarness(evaluator)
@@ -130,10 +152,12 @@ describe("MessageCollector", () => {
   it("sends gentle response at 20 seconds and ends the group", async () => {
     vi.useFakeTimers()
     const harness = createHarness({
-      evaluate: vi.fn(async (): Promise<EvalResult> => ({
-        status: "venting",
-        emotionIntensity: 0.9,
-      })),
+      evaluate: vi.fn(
+        async (): Promise<EvalResult> => ({
+          status: "venting",
+          emotionIntensity: 0.9,
+        }),
+      ),
     })
     harness.collector.addMessage({
       id: "m1",
@@ -151,10 +175,12 @@ describe("MessageCollector", () => {
   it("submits immediately when done is forced", async () => {
     vi.useFakeTimers()
     const harness = createHarness({
-      evaluate: vi.fn(async (): Promise<EvalResult> => ({
-        status: "mid_thought",
-        emotionIntensity: 0.2,
-      })),
+      evaluate: vi.fn(
+        async (): Promise<EvalResult> => ({
+          status: "mid_thought",
+          emotionIntensity: 0.2,
+        }),
+      ),
     })
     harness.collector.addMessage({
       id: "m1",
