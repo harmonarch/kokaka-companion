@@ -23,6 +23,16 @@ function chunks(value: string) {
   return parts && parts.length > 0 ? parts : [value]
 }
 
+function wait(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms))
+}
+
+async function waitForMinimumReplyingTime(replyingStartedAt: number) {
+  const elapsed = Date.now() - replyingStartedAt
+  const remaining = 3000 - elapsed
+  if (remaining > 0) await wait(remaining)
+}
+
 async function updateCollectedHistory(
   env: Env,
   input: {
@@ -46,14 +56,16 @@ async function updateCollectedHistory(
     expression_group_id: input.expressionGroupId,
     expression_part_index: null,
   }
-  const userMessages = input.pending.map((message, index): ChatMessage => ({
-    id: message.id,
-    role: "user",
-    content: message.content,
-    created_at: message.receivedAt,
-    expression_group_id: input.expressionGroupId,
-    expression_part_index: index,
-  }))
+  const userMessages = input.pending.map(
+    (message, index): ChatMessage => ({
+      id: message.id,
+      role: "user",
+      content: message.content,
+      created_at: message.receivedAt,
+      expression_group_id: input.expressionGroupId,
+      expression_part_index: index,
+    }),
+  )
   const deleteIds = [input.syntheticUserMessageId, agentMessage.id]
 
   await replaceChatMessages(env, {
@@ -116,7 +128,12 @@ export async function handleChatWebSocket(
           status,
         })
       },
-      onSubmit: async ({ pending, expressionGroupId, gentle }) => {
+      onSubmit: async ({
+        pending,
+        expressionGroupId,
+        gentle,
+        replyingStartedAt,
+      }) => {
         const content = pending.map((message) => message.content).join("\n")
         const syntheticUserMessageId = `${expressionGroupId}:combined`
         const conversationId = pending[0]?.sessionId ?? "default"
@@ -137,6 +154,8 @@ export async function handleChatWebSocket(
           conversationId,
           userMessageId: syntheticUserMessageId,
         })
+
+        await waitForMinimumReplyingTime(replyingStartedAt)
 
         if (gentle) {
           send(server, {
