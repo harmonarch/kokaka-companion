@@ -50,6 +50,10 @@ export const tokenMessageSchema = z.object({
   type: z.literal("token"),
   topic_id: z.literal("default"),
   delta: z.string(),
+  message_id: z.string().optional(),
+  expression_group_id: z.string().optional().nullable(),
+  expression_part_index: z.number().int().nonnegative().optional().nullable(),
+  expression_part_total: z.number().int().positive().optional(),
 })
 
 export const topicDoneMessageSchema = z.object({

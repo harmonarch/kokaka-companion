@@ -21,6 +21,28 @@ describe("chat websocket schemas", () => {
     ).toEqual({ type: "gentle", content: "慢慢说" })
   })
 
+  it("accepts reply part metadata on token messages", () => {
+    expect(
+      serverWsMessageSchema.parse({
+        type: "token",
+        topic_id: "default",
+        delta: "嘿嘿，我也想你了～",
+        message_id: "agent-part-1",
+        expression_group_id: "group-1",
+        expression_part_index: 0,
+        expression_part_total: 2,
+      }),
+    ).toEqual({
+      type: "token",
+      topic_id: "default",
+      delta: "嘿嘿，我也想你了～",
+      message_id: "agent-part-1",
+      expression_group_id: "group-1",
+      expression_part_index: 0,
+      expression_part_total: 2,
+    })
+  })
+
   it("accepts agent status server messages", () => {
     expect(
       serverWsMessageSchema.parse({
