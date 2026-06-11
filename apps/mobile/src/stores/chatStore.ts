@@ -7,11 +7,14 @@ import { ChatController } from "@ai-companion/core"
 import { create } from "zustand"
 import { useAuthStore } from "@/stores/authStore"
 import { chatWsUrl } from "@/config/api"
+import {
+  applyTokenMessage,
+  createTransientNudgeId,
+  isTransientNudge,
+} from "./chatMessages"
 
 type ChatStatus = "idle" | "sending" | "agent_replying" | "error"
 type AgentPresence = "listening" | "replying" | null
-
-const transientNudgePrefix = "transient-nudge:"
 
 type ChatState = {
   messages: ChatMessage[]
@@ -33,9 +36,7 @@ type ChatState = {
 }
 
 function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]) {
-  const messages = current.filter(
-    (message) => !message.id.startsWith(transientNudgePrefix),
-  )
+  const messages = current.filter((message) => !isTransientNudge(message))
 
   for (const next of incoming) {
     const duplicate = messages.some(
@@ -90,28 +91,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
           set({ status: "agent_replying", error: null })
         }
         if (message.type === "token") {
-          const messages = [...get().messages]
-          const newest = messages[0]
-          if (
-            newest?.role === "agent" &&
-            !newest.id.startsWith(transientNudgePrefix)
-          ) {
-            newest.content += message.delta
-          } else {
-            messages.unshift({
-              id: crypto.randomUUID(),
-              role: "agent",
-              content: message.delta,
-              created_at: Date.now(),
-            })
-          }
-          set({ messages, agentPresence: null })
+          set({
+            messages: applyTokenMessage(get().messages, message, {
+              id: crypto.randomUUID,
+              now: Date.now,
+            }),
+            agentPresence: null,
+          })
         }
         if (message.type === "nudge") {
           set({
             messages: [
               {
-                id: `${transientNudgePrefix}${crypto.randomUUID()}`,
+                id: createTransientNudgeId(crypto.randomUUID()),
                 role: "agent",
                 content: message.content,
                 created_at: Date.now(),
