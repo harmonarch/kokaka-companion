@@ -111,6 +111,8 @@ export const chatMessages = sqliteTable(
     role: text("role").notNull(),
     content: text("content").notNull(),
     createdAt: integer("created_at").notNull(),
+    expressionGroupId: text("expression_group_id"),
+    expressionPartIndex: integer("expression_part_index"),
   },
   (table) => ({
     userTimeIdx: index("idx_chat_messages_user_time").on(

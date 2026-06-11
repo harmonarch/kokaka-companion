@@ -29,6 +29,20 @@ function createEnvFixture() {
           if (sql.startsWith("UPDATE")) updates.push(sql)
           return { success: true }
         },
+        async all() {
+          return {
+            results: [
+              { name: "id" },
+              { name: "user_id" },
+              { name: "conversation_id" },
+              { name: "role" },
+              { name: "content" },
+              { name: "created_at" },
+              { name: "expression_group_id" },
+              { name: "expression_part_index" },
+            ],
+          }
+        },
       }
     },
     async batch(statements: Array<{ run: () => Promise<unknown> }>) {

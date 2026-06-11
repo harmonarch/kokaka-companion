@@ -10,7 +10,9 @@ export async function ensureChatMessagesTable(env: Env) {
         conversation_id TEXT NOT NULL,
         role TEXT NOT NULL,
         content TEXT NOT NULL,
-        created_at INTEGER NOT NULL
+        created_at INTEGER NOT NULL,
+        expression_group_id TEXT,
+        expression_part_index INTEGER
       )`,
     ),
     env.DB.prepare(
@@ -22,6 +24,27 @@ export async function ensureChatMessagesTable(env: Env) {
         ON chat_messages(user_id, conversation_id, created_at)`,
     ),
   ])
+  await addColumnIfMissing(env, "chat_messages", "expression_group_id", "TEXT")
+  await addColumnIfMissing(
+    env,
+    "chat_messages",
+    "expression_part_index",
+    "INTEGER",
+  )
+}
+
+async function addColumnIfMissing(
+  env: Env,
+  table: string,
+  column: string,
+  definition: string,
+) {
+  const result = await env.DB.prepare(`PRAGMA table_info(${table})`).all<{
+    name: string
+  }>()
+  const columns = result.results ?? []
+  if (columns.some((entry) => entry.name === column)) return
+  await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run()
 }
 
 export async function saveChatMessages(
@@ -35,18 +58,62 @@ export async function saveChatMessages(
   await ensureChatMessagesTable(env)
   await env.DB.batch(
     input.messages.map((message) =>
-      env.DB.prepare(
-        `INSERT OR IGNORE INTO chat_messages
-          (id, user_id, conversation_id, role, content, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-      ).bind(
-        message.id,
-        input.userId,
-        input.conversationId,
-        message.role,
-        message.content,
-        message.created_at,
-      ),
+      createInsertChatMessageStatement(env, input, message),
     ),
+  )
+}
+
+export async function replaceChatMessages(
+  env: Env,
+  input: {
+    userId: string
+    conversationId: string
+    deleteIds: string[]
+    messages: ChatMessage[]
+  },
+) {
+  await ensureChatMessagesTable(env)
+  await env.DB.batch([
+    ...input.deleteIds.map((id) =>
+      env.DB.prepare(
+        "DELETE FROM chat_messages WHERE user_id = ? AND id = ?",
+      ).bind(input.userId, id),
+    ),
+    ...input.messages.map((message) =>
+      createInsertChatMessageStatement(env, input, message),
+    ),
+  ])
+}
+
+function createInsertChatMessageStatement(
+  env: Env,
+  input: {
+    userId: string
+    conversationId: string
+  },
+  message: ChatMessage,
+) {
+  return env.DB.prepare(
+    `INSERT OR IGNORE INTO chat_messages
+      (
+        id,
+        user_id,
+        conversation_id,
+        role,
+        content,
+        created_at,
+        expression_group_id,
+        expression_part_index
+      )
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).bind(
+    message.id,
+    input.userId,
+    input.conversationId,
+    message.role,
+    message.content,
+    message.created_at,
+    message.expression_group_id ?? null,
+    message.expression_part_index ?? null,
   )
 }

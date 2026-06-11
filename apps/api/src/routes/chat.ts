@@ -23,6 +23,8 @@ chatRoutes.get("/history", async (c) => {
     role: "user" | "agent"
     content: string
     created_at: number
+    expression_group_id: string | null
+    expression_part_index: number | null
   }>
 
   if (beforeId) {
@@ -42,7 +44,13 @@ chatRoutes.get("/history", async (c) => {
     }
 
     rows = await c.env.DB.prepare(
-      `SELECT id, role, content, created_at
+      `SELECT
+         id,
+         role,
+         content,
+         created_at,
+         expression_group_id,
+         expression_part_index
        FROM chat_messages
        WHERE user_id = ?
          AND (created_at < ? OR (created_at = ? AND rowid < ?))
@@ -60,7 +68,13 @@ chatRoutes.get("/history", async (c) => {
       .then((result) => result.results ?? [])
   } else {
     rows = await c.env.DB.prepare(
-      `SELECT id, role, content, created_at
+      `SELECT
+         id,
+         role,
+         content,
+         created_at,
+         expression_group_id,
+         expression_part_index
        FROM chat_messages
        WHERE user_id = ?
        ORDER BY created_at DESC, rowid DESC
