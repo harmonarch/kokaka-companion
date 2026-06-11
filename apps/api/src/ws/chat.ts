@@ -84,6 +84,7 @@ export async function handleChatWebSocket(
           userMessage: message.content,
           reply: result.reply,
           emotionState: result.emotionState,
+          context: result.context,
         })
         await saveLongTermMemory(env, {
           userId: user.id,
