@@ -9,12 +9,14 @@ import { useAuthStore } from "@/stores/authStore"
 import { chatWsUrl } from "@/config/api"
 
 type ChatStatus = "idle" | "sending" | "agent_replying" | "error"
+type AgentPresence = "listening" | "replying" | null
 
 const transientNudgePrefix = "transient-nudge:"
 
 type ChatState = {
   messages: ChatMessage[]
   status: ChatStatus
+  agentPresence: AgentPresence
   connection: "idle" | "connected" | "disconnected" | "error"
   historyLoaded: boolean
   historyLoading: boolean
@@ -56,6 +58,7 @@ function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]) {
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   status: "idle",
+  agentPresence: null,
   connection: "idle",
   historyLoaded: false,
   historyLoading: false,
@@ -68,8 +71,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const controller = new ChatController({
       wsUrl: chatWsUrl,
       getTokens: () => useAuthStore.getState().tokens,
-      onStatus: (connection) => set({ connection }),
+      onStatus: (connection) =>
+        set({
+          connection,
+          agentPresence:
+            connection === "connected" ? get().agentPresence : null,
+        }),
       onMessage: (message: ServerWsMessage) => {
+        if (message.type === "agent_status") {
+          if (message.status === "listening") {
+            set({ agentPresence: "listening" })
+          }
+          if (message.status === "replying") {
+            set({ agentPresence: "replying", status: "agent_replying" })
+          }
+        }
         if (message.type === "topic_start") {
           set({ status: "agent_replying", error: null })
         }
@@ -89,7 +105,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               created_at: Date.now(),
             })
           }
-          set({ messages })
+          set({ messages, agentPresence: null })
         }
         if (message.type === "nudge") {
           set({
@@ -117,16 +133,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
             ],
             status: "agent_replying",
             error: null,
+            agentPresence: null,
           })
         }
         if (message.type === "all_done") {
           set({
             status: "idle",
             emotionState: message.metadata.emotion_state,
+            agentPresence: null,
           })
         }
         if (message.type === "error") {
-          set({ status: "error", error: message.message })
+          set({
+            status: "error",
+            error: message.message,
+            agentPresence: null,
+          })
         }
       },
     })
@@ -205,11 +227,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       content: trimmed,
       created_at: Date.now(),
     }
-    set({ messages: [userMessage, ...get().messages], status: "sending" })
+    set({
+      messages: [userMessage, ...get().messages],
+      status: "sending",
+      agentPresence: null,
+    })
     get().controller?.send(trimmed, "default", userMessage.id)
   },
   disconnect: () => {
     get().controller?.close()
-    set({ controller: null, connection: "idle" })
+    set({ controller: null, connection: "idle", agentPresence: null })
   },
 }))
