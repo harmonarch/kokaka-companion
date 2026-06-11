@@ -23,6 +23,46 @@ function chunks(value: string) {
   return parts && parts.length > 0 ? parts : [value]
 }
 
+export function isShortMessageBurst(messages: PendingMessage[]) {
+  return (
+    messages.length >= 2 &&
+    messages.every((message) => message.content.trim().length <= 20)
+  )
+}
+
+function limitReplyParts(parts: string[]) {
+  return parts
+    .slice(0, 3)
+    .concat(parts.length > 4 ? [parts.slice(3).join("")] : parts.slice(3))
+}
+
+export function splitReplyIntoParts(reply: string) {
+  const normalized = reply.trim()
+  if (!normalized) return [reply]
+
+  const parts =
+    normalized
+      .match(/[^。！？!?…\n]+[。！？!?…]?/g)
+      ?.map((part) => part.trim()) ?? []
+  const filtered = parts.filter(Boolean)
+  if (filtered.length > 1) return limitReplyParts(filtered)
+
+  const spaced = normalized.split(/\s+/).filter(Boolean)
+  if (spaced.length > 1) return limitReplyParts(spaced)
+
+  return [normalized]
+}
+
+export function buildReplyParts(reply: string, shouldSplit: boolean) {
+  const parts = shouldSplit ? splitReplyIntoParts(reply) : [reply]
+  return parts.slice(0, 4).map((content, index) => ({
+    id: crypto.randomUUID(),
+    content,
+    index,
+    total: Math.min(parts.length, 4),
+  }))
+}
+
 function wait(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms))
 }
@@ -33,7 +73,7 @@ async function waitForMinimumReplyingTime(replyingStartedAt: number) {
   if (remaining > 0) await wait(remaining)
 }
 
-async function updateCollectedHistory(
+export async function updateCollectedHistory(
   env: Env,
   input: {
     userId: string
@@ -42,20 +82,29 @@ async function updateCollectedHistory(
     syntheticUserMessageId: string
     pending: PendingMessage[]
     reply: string
+    replyParts: Array<{
+      id: string
+      content: string
+      index: number
+      total: number
+    }>
     context: ChatMessage[] | undefined
   },
 ): Promise<ChatMessage[]> {
   const currentAgentMessage = [...(input.context ?? [])]
     .reverse()
     .find((message) => message.role === "agent")
-  const agentMessage: ChatMessage = {
-    id: currentAgentMessage?.id ?? crypto.randomUUID(),
-    role: "agent",
-    content: input.reply,
-    created_at: currentAgentMessage?.created_at ?? Date.now(),
-    expression_group_id: input.expressionGroupId,
-    expression_part_index: null,
-  }
+  const agentCreatedAt = currentAgentMessage?.created_at ?? Date.now()
+  const agentMessages = input.replyParts.map(
+    (part): ChatMessage => ({
+      id: part.id,
+      role: "agent",
+      content: part.content,
+      created_at: agentCreatedAt + part.index,
+      expression_group_id: input.expressionGroupId,
+      expression_part_index: part.index,
+    }),
+  )
   const userMessages = input.pending.map(
     (message, index): ChatMessage => ({
       id: message.id,
@@ -66,13 +115,23 @@ async function updateCollectedHistory(
       expression_part_index: index,
     }),
   )
-  const deleteIds = [input.syntheticUserMessageId, agentMessage.id]
+  const deleteIds = [
+    input.syntheticUserMessageId,
+    ...(currentAgentMessage ? [currentAgentMessage.id] : []),
+    ...(input.context ?? [])
+      .filter(
+        (message) =>
+          message.role === "agent" &&
+          message.expression_group_id === input.expressionGroupId,
+      )
+      .map((message) => message.id),
+  ]
 
   await replaceChatMessages(env, {
     userId: input.userId,
     conversationId: input.conversationId,
     deleteIds,
-    messages: [...userMessages, agentMessage],
+    messages: [...userMessages, ...agentMessages],
   }).catch((error) => {
     console.error("Failed to replace collected chat history", error)
   })
@@ -80,7 +139,9 @@ async function updateCollectedHistory(
   const currentContext = (input.context ?? []).filter(
     (message) => !deleteIds.includes(message.id),
   )
-  const messages = [...currentContext, ...userMessages, agentMessage].slice(-20)
+  const messages = [...currentContext, ...userMessages, ...agentMessages].slice(
+    -20,
+  )
   const recentContext: RecentContext = { messages }
   await env.CHAT_CONTEXT.put(
     `ctx:${input.userId}`,
@@ -135,6 +196,7 @@ export async function handleChatWebSocket(
         replyingStartedAt,
       }) => {
         const content = pending.map((message) => message.content).join("\n")
+        const shortMessageBurst = isShortMessageBurst(pending)
         const syntheticUserMessageId = `${expressionGroupId}:combined`
         const conversationId = pending[0]?.sessionId ?? "default"
 
@@ -153,7 +215,12 @@ export async function handleChatWebSocket(
           message: content,
           conversationId,
           userMessageId: syntheticUserMessageId,
+          shortMessageBurst,
         })
+        const replyParts = buildReplyParts(
+          result.reply,
+          shortMessageBurst && !gentle && result.emotionState !== "crisis",
+        )
 
         await waitForMinimumReplyingTime(replyingStartedAt)
 
@@ -170,12 +237,18 @@ export async function handleChatWebSocket(
             },
           })
         } else {
-          for (const delta of chunks(result.reply)) {
-            send(server, {
-              type: "token",
-              topic_id: "default",
-              delta,
-            })
+          for (const part of replyParts) {
+            for (const delta of chunks(part.content)) {
+              send(server, {
+                type: "token",
+                topic_id: "default",
+                delta,
+                message_id: part.id,
+                expression_group_id: expressionGroupId,
+                expression_part_index: part.index,
+                expression_part_total: part.total,
+              })
+            }
           }
           send(server, {
             type: "topic_done",
@@ -197,6 +270,7 @@ export async function handleChatWebSocket(
           syntheticUserMessageId,
           pending,
           reply: result.reply,
+          replyParts,
           context: result.context,
         })
 

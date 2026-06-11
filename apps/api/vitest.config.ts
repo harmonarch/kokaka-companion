@@ -8,6 +8,7 @@ export default defineConfig({
       "@ai-companion/shared": fileURLToPath(
         new URL("../../packages/shared/src/index.ts", import.meta.url),
       ),
+      "@mobile": fileURLToPath(new URL("../mobile/src", import.meta.url)),
     },
   },
 })
