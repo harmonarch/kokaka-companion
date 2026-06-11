@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
+  type ExtractedLongTermMemory,
   extractLongTermMemory,
   formatLongTermMemory,
   heuristicExtractLongTermMemory,
@@ -690,5 +691,620 @@ describe("long-term memory behavior", () => {
     expect(summaries[0].summary).toContain("换工作")
     expect(summaries[0].message_count).toBe(20)
     expect(kv.has(longTermMemoryCacheKey("u1"))).toBe(false)
+  })
+
+  function acceptanceScenarios() {
+    type AcceptanceCase = {
+      id: string
+      run: () => Promise<boolean> | boolean
+    }
+    const memoryRows = (memories: MemoryRow[]) =>
+      memories.map((memory) => memory.content).sort()
+    const save = async (
+      memory: ExtractedLongTermMemory,
+      input?: Parameters<typeof createEnvFixture>[0],
+    ) => {
+      const fixture = createEnvFixture(input)
+      await saveLongTermMemory(fixture.env, {
+        userId: "u1",
+        conversationId: "c1",
+        memory,
+      })
+      return fixture
+    }
+    const userMessage = (
+      content: string,
+      context?: Array<{ role: "user" | "agent"; content: string }>,
+    ) =>
+      heuristicExtractLongTermMemory(
+        content,
+        null,
+        context?.map((message, index) => ({
+          id: `ctx-${index}`,
+          role: message.role,
+          content: message.content,
+          created_at: index + 1,
+        })),
+      )
+    const summarize = async (contents: string[]) => {
+      const fixture = createEnvFixture()
+      const messages = contents.map((content, index) => ({
+        id: `msg-${index}`,
+        role: index % 2 === 0 ? ("user" as const) : ("agent" as const),
+        content,
+        created_at: index + 1,
+      }))
+      await maybeSaveConversationSummary(fixture.env, {
+        userId: "u1",
+        conversationId: "c1",
+        messages,
+      })
+      return fixture.summaries
+    }
+
+    const cases: AcceptanceCase[] = [
+      {
+        id: "01 saves name",
+        run: async () =>
+          (await save(userMessage("我叫银耳"))).profiles.get("u1")?.name ===
+          "银耳",
+      },
+      {
+        id: "02 saves birthday",
+        run: async () =>
+          (await save(userMessage("我的生日是9月17日"))).profiles.get("u1")
+            ?.birthday === "09-17",
+      },
+      {
+        id: "03 saves occupation",
+        run: async () =>
+          (await save(userMessage("我是后端工程师"))).profiles.get("u1")
+            ?.occupation === "后端工程师",
+      },
+      {
+        id: "04 saves company",
+        run: async () =>
+          (await save(userMessage("我下周去云杉做增长"))).profiles.get("u1")
+            ?.company === "云杉",
+      },
+      {
+        id: "05 saves location",
+        run: async () =>
+          (await save(userMessage("我现在在上海"))).profiles.get("u1")
+            ?.location === "上海",
+      },
+      {
+        id: "06 saves reading preference",
+        run: async () =>
+          memoryRows((await save(userMessage("我喜欢读书"))).memories).includes(
+            "用户喜欢读书",
+          ),
+      },
+      {
+        id: "07 saves alcohol avoidance",
+        run: async () =>
+          memoryRows((await save(userMessage("我不喝酒"))).memories).includes(
+            "用户不喝酒",
+          ),
+      },
+      {
+        id: "08 saves work coffee preference",
+        run: async () =>
+          memoryRows(
+            (await save(userMessage("工作学习时要喝咖啡"))).memories,
+          ).includes("用户工作学习时喝咖啡"),
+      },
+      {
+        id: "09 saves current reading preference",
+        run: async () =>
+          memoryRows(
+            (await save(userMessage("我最近在读《思考快与慢》"))).memories,
+          ).includes("用户喜欢阅读《思考快与慢》"),
+      },
+      {
+        id: "10 saves finished book event",
+        run: async () =>
+          memoryRows((await save(userMessage("我读完了《思考快与慢》"))).memories)
+            .includes("用户读完了《思考快与慢》"),
+      },
+      {
+        id: "11 duplicate preference is not added",
+        run: async () => {
+          const fixture = await save(userMessage("我喜欢读书"), {
+            memories: [
+              {
+                id: "m1",
+                user_id: "u1",
+                conversation_id: "c1",
+                type: "preference",
+                content: "用户喜欢读书",
+                created_at: 1,
+              },
+            ],
+          })
+          return fixture.memories.filter((memory) => memory.content === "用户喜欢读书")
+            .length === 1
+        },
+      },
+      {
+        id: "12 near duplicate alcohol preference merges",
+        run: async () => {
+          const fixture = await save(userMessage("我不喜欢喝酒"), {
+            memories: [
+              {
+                id: "m1",
+                user_id: "u1",
+                conversation_id: "c1",
+                type: "preference",
+                content: "用户不喝酒",
+                created_at: 1,
+              },
+            ],
+          })
+          return fixture.memories.length === 1
+        },
+      },
+      {
+        id: "13 independent negative preferences coexist",
+        run: async () => {
+          const fixture = await save(userMessage("我不喜欢吃折耳根"), {
+            memories: [
+              {
+                id: "m1",
+                user_id: "u1",
+                conversation_id: "c1",
+                type: "preference",
+                content: "用户不喜欢喝酒",
+                created_at: 1,
+              },
+            ],
+          })
+          return memoryRows(fixture.memories).join("|") ===
+            ["用户不喜欢吃折耳根", "用户不喜欢喝酒"].sort().join("|")
+        },
+      },
+      {
+        id: "14 conflicting alcohol preference replaces",
+        run: async () => {
+          const fixture = await save(userMessage("我不喝酒"), {
+            memories: [
+              {
+                id: "m1",
+                user_id: "u1",
+                conversation_id: "c1",
+                type: "preference",
+                content: "用户喜欢喝啤酒",
+                created_at: 1,
+              },
+            ],
+          })
+          return fixture.memories.length === 1 &&
+            fixture.memories[0].content === "用户不喝酒"
+        },
+      },
+      {
+        id: "15 general and contextual coffee preferences coexist",
+        run: async () => {
+          const fixture = await save(userMessage("工作学习时要喝咖啡"), {
+            memories: [
+              {
+                id: "m1",
+                user_id: "u1",
+                conversation_id: "c1",
+                type: "preference",
+                content: "用户喜欢喝咖啡",
+                created_at: 1,
+              },
+            ],
+          })
+          return fixture.memories.length === 2
+        },
+      },
+      {
+        id: "16 more specific warm drink preference updates",
+        run: async () => {
+          const fixture = await save(userMessage("我喜欢不太甜的暖饮"), {
+            memories: [
+              {
+                id: "m1",
+                user_id: "u1",
+                conversation_id: "c1",
+                type: "preference",
+                content: "用户喜欢暖饮",
+                created_at: 1,
+              },
+            ],
+          })
+          return fixture.memories.length === 1 &&
+            fixture.memories[0].content === "用户喜欢不太甜的暖饮"
+        },
+      },
+      {
+        id: "17 forget request deletes matching memory",
+        run: async () => {
+          const fixture = await save(userMessage("忘掉我不喝酒"), {
+            memories: [
+              {
+                id: "m1",
+                user_id: "u1",
+                conversation_id: "c1",
+                type: "preference",
+                content: "用户不喝酒",
+                created_at: 1,
+              },
+            ],
+          })
+          return fixture.memories.length === 0
+        },
+      },
+      {
+        id: "18 updated alcohol preference replaces old negative",
+        run: async () => {
+          const fixture = await save(userMessage("其实我现在喜欢喝酒了"), {
+            memories: [
+              {
+                id: "m1",
+                user_id: "u1",
+                conversation_id: "c1",
+                type: "preference",
+                content: "用户不喝酒",
+                created_at: 1,
+              },
+            ],
+          })
+          return fixture.memories.length === 1 &&
+            fixture.memories[0].content === "用户喜欢喝酒"
+        },
+      },
+      {
+        id: "19 resolves this feeling from user context",
+        run: async () =>
+          userMessage("我喜欢这种感觉", [
+            { role: "user", content: "读书时突然想通的感觉真的很好" },
+          ]).preferences.includes("用户喜欢读书时突然想通的感觉"),
+      },
+      {
+        id: "20 drops unresolved this feeling",
+        run: () => userMessage("我喜欢这种感觉").preferences.length === 0,
+      },
+      {
+        id: "21 resolves assistant response preference",
+        run: () =>
+          userMessage("你刚刚那样说我挺喜欢的", [
+            { role: "agent", content: "你这次做得很具体，也确实不容易。" },
+          ]).preferences.includes("用户喜欢被具体肯定"),
+      },
+      {
+        id: "22 assistant-only guess is not saved",
+        run: async () =>
+          (await save(userMessage("我喜欢什么？"))).memories.length === 0,
+      },
+      {
+        id: "23 user confirmation is saved",
+        run: async () =>
+          memoryRows(
+            (await save(userMessage("对，我喜欢被理解"))).memories,
+          ).includes("用户喜欢被理解"),
+      },
+      {
+        id: "24 user memory question does not save",
+        run: () => userMessage("我喜欢什么？").preferences.length === 0,
+      },
+      {
+        id: "25 assistant preference question does not save",
+        run: () => userMessage("你喜欢喝什么？").preferences.length === 0,
+      },
+      {
+        id: "26 today happy is not emotion snapshot",
+        run: async () =>
+          (await save(userMessage("今天心情很好"))).memories.length === 0,
+      },
+      {
+        id: "27 miss you is not emotion snapshot",
+        run: async () => (await save(userMessage("想你～"))).memories.length === 0,
+      },
+      {
+        id: "28 normal internal emotion is rejected",
+        run: async () =>
+          (await save({ facts: [], events: [], preferences: [], emotionSnapshot: "normal" }))
+            .memories.length === 0,
+      },
+      {
+        id: "29 positive internal emotion is rejected",
+        run: async () =>
+          (await save({ facts: [], events: [], preferences: [], emotionSnapshot: "positive" }))
+            .memories.length === 0,
+      },
+      {
+        id: "30 sustained anxiety is saved",
+        run: async () =>
+          memoryRows(
+            (await save(userMessage("我最近两周一直为面试焦虑"))).memories,
+          )[0]?.includes("面试焦虑") === true,
+      },
+      {
+        id: "31 temporary annoyance is not saved",
+        run: async () =>
+          (await save(userMessage("刚刚有点烦"))).memories.length === 0,
+      },
+      {
+        id: "32 one-off barbecue is not saved",
+        run: async () =>
+          (await save(userMessage("明天想吃烧烤"))).memories.length === 0,
+      },
+      {
+        id: "33 stable barbecue preference is saved",
+        run: async () =>
+          memoryRows(
+            (await save(userMessage("我一直喜欢吃烧烤"))).memories,
+          ).includes("用户喜欢吃烧烤"),
+      },
+      {
+        id: "34 tonight milk tea is not saved",
+        run: async () =>
+          (await save(userMessage("今晚想喝奶茶"))).memories.length === 0,
+      },
+      {
+        id: "35 stable milk tea preference is saved",
+        run: async () =>
+          memoryRows(
+            (await save(userMessage("我平时不喝太甜的奶茶"))).memories,
+          ).includes("用户平时不喝太甜的奶茶"),
+      },
+      {
+        id: "36 assistant suggestion from model is rejected",
+        run: async () => {
+          vi.stubGlobal(
+            "fetch",
+            vi.fn().mockImplementation(() =>
+              Promise.resolve(
+                Response.json({
+                  choices: [
+                    {
+                      message: {
+                        content: JSON.stringify({
+                          events: ["助手建议用户每天冥想"],
+                          preferences: [],
+                          emotionSnapshot: null,
+                        }),
+                      },
+                    },
+                  ],
+                }),
+              ),
+            ),
+          )
+          const fixture = createEnvFixture()
+          fixture.env.DEEPSEEK_API_KEY = "key"
+          const memory = await extractLongTermMemory(fixture.env, {
+            userMessage: "我今天很忙",
+            reply: "建议你冥想",
+            emotionState: "normal",
+          })
+          return memory.events.length === 0
+        },
+      },
+      {
+        id: "37 invalid model type is rejected",
+        run: async () =>
+          (await save({
+            facts: [],
+            events: [],
+            preferences: [],
+            emotionSnapshot: null,
+          })).memories.length === 0,
+      },
+      {
+        id: "38 empty model content is rejected",
+        run: async () =>
+          (await save({
+            facts: [],
+            events: [""],
+            preferences: [""],
+            emotionSnapshot: "",
+          })).memories.length === 0,
+      },
+      {
+        id: "39 unrelated model content is rejected by extraction",
+        run: async () => {
+          vi.stubGlobal(
+            "fetch",
+            vi.fn().mockImplementation(() =>
+              Promise.resolve(
+                Response.json({
+                  choices: [
+                    {
+                      message: {
+                        content: JSON.stringify({
+                          preferences: ["用户喜欢潜水"],
+                          events: [],
+                          emotionSnapshot: null,
+                        }),
+                      },
+                    },
+                  ],
+                }),
+              ),
+            ),
+          )
+          const fixture = createEnvFixture()
+          fixture.env.DEEPSEEK_API_KEY = "key"
+          const memory = await extractLongTermMemory(fixture.env, {
+            userMessage: "我喜欢读书",
+            reply: "好",
+            emotionState: "normal",
+          })
+          return !memory.preferences.includes("用户喜欢潜水")
+        },
+      },
+      {
+        id: "40 near duplicate model preferences merge on save",
+        run: async () => {
+          const fixture = await save({
+            facts: [],
+            events: [],
+            preferences: ["用户喜欢暖饮", "用户喜欢不太甜的暖饮"],
+            emotionSnapshot: null,
+          })
+          return fixture.memories.length === 1 &&
+            fixture.memories[0].content === "用户喜欢不太甜的暖饮"
+        },
+      },
+      {
+        id: "41 chatty long conversation has no summary",
+        run: async () =>
+          (await summarize(
+            Array.from({ length: 20 }, (_, index) =>
+              index % 2 === 0 ? "hello" : "回复",
+            ),
+          )).length === 0,
+      },
+      {
+        id: "42 memory quiz long conversation has no summary",
+        run: async () =>
+          (await summarize(
+            Array.from({ length: 20 }, (_, index) =>
+              index % 2 === 0 ? "你说说我喜欢什么" : "回复",
+            ),
+          )).length === 0,
+      },
+      {
+        id: "43 one-off plan long conversation has no summary",
+        run: async () =>
+          (await summarize(
+            Array.from({ length: 20 }, (_, index) =>
+              index % 2 === 0 ? "明天想吃烧烤" : "回复",
+            ),
+          )).length === 0,
+      },
+      {
+        id: "44 job change long conversation gets summary",
+        run: async () =>
+          (await summarize(
+            Array.from({ length: 20 }, (_, index) =>
+              index % 2 === 0 ? "我最近一直在准备换工作" : "回复",
+            ),
+          )).length === 1,
+      },
+      {
+        id: "45 health long conversation gets summary",
+        run: async () =>
+          (await summarize(
+            Array.from({ length: 20 }, (_, index) =>
+              index % 2 === 0 ? "我最近一直因为生病调整作息" : "回复",
+            ),
+          )).length === 1,
+      },
+      {
+        id: "46 relationship long conversation gets summary",
+        run: async () =>
+          (await summarize(
+            Array.from({ length: 20 }, (_, index) =>
+              index % 2 === 0 ? "我最近一直在处理分手后的关系变化" : "回复",
+            ),
+          )).length === 1,
+      },
+      {
+        id: "47 disabled memory reads and writes nothing",
+        run: async () => {
+          const fixture = createEnvFixture({ memoryEnabled: false })
+          await saveLongTermMemory(fixture.env, {
+            userId: "u1",
+            conversationId: "c1",
+            memory: userMessage("我喜欢读书"),
+          })
+          return fixture.memories.length === 0
+        },
+      },
+      {
+        id: "48 explicit forget clears matching memory",
+        run: async () => {
+          const fixture = await save(userMessage("别记我喜欢读书"), {
+            memories: [
+              {
+                id: "m1",
+                user_id: "u1",
+                conversation_id: "c1",
+                type: "preference",
+                content: "用户喜欢读书",
+                created_at: 1,
+              },
+            ],
+          })
+          return fixture.memories.length === 0
+        },
+      },
+      {
+        id: "49 current cleaned data has no invalid memory type",
+        run: () => {
+          const fixture = createEnvFixture({
+            memories: [
+              {
+                id: "m1",
+                user_id: "u1",
+                conversation_id: "c1",
+                type: "preference",
+                content: "用户喜欢读书",
+                created_at: 1,
+              },
+            ],
+          })
+          return fixture.memories.every((memory) =>
+            ["event", "preference", "emotion_snapshot"].includes(memory.type),
+          )
+        },
+      },
+      {
+        id: "50 alcohol and coffee coexist",
+        run: async () => {
+          const fixture = await save(userMessage("我喜欢喝咖啡"), {
+            memories: [
+              {
+                id: "m1",
+                user_id: "u1",
+                conversation_id: "c1",
+                type: "preference",
+                content: "用户不喝酒",
+                created_at: 1,
+              },
+            ],
+          })
+          return memoryRows(fixture.memories).join("|") ===
+            ["用户不喝酒", "用户喜欢喝咖啡"].sort().join("|")
+        },
+      },
+    ]
+
+    return cases
+  }
+
+  for (const testCase of acceptanceScenarios()) {
+    it(`acceptance ${testCase.id}`, async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockImplementation(() =>
+          Promise.resolve(Response.json({ data: [{ embedding: [0.1] }] })),
+        ),
+      )
+      expect(await testCase.run()).toBe(true)
+    })
+  }
+
+  it("keeps acceptance pass rate at or above 95%", async () => {
+    const cases = acceptanceScenarios()
+    expect(cases).toHaveLength(50)
+    const results = await Promise.all(
+      cases.map(async (testCase) => ({
+        id: testCase.id,
+        passed: await testCase.run(),
+      })),
+    )
+    const failed = results.filter((result) => !result.passed)
+    const passed = results.length - failed.length
+
+    expect(
+      passed / results.length,
+      `Failed cases:\n${failed.map((item) => item.id).join("\n")}`,
+    ).toBeGreaterThanOrEqual(0.95)
   })
 })
