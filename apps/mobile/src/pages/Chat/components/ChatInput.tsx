@@ -1,4 +1,12 @@
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native"
+import type { TextStyle } from "react-native"
 import type { AppTheme } from "@/theme"
 import { useChatInputDraft } from "./useChatInputDraft"
 
@@ -47,6 +55,7 @@ export function ChatInput({
           placeholderTextColor={theme.subtle}
           style={[
             styles.input,
+            webNoFocusOutline,
             {
               backgroundColor: "transparent",
               color: theme.text,
@@ -120,3 +129,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 })
+
+const webNoFocusOutline: (TextStyle & { outlineStyle?: "none" }) | null =
+  Platform.OS === "web"
+    ? {
+        outlineStyle: "none",
+      }
+    : null
