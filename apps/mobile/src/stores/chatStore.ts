@@ -10,6 +10,8 @@ import { chatWsUrl } from "@/config/api"
 
 type ChatStatus = "idle" | "sending" | "agent_replying" | "error"
 
+const transientNudgePrefix = "transient-nudge:"
+
 type ChatState = {
   messages: ChatMessage[]
   status: ChatStatus
@@ -29,7 +31,9 @@ type ChatState = {
 }
 
 function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]) {
-  const messages = [...current]
+  const messages = current.filter(
+    (message) => !message.id.startsWith(transientNudgePrefix),
+  )
 
   for (const next of incoming) {
     const duplicate = messages.some(
@@ -72,7 +76,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (message.type === "token") {
           const messages = [...get().messages]
           const newest = messages[0]
-          if (newest?.role === "agent") {
+          if (
+            newest?.role === "agent" &&
+            !newest.id.startsWith(transientNudgePrefix)
+          ) {
             newest.content += message.delta
           } else {
             messages.unshift({
@@ -83,6 +90,34 @@ export const useChatStore = create<ChatState>((set, get) => ({
             })
           }
           set({ messages })
+        }
+        if (message.type === "nudge") {
+          set({
+            messages: [
+              {
+                id: `${transientNudgePrefix}${crypto.randomUUID()}`,
+                role: "agent",
+                content: message.content,
+                created_at: Date.now(),
+              },
+              ...get().messages,
+            ],
+          })
+        }
+        if (message.type === "gentle") {
+          set({
+            messages: [
+              {
+                id: crypto.randomUUID(),
+                role: "agent",
+                content: message.content,
+                created_at: Date.now(),
+              },
+              ...get().messages,
+            ],
+            status: "agent_replying",
+            error: null,
+          })
         }
         if (message.type === "all_done") {
           set({
