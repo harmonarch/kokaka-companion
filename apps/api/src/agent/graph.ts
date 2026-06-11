@@ -19,6 +19,7 @@ export async function runAgent(
     message: string
     conversationId?: string
     userMessageId?: string
+    shortMessageBurst?: boolean
   },
 ): Promise<AgentRunResult> {
   const graph = new StateGraph<AgentState>({
@@ -27,6 +28,7 @@ export async function runAgent(
       conversationId: null,
       userMessageId: null,
       userMessage: null,
+      shortMessageBurst: null,
       context: null,
       longTermMemory: null,
       memorySearch: null,
@@ -61,6 +63,7 @@ export async function runAgent(
     conversationId,
     userMessageId: input.userMessageId,
     userMessage: input.message,
+    shortMessageBurst: input.shortMessageBurst ?? false,
     context: [],
     longTermMemory: {
       enabled: true,

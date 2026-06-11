@@ -31,6 +31,7 @@ describe("P0 agent", () => {
       userId: "u1",
       conversationId: "c1",
       userMessage: "今天有点累",
+      shortMessageBurst: false,
       context: [],
       longTermMemory: {
         enabled: true,
@@ -73,6 +74,7 @@ describe("P0 agent", () => {
         userId: "u1",
         conversationId: "c1",
         userMessage: "我生日是什么时候？",
+        shortMessageBurst: false,
         context: [],
         longTermMemory: {
           enabled: true,
@@ -116,6 +118,56 @@ describe("P0 agent", () => {
     expect(prompt).not.toContain("长期记忆概览")
   })
 
+  it("asks the model to split replies for short message bursts", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            { message: { content: "嘿嘿，我也想你了～\n今天过得开心吗？" } },
+          ],
+        }),
+        { status: 200 },
+      ),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    await generateReplyWithDeepSeek(
+      {
+        ...env,
+        DEEPSEEK_API_KEY: "key",
+      },
+      {
+        userId: "u1",
+        conversationId: "c1",
+        userMessage: "想你\n嘿嘿",
+        shortMessageBurst: true,
+        context: [],
+        longTermMemory: {
+          enabled: true,
+          profile: null,
+          memories: [],
+          summaries: [],
+        },
+        memorySearch: {
+          query: "想你\n嘿嘿",
+          keywords: [],
+          results: [],
+        },
+        emotionState: "normal",
+        reasoning: "",
+        strategy: "轻松回应。",
+        reply: "",
+      },
+    )
+
+    const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as {
+      messages: Array<{ content: string }>
+    }
+    const prompt = request.messages[0].content
+    expect(prompt).toContain("用户刚刚连续发了多条短句")
+    expect(prompt).toContain("每句自然独立")
+  })
+
   it("persists recent context for 6 hours while keeping mood for 7 days", async () => {
     const puts: Array<{
       key: string
@@ -148,6 +200,7 @@ describe("P0 agent", () => {
       conversationId: "c1",
       userMessageId: "user-message",
       userMessage: "新的消息",
+      shortMessageBurst: false,
       context,
       longTermMemory: {
         enabled: true,

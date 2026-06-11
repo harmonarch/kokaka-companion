@@ -7,6 +7,7 @@ export type AgentState = {
   conversationId: string
   userMessageId?: string
   userMessage: string
+  shortMessageBurst: boolean
   context: ChatMessage[]
   longTermMemory: LongTermMemoryContext
   memorySearch: MemorySearchContext

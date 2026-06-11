@@ -24,6 +24,9 @@ function buildPrompt(state: AgentState) {
   return [
     "你是一个中文 AI 陪伴 Agent。",
     "回复要短、真诚、像陪伴，不要像心理咨询报告。",
+    state.shortMessageBurst
+      ? "用户刚刚连续发了多条短句。回复也要拆成短句，每句自然独立，不要合成一个长句。"
+      : "",
     "如果状态是 vulnerable，不要使用“你应该”，不要直接给行动建议。",
     "优先使用混合检索结果；检索为空时，不要编造长期记忆。",
     "不要复述无关记忆，不要把记忆清单原样念给用户。",
@@ -31,7 +34,9 @@ function buildPrompt(state: AgentState) {
     `混合检索结果：${memorySearch}`,
     `近期上下文：${recent || "无"}`,
     `用户消息：${state.userMessage}`,
-  ].join("\n")
+  ]
+    .filter(Boolean)
+    .join("\n")
 }
 
 export async function generateReplyWithDeepSeek(env: Env, state: AgentState) {
