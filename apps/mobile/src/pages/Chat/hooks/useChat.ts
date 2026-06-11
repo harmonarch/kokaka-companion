@@ -16,6 +16,7 @@ export const useChat = () => {
   return {
     user: session.user,
     chatTitle: header.chatTitle,
+    agentStatusText: header.agentStatusText,
     inputDisabled: composer.inputDisabled,
     disabledReason: composer.disabledReason,
     profileEditor,

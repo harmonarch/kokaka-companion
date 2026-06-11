@@ -9,10 +9,11 @@ import { ProfileEditorModal } from "./components/ProfileEditorModal"
 
 export default function Chat() {
   const theme = useAppTheme()
- 
+
   const {
     user,
     chatTitle,
+    agentStatusText,
     messages,
     profiles,
     inputDisabled,
@@ -25,7 +26,7 @@ export default function Chat() {
     profileEditor,
     accountActions,
   } = useChat()
-  
+
   if (!user) return <Redirect href="/login" />
 
   return (
@@ -44,6 +45,11 @@ export default function Chat() {
             <Text style={[styles.title, { color: theme.accent }]}>
               {chatTitle}
             </Text>
+            {agentStatusText ? (
+              <Text style={[styles.subtitle, { color: theme.muted }]}>
+                {agentStatusText}
+              </Text>
+            ) : null}
           </View>
           <Pressable
             onPress={accountActions.openMenu}
@@ -109,9 +115,7 @@ export default function Chat() {
             onEndReachedThreshold={0.2}
           />
           {error ? (
-            <Text style={[styles.error, { color: theme.danger }]}>
-              {error}
-            </Text>
+            <Text style={[styles.error, { color: theme.danger }]}>{error}</Text>
           ) : null}
           <ChatInput
             disabled={inputDisabled}
@@ -154,7 +158,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 56,
+    minHeight: 60,
     borderBottomWidth: 1,
     paddingHorizontal: 12,
   },
@@ -169,6 +173,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 12,
     lineHeight: 17,
+    marginTop: 1,
   },
   iconButton: {
     width: 44,
