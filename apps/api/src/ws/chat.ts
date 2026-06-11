@@ -110,6 +110,12 @@ export async function handleChatWebSocket(
       evalIntervalMs: 1000,
     },
     {
+      onStatus: (status) => {
+        send(server, {
+          type: "agent_status",
+          status,
+        })
+      },
       onSubmit: async ({ pending, expressionGroupId, gentle }) => {
         const content = pending.map((message) => message.content).join("\n")
         const syntheticUserMessageId = `${expressionGroupId}:combined`
@@ -230,6 +236,10 @@ export async function handleChatWebSocket(
         return
       }
 
+      send(server, {
+        type: "agent_status",
+        status: "received",
+      })
       collector.addMessage({
         id: message.client_message_id,
         sessionId: message.session_id,
