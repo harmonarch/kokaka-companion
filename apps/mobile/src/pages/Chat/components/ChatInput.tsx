@@ -6,7 +6,11 @@ import {
   TextInput,
   View,
 } from "react-native"
-import type { TextStyle } from "react-native"
+import type {
+  NativeSyntheticEvent,
+  TextInputKeyPressEventData,
+  TextStyle,
+} from "react-native"
 import type { AppTheme } from "@/theme"
 import { useChatInputDraft } from "./useChatInputDraft"
 
@@ -22,6 +26,31 @@ export function ChatInput({
   theme: AppTheme
 }) {
   const draft = useChatInputDraft({ disabled, onSend })
+
+  function handleKeyPress(
+    event: NativeSyntheticEvent<TextInputKeyPressEventData>,
+  ) {
+    const keyboardEvent =
+      event as NativeSyntheticEvent<TextInputKeyPressEventData> & {
+        shiftKey?: boolean
+        preventDefault?: () => void
+        nativeEvent: TextInputKeyPressEventData & {
+          shiftKey?: boolean
+          preventDefault?: () => void
+        }
+      }
+    const shiftKey =
+      keyboardEvent.shiftKey || keyboardEvent.nativeEvent.shiftKey
+
+    if (Platform.OS !== "web" || keyboardEvent.nativeEvent.key !== "Enter") {
+      return
+    }
+    if (shiftKey) return
+
+    keyboardEvent.preventDefault?.()
+    keyboardEvent.nativeEvent.preventDefault?.()
+    draft.submit()
+  }
 
   return (
     <View
@@ -49,6 +78,7 @@ export function ChatInput({
         <TextInput
           value={draft.value}
           onChangeText={draft.setValue}
+          onKeyPress={handleKeyPress}
           editable={!disabled}
           multiline
           placeholder="慢慢说，想到哪里都可以"
