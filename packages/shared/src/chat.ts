@@ -65,6 +65,14 @@ export const allDoneMessageSchema = z.object({
   }),
 })
 
+export const agentStatusSchema = z.enum(["received", "listening", "replying"])
+export type AgentStatus = z.infer<typeof agentStatusSchema>
+
+export const agentStatusMessageSchema = z.object({
+  type: z.literal("agent_status"),
+  status: agentStatusSchema,
+})
+
 export const pongMessageSchema = z.object({
   type: z.literal("pong"),
 })
@@ -89,6 +97,7 @@ export const serverWsMessageSchema = z.discriminatedUnion("type", [
   tokenMessageSchema,
   topicDoneMessageSchema,
   allDoneMessageSchema,
+  agentStatusMessageSchema,
   pongMessageSchema,
   nudgeMessageSchema,
   gentleMessageSchema,

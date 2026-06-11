@@ -21,6 +21,36 @@ describe("chat websocket schemas", () => {
     ).toEqual({ type: "gentle", content: "慢慢说" })
   })
 
+  it("accepts agent status server messages", () => {
+    expect(
+      serverWsMessageSchema.parse({
+        type: "agent_status",
+        status: "received",
+      }),
+    ).toEqual({
+      type: "agent_status",
+      status: "received",
+    })
+    expect(
+      serverWsMessageSchema.parse({
+        type: "agent_status",
+        status: "listening",
+      }),
+    ).toEqual({
+      type: "agent_status",
+      status: "listening",
+    })
+    expect(
+      serverWsMessageSchema.parse({
+        type: "agent_status",
+        status: "replying",
+      }),
+    ).toEqual({
+      type: "agent_status",
+      status: "replying",
+    })
+  })
+
   it("accepts expression group metadata on chat messages", () => {
     expect(
       chatMessageSchema.parse({
