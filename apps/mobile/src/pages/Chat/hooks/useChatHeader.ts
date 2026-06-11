@@ -6,6 +6,6 @@ export function useChatHeader() {
   )
 
   return {
-    chatTitle: agentNickname || "Kokaka",
+    chatTitle: agentNickname || "你的 Agent",
   }
 }
