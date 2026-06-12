@@ -126,3 +126,13 @@ export const chatMessages = sqliteTable(
     ),
   }),
 )
+
+export const relationshipStates = sqliteTable("relationship_states", {
+  userId: text("user_id").primaryKey(),
+  mood: text("mood").notNull(),
+  moodIntensity: integer("mood_intensity").notNull(),
+  intimacy: integer("intimacy").notNull(),
+  lastTransitionAt: integer("last_transition_at").notNull(),
+  cooldownUntil: integer("cooldown_until").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+})

@@ -1,8 +1,12 @@
-import { chatHistoryResponseSchema } from "@ai-companion/shared"
+import {
+  chatHistoryResponseSchema,
+  relationshipResponseSchema,
+} from "@ai-companion/shared"
 import { Hono } from "hono"
 import type { AppBindings } from "@/middleware/auth"
 import { authMiddleware } from "@/middleware/auth"
 import { ensureChatMessagesTable } from "@/chat/history"
+import { getRelationshipState } from "@/agent/relationship/stateMachine"
 
 export const chatRoutes = new Hono<AppBindings>()
 
@@ -90,6 +94,16 @@ chatRoutes.get("/history", async (c) => {
     chatHistoryResponseSchema.parse({
       messages: page,
       has_more: rows.length > limit,
+    }),
+  )
+})
+
+chatRoutes.get("/relationship", async (c) => {
+  const user = c.get("user")
+  const relationshipState = await getRelationshipState(c.env, user.id)
+  return c.json(
+    relationshipResponseSchema.parse({
+      relationship_state: relationshipState,
     }),
   )
 })

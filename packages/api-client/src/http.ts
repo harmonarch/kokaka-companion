@@ -12,6 +12,7 @@ import type {
   MemoriesResponse,
   MemoryContextResponse,
   Memory,
+  RelationshipResponse,
   UpdateMemoryRequest,
 } from "@ai-companion/shared"
 import {
@@ -21,6 +22,7 @@ import {
   memoryContextResponseSchema,
   memoriesResponseSchema,
   memorySchema,
+  relationshipResponseSchema,
   userSchema,
 } from "@ai-companion/shared"
 
@@ -198,6 +200,13 @@ export function createHttpClient(options: HttpClientOptions) {
     return chatHistoryResponseSchema.parse(data)
   }
 
+  async function relationship(): Promise<RelationshipResponse> {
+    const data = await request<unknown>("/chat/relationship", undefined, {
+      auth: true,
+    })
+    return relationshipResponseSchema.parse(data)
+  }
+
   async function memories(): Promise<MemoriesResponse> {
     const data = await request<unknown>("/memories", undefined, {
       auth: true,
@@ -248,6 +257,7 @@ export function createHttpClient(options: HttpClientOptions) {
     chatProfiles,
     updateChatProfiles,
     chatHistory,
+    relationship,
     memories,
     memoryContext,
     updateMemory,
