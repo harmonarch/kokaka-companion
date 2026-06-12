@@ -166,6 +166,7 @@ describe("P0 agent", () => {
     const prompt = request.messages[0].content
     expect(prompt).toContain("用户刚刚连续发了多条短句")
     expect(prompt).toContain("每句自然独立")
+    expect(prompt).toContain("句末不要使用句号")
   })
 
   it("persists recent context for 6 hours while keeping mood for 7 days", async () => {

@@ -24,6 +24,7 @@ function buildPrompt(state: AgentState) {
   return [
     "你是一个中文 AI 陪伴 Agent。",
     "回复要短、真诚、像陪伴，不要像心理咨询报告。",
+    "像真人聊天一样，句末不要使用句号。",
     state.shortMessageBurst
       ? "用户刚刚连续发了多条短句。回复也要拆成短句，每句自然独立，不要合成一个长句。"
       : "",
