@@ -1,6 +1,7 @@
 import type {
   ChatMessage,
   EmotionState,
+  RelationshipState,
   ServerWsMessage,
 } from "@ai-companion/shared"
 import { ChatWebSocketClient } from "@ai-companion/api-client"
@@ -27,10 +28,12 @@ type ChatState = {
   historyHasMore: boolean
   historyUserId: string | null
   emotionState: EmotionState | null
+  relationshipState: RelationshipState | null
   error: string | null
   controller: ChatController | null
   connect: () => void
   loadHistory: () => Promise<void>
+  loadRelationship: () => Promise<void>
   loadOlderHistory: () => Promise<void>
   send: (content: string) => void
   disconnect: () => void
@@ -67,6 +70,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   historyHasMore: true,
   historyUserId: null,
   emotionState: null,
+  relationshipState: null,
   error: null,
   controller: null,
   connect: () => {
@@ -134,6 +138,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           set({
             status: "idle",
             emotionState: message.metadata.emotion_state,
+            relationshipState: message.metadata.relationship_state,
             agentPresence: null,
           })
         }
@@ -177,6 +182,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({
         historyLoading: false,
         error: error instanceof Error ? error.message : "历史聊天记录载入失败",
+      })
+    }
+  },
+  loadRelationship: async () => {
+    const userId = useAuthStore.getState().user?.id
+    if (!userId) return
+    try {
+      const response = await useAuthStore.getState().client.relationship()
+      set({
+        relationshipState: response.relationship_state,
+      })
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error ? error.message : "关系状态载入失败",
       })
     }
   },
