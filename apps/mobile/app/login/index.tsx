@@ -1,3 +1,3 @@
-import LoginPage from "@/pages/Login";
+import LoginPage from "@/pages/Login"
 
-export default LoginPage;
+export default LoginPage

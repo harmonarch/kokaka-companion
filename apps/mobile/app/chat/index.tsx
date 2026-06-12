@@ -1,3 +1,3 @@
-import ChatPage from "@/pages/Chat";
+import ChatPage from "@/pages/Chat"
 
-export default ChatPage;
+export default ChatPage

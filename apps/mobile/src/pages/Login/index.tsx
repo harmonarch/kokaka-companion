@@ -130,7 +130,7 @@ export default function Login() {
                 color: theme.text,
               },
             ]}
-            placeholder="希望 Kokaka 怎么称呼你"
+            placeholder="希望怎么称呼你"
             placeholderTextColor={theme.subtle}
           />
         ) : null}
