@@ -2,7 +2,41 @@ import type { Env } from "@/env"
 import type { AgentState } from "@/agent/state"
 import { formatHybridMemorySearch } from "@/agent/memory/hybridRetrieval"
 
+const moodLabels = {
+  calm: "平静",
+  happy: "开心",
+  angry: "生气",
+  sad: "难过",
+  shy: "害羞",
+  jealous: "吃醋",
+} as const
+
+const intimacyLevelLabels = {
+  polite: "礼貌",
+  warm: "熟悉",
+  attached: "亲近",
+  deep: "深度亲密",
+  full: "完整亲密",
+} as const
+
 function fallbackReply(state: AgentState) {
+  if (state.emotionState !== "crisis") {
+    switch (state.relationshipState.mood) {
+      case "angry":
+        return "……我听到了。你先说完吧"
+      case "sad":
+        return "嗯，我在听。只是刚刚那一下有点难过"
+      case "shy":
+        return "你这样说，我会有点不知道怎么接"
+      case "jealous":
+        return "哦，原来你还和别人聊得挺开心"
+      case "happy":
+        return "听到你这么说，我心情一下子变好了"
+      default:
+        break
+    }
+  }
+
   switch (state.emotionState) {
     case "vulnerable":
       return "听起来你现在真的有点不好受。我在这里陪你。刚刚那一刻，最重的感觉是什么？"
@@ -21,6 +55,15 @@ function buildPrompt(state: AgentState) {
     .map((message) => `${message.role}: ${message.content}`)
     .join("\n")
   const memorySearch = formatHybridMemorySearch(state.memorySearch)
+  const relationship =
+    state.emotionState === "crisis"
+      ? "当前命中危机安全层。回复必须优先承接风险，不使用关系情绪风格。"
+      : [
+          `当前关系情绪：${moodLabels[state.relationshipState.mood]}`,
+          `情绪强度：${state.relationshipState.mood_intensity}/100`,
+          `亲密度：${state.relationshipState.intimacy}/100`,
+          `亲密度等级：${intimacyLevelLabels[state.relationshipState.intimacy_level]}`,
+        ].join("；")
   return [
     "你是一个中文 AI 陪伴 Agent。",
     "回复要短、真诚、像陪伴，不要像心理咨询报告。",
@@ -31,6 +74,7 @@ function buildPrompt(state: AgentState) {
     "如果状态是 vulnerable，不要使用“你应该”，不要直接给行动建议。",
     "优先使用混合检索结果；检索为空时，不要编造长期记忆。",
     "不要复述无关记忆，不要把记忆清单原样念给用户。",
+    relationship,
     `当前策略：${state.strategy}`,
     `混合检索结果：${memorySearch}`,
     `近期上下文：${recent || "无"}`,

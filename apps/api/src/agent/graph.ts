@@ -6,6 +6,8 @@ import { strategyNode } from "@/agent/nodes/strategy"
 import { createGenerateNode } from "@/agent/nodes/generate"
 import { createLoadLongTermMemoryNode } from "@/agent/nodes/longTermMemory"
 import { createHybridMemorySearchNode } from "@/agent/nodes/hybridMemorySearch"
+import { createUpdateRelationshipNode } from "@/agent/nodes/relationship"
+import { defaultRelationshipState } from "@/agent/relationship/stateMachine"
 import {
   createLoadContextNode,
   createPersistContextNode,
@@ -33,6 +35,9 @@ export async function runAgent(
       longTermMemory: null,
       memorySearch: null,
       emotionState: null,
+      relationshipState: null,
+      relationshipEvent: null,
+      relationshipSnapshot: null,
       reasoning: null,
       strategy: null,
       reply: null,
@@ -42,6 +47,7 @@ export async function runAgent(
     .addNode("loadLongTermMemory", createLoadLongTermMemoryNode(env))
     .addNode("searchHybridMemory", createHybridMemorySearchNode(env))
     .addNode("detectEmotion", detectEmotionNode)
+    .addNode("updateRelationship", createUpdateRelationshipNode(env))
     .addNode("reason", reasoningNode)
     .addNode("selectStrategy", strategyNode)
     .addNode("generateReply", createGenerateNode(env))
@@ -50,7 +56,8 @@ export async function runAgent(
     .addEdge("loadContext", "loadLongTermMemory")
     .addEdge("loadLongTermMemory", "searchHybridMemory")
     .addEdge("searchHybridMemory", "detectEmotion")
-    .addEdge("detectEmotion", "reason")
+    .addEdge("detectEmotion", "updateRelationship")
+    .addEdge("updateRelationship", "reason")
     .addEdge("reason", "selectStrategy")
     .addEdge("selectStrategy", "generateReply")
     .addEdge("generateReply", "persistContext")
@@ -77,6 +84,9 @@ export async function runAgent(
       results: [],
     },
     emotionState: "normal",
+    relationshipState: defaultRelationshipState(),
+    relationshipEvent: "neutral",
+    relationshipSnapshot: null,
     reasoning: "",
     strategy: "",
     reply: "",
@@ -84,6 +94,8 @@ export async function runAgent(
 
   return {
     emotionState: result.emotionState,
+    relationshipState: result.relationshipState,
+    relationshipSnapshot: result.relationshipSnapshot,
     reply: result.reply,
     conversationId,
     context: result.context,

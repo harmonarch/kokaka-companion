@@ -6,6 +6,16 @@ import {
 } from "@ai-companion/shared"
 
 describe("chat websocket schemas", () => {
+  const relationshipState = {
+    mood: "calm",
+    mood_intensity: 0,
+    intimacy: 35,
+    intimacy_level: "warm",
+    updated_at: 1,
+    last_transition_at: 1,
+    cooldown_until: 0,
+  } as const
+
   it("accepts done client messages", () => {
     expect(clientWsMessageSchema.parse({ type: "done" })).toEqual({
       type: "done",
@@ -70,6 +80,26 @@ describe("chat websocket schemas", () => {
     ).toEqual({
       type: "agent_status",
       status: "replying",
+    })
+  })
+
+  it("accepts relationship state on all done messages", () => {
+    expect(
+      serverWsMessageSchema.parse({
+        type: "all_done",
+        metadata: {
+          emotion_state: "normal",
+          relationship_state: relationshipState,
+          topics_count: 1,
+        },
+      }),
+    ).toEqual({
+      type: "all_done",
+      metadata: {
+        emotion_state: "normal",
+        relationship_state: relationshipState,
+        topics_count: 1,
+      },
     })
   })
 

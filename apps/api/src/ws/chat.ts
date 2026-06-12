@@ -349,6 +349,7 @@ export async function handleChatWebSocket(
             type: "all_done",
             metadata: {
               emotion_state: result.emotionState,
+              relationship_state: result.relationshipState,
               topics_count: 1,
             },
           })
@@ -460,6 +461,7 @@ export async function handleChatWebSocket(
               type: "all_done",
               metadata: {
                 emotion_state: result.emotionState,
+                relationship_state: result.relationshipState,
                 topics_count: 1,
               },
             })
@@ -474,6 +476,7 @@ export async function handleChatWebSocket(
               userMessage: content,
               reply: visibleReply,
               emotionState: result.emotionState,
+              relationshipSnapshot: result.relationshipSnapshot,
               context: collectedContext,
             })
             await saveLongTermMemory(env, {
@@ -511,6 +514,7 @@ export async function handleChatWebSocket(
             userMessage: content,
             reply: result.reply,
             emotionState: result.emotionState,
+            relationshipSnapshot: result.relationshipSnapshot,
             context: collectedContext,
           })
           await saveLongTermMemory(env, {

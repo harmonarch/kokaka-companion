@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { emotionStateSchema } from "./emotion"
+import { relationshipStateSchema } from "./relationship"
 
 export const chatRoleSchema = z.enum(["user", "agent"])
 export type ChatRole = z.infer<typeof chatRoleSchema>
@@ -65,6 +66,7 @@ export const allDoneMessageSchema = z.object({
   type: z.literal("all_done"),
   metadata: z.object({
     emotion_state: emotionStateSchema,
+    relationship_state: relationshipStateSchema,
     topics_count: z.number(),
   }),
 })

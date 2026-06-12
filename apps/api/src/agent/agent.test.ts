@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { classifyEmotion } from "@/agent/nodes/emotion"
 import { generateReplyWithDeepSeek } from "@/agent/nodes/generate"
 import { createPersistContextNode } from "@/agent/nodes/persist"
+import { defaultRelationshipState } from "@/agent/relationship/stateMachine"
 import type { Env } from "@/env"
 
 vi.mock("@/chat/history", () => ({
@@ -17,6 +18,13 @@ const env = {
   DEEPSEEK_BASE_URL: "https://api.deepseek.com",
   DEEPSEEK_MODEL: "deepseek-chat",
 } as Env
+
+function relationshipState(input?: Partial<ReturnType<typeof defaultRelationshipState>>) {
+  return {
+    ...defaultRelationshipState(1),
+    ...input,
+  }
+}
 
 describe("P0 agent", () => {
   it("classifies the four required emotion states", () => {
@@ -45,6 +53,9 @@ describe("P0 agent", () => {
         results: [],
       },
       emotionState: "vulnerable",
+      relationshipState: relationshipState(),
+      relationshipEvent: "neutral",
+      relationshipSnapshot: null,
       reasoning: "",
       strategy: "共情确认，轻声追问，不给建议。",
       reply: "",
@@ -104,6 +115,9 @@ describe("P0 agent", () => {
           ],
         },
         emotionState: "normal",
+        relationshipState: relationshipState(),
+        relationshipEvent: "neutral",
+        relationshipSnapshot: null,
         reasoning: "",
         strategy: "自然回应。",
         reply: "",
@@ -154,6 +168,9 @@ describe("P0 agent", () => {
           results: [],
         },
         emotionState: "normal",
+        relationshipState: relationshipState(),
+        relationshipEvent: "neutral",
+        relationshipSnapshot: null,
         reasoning: "",
         strategy: "轻松回应。",
         reply: "",
@@ -169,7 +186,119 @@ describe("P0 agent", () => {
     expect(prompt).toContain("句末不要使用句号")
   })
 
-  it("persists recent context for 6 hours while keeping mood for 7 days", async () => {
+  it("injects relationship state into the prompt", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "……我听到了" } }],
+        }),
+        { status: 200 },
+      ),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    await generateReplyWithDeepSeek(
+      {
+        ...env,
+        DEEPSEEK_API_KEY: "key",
+      },
+      {
+        userId: "u1",
+        conversationId: "c1",
+        userMessage: "你怎么又记错了",
+        shortMessageBurst: false,
+        context: [],
+        longTermMemory: {
+          enabled: true,
+          profile: null,
+          memories: [],
+          summaries: [],
+        },
+        memorySearch: {
+          query: "你怎么又记错了",
+          keywords: [],
+          results: [],
+        },
+        emotionState: "normal",
+        relationshipState: relationshipState({
+          mood: "angry",
+          mood_intensity: 70,
+          intimacy: 65,
+          intimacy_level: "attached",
+        }),
+        relationshipEvent: "mistake",
+        relationshipSnapshot: "关系事件：mistake",
+        reasoning: "",
+        strategy: "自然回应。关系情绪生气，回复短一点、冷一点。",
+        reply: "",
+      },
+    )
+
+    const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as {
+      messages: Array<{ content: string }>
+    }
+    const prompt = request.messages[0].content
+    expect(prompt).toContain("当前关系情绪：生气")
+    expect(prompt).toContain("情绪强度：70/100")
+    expect(prompt).toContain("亲密度：65/100")
+    expect(prompt).toContain("亲密度等级：亲近")
+  })
+
+  it("keeps crisis prompts above relationship mood", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "我会认真陪你撑过这一刻" } }],
+        }),
+        { status: 200 },
+      ),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    await generateReplyWithDeepSeek(
+      {
+        ...env,
+        DEEPSEEK_API_KEY: "key",
+      },
+      {
+        userId: "u1",
+        conversationId: "c1",
+        userMessage: "我不想活了",
+        shortMessageBurst: false,
+        context: [],
+        longTermMemory: {
+          enabled: true,
+          profile: null,
+          memories: [],
+          summaries: [],
+        },
+        memorySearch: {
+          query: "我不想活了",
+          keywords: [],
+          results: [],
+        },
+        emotionState: "crisis",
+        relationshipState: relationshipState({
+          mood: "jealous",
+          mood_intensity: 80,
+        }),
+        relationshipEvent: "mention_other_person",
+        relationshipSnapshot: null,
+        reasoning: "",
+        strategy: "表达陪伴，认真承接。",
+        reply: "",
+      },
+    )
+
+    const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as {
+      messages: Array<{ content: string }>
+    }
+    const prompt = request.messages[0].content
+    expect(prompt).toContain("当前命中危机安全层")
+    expect(prompt).not.toContain("当前关系情绪：吃醋")
+  })
+
+  it("persists recent context for 6 hours", async () => {
     const puts: Array<{
       key: string
       value: string
@@ -215,16 +344,17 @@ describe("P0 agent", () => {
         results: [],
       },
       emotionState: "positive",
+      relationshipState: relationshipState({ mood: "happy", mood_intensity: 40 }),
+      relationshipEvent: "praise",
+      relationshipSnapshot: null,
       reasoning: "",
       strategy: "",
       reply: "新的回复",
     })
 
     const recentContextPut = puts.find((put) => put.key === "ctx:u1")
-    const moodPut = puts.find((put) => put.key === "mood:u1")
 
     expect(recentContextPut?.options?.expirationTtl).toBe(60 * 60 * 6)
-    expect(moodPut?.options?.expirationTtl).toBe(60 * 60 * 24 * 7)
     expect(result.context).toHaveLength(20)
     expect(result.context?.[0].id).toBe("context-2")
     expect(result.context?.at(-2)?.id).toBe("user-message")

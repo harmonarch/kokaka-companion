@@ -581,6 +581,7 @@ function isAllowedEmotionSnapshot(value: string | null) {
   const cleaned = cleanMemoryContent(value)
   if (internalEmotionLabels.has(cleaned.toLowerCase())) return false
   if (internalEmotionLabels.has(cleaned)) return false
+  if (cleaned.includes("关系事件")) return true
   return /(最近|持续|两周|一段时间|长期|总是)/.test(cleaned)
 }
 
@@ -1003,6 +1004,7 @@ export async function extractLongTermMemory(
     userMessage: string
     reply: string
     emotionState: string
+    relationshipSnapshot?: string | null
     context?: ChatMessage[]
   },
 ): Promise<ExtractedLongTermMemory> {
@@ -1014,7 +1016,14 @@ export async function extractLongTermMemory(
     null,
     input.context,
   )
-  if (!env.DEEPSEEK_API_KEY) return fallback
+  const fallbackWithRelationship = input.relationshipSnapshot
+    ? {
+        ...fallback,
+        emotionSnapshot:
+          fallback.emotionSnapshot ?? input.relationshipSnapshot,
+      }
+    : fallback
+  if (!env.DEEPSEEK_API_KEY) return fallbackWithRelationship
 
   try {
     const response = await fetch(
@@ -1057,21 +1066,21 @@ export async function extractLongTermMemory(
         }),
       },
     )
-    if (!response.ok) return fallback
+    if (!response.ok) return fallbackWithRelationship
     const data = (await response.json()) as {
       choices?: Array<{ message?: { content?: string } }>
     }
     const content = data.choices?.[0]?.message?.content
-    if (!content) return fallback
+    if (!content) return fallbackWithRelationship
     return mergeExtractions(
-      fallback,
+      fallbackWithRelationship,
       keepUserSupportedMemory(
         removeAssistantSourcedMemory(normalizeExtraction(parseJsonObject(content))),
         input.userMessage,
       ),
     )
   } catch {
-    return fallback
+    return fallbackWithRelationship
   }
 }
 
