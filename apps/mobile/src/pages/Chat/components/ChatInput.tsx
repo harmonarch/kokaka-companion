@@ -12,6 +12,7 @@ import type {
   TextStyle,
 } from "react-native"
 import type { AppTheme } from "@/theme"
+import { useAutoGrowingChatInputHeight } from "./useAutoGrowingChatInputHeight"
 import { useChatInputDraft } from "./useChatInputDraft"
 
 export function ChatInput({
@@ -26,6 +27,7 @@ export function ChatInput({
   theme: AppTheme
 }) {
   const draft = useChatInputDraft({ disabled, onSend })
+  const autoHeight = useAutoGrowingChatInputHeight(draft.value)
 
   function handleKeyPress(
     event: NativeSyntheticEvent<TextInputKeyPressEventData>,
@@ -75,10 +77,20 @@ export function ChatInput({
         </View>
       ) : null}
       <View style={styles.row}>
+        {autoHeight.hasValue ? (
+          <Text
+            accessible={false}
+            onLayout={autoHeight.handleMeasureLayout}
+            style={[styles.input, styles.inputMeasure]}
+          >
+            {autoHeight.measuredValue}
+          </Text>
+        ) : null}
         <TextInput
           value={draft.value}
           onChangeText={draft.setValue}
           onKeyPress={handleKeyPress}
+          onLayout={autoHeight.handleInputLayout}
           editable={!disabled}
           multiline
           placeholder="慢慢说，想到哪里都可以"
@@ -89,6 +101,8 @@ export function ChatInput({
             {
               backgroundColor: "transparent",
               color: theme.text,
+              height: autoHeight.height,
+              maxHeight: autoHeight.maxHeight,
             },
           ]}
         />
@@ -124,6 +138,7 @@ const styles = StyleSheet.create({
   },
   row: {
     gap: 8,
+    position: "relative",
   },
   noteBox: {
     borderWidth: 1,
@@ -136,12 +151,18 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   input: {
-    minHeight: 65,
-    maxHeight: 145,
     paddingHorizontal: 0,
     paddingVertical: 3,
     fontSize: 16,
     lineHeight: 22,
+  },
+  inputMeasure: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    opacity: 0,
+    zIndex: -1,
   },
   button: {
     alignSelf: "flex-end",
