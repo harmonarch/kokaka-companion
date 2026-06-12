@@ -3,7 +3,8 @@ import type {
   EmotionState,
   ServerWsMessage,
 } from "@ai-companion/shared"
-import { ChatController } from "@ai-companion/core"
+import { ChatWebSocketClient } from "@ai-companion/api-client"
+import { ChatController, type ChatConnectionStatus } from "@ai-companion/core"
 import { create } from "zustand"
 import { useAuthStore } from "@/stores/authStore"
 import { chatWsUrl } from "@/config/api"
@@ -20,7 +21,7 @@ type ChatState = {
   messages: ChatMessage[]
   status: ChatStatus
   agentPresence: AgentPresence
-  connection: "idle" | "connected" | "disconnected" | "error"
+  connection: ChatConnectionStatus
   historyLoaded: boolean
   historyLoading: boolean
   historyHasMore: boolean
@@ -72,6 +73,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const controller = new ChatController({
       wsUrl: chatWsUrl,
       getTokens: () => useAuthStore.getState().tokens,
+      createClient: (options) => new ChatWebSocketClient(options),
       onStatus: (connection) =>
         set({
           connection,
@@ -224,7 +226,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       status: "sending",
       agentPresence: null,
     })
-    get().controller?.send(trimmed, "default", userMessage.id)
+    try {
+      get().controller?.send(trimmed, "default", userMessage.id)
+    } catch (error) {
+      set({
+        status: "error",
+        error: error instanceof Error ? error.message : "消息发送失败",
+        agentPresence: null,
+      })
+    }
   },
   disconnect: () => {
     get().controller?.close()
