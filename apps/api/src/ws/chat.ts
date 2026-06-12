@@ -4,7 +4,7 @@ import type { Env } from "@/env"
 import { findUserById } from "@/auth/session"
 import { verifyAccessToken } from "@/auth/tokens"
 import { runAgent } from "@/agent/graph"
-import { replaceChatMessages } from "@/chat/history"
+import { replaceChatMessages, saveChatMessages } from "@/chat/history"
 import {
   extractLongTermMemory,
   maybeSaveConversationSummary,
@@ -16,6 +16,15 @@ import type { PendingMessage } from "@/ws/collector/types"
 
 function send(socket: WebSocket, payload: unknown) {
   socket.send(JSON.stringify(payload))
+}
+
+function trySend(socket: WebSocket, payload: unknown) {
+  try {
+    send(socket, payload)
+    return true
+  } catch {
+    return false
+  }
 }
 
 function chunks(value: string) {
@@ -53,11 +62,15 @@ export function splitReplyIntoParts(reply: string) {
   return [normalized]
 }
 
+export function trimReplyPartEnding(content: string) {
+  return content.replace(/[。.]$/u, "")
+}
+
 export function buildReplyParts(reply: string, shouldSplit: boolean) {
   const parts = shouldSplit ? splitReplyIntoParts(reply) : [reply]
   return parts.slice(0, 4).map((content, index) => ({
     id: crypto.randomUUID(),
-    content,
+    content: trimReplyPartEnding(content),
     index,
     total: Math.min(parts.length, 4),
   }))
@@ -73,24 +86,21 @@ async function waitForMinimumReplyingTime(replyingStartedAt: number) {
   if (remaining > 0) await wait(remaining)
 }
 
-export async function updateCollectedHistory(
-  env: Env,
-  input: {
-    userId: string
-    conversationId: string
-    expressionGroupId: string
-    syntheticUserMessageId: string
-    pending: PendingMessage[]
-    reply: string
-    replyParts: Array<{
-      id: string
-      content: string
-      index: number
-      total: number
-    }>
-    context: ChatMessage[] | undefined
-  },
-): Promise<ChatMessage[]> {
+export function replyPartDelayMs(content: string) {
+  return Math.min(2000 + Array.from(content).length * 200, 5000)
+}
+
+function toCollectedMessages(input: {
+  expressionGroupId: string
+  pending: PendingMessage[]
+  replyParts: Array<{
+    id: string
+    content: string
+    index: number
+    total: number
+  }>
+  context: ChatMessage[] | undefined
+}) {
   const currentAgentMessage = [...(input.context ?? [])]
     .reverse()
     .find((message) => message.role === "agent")
@@ -115,6 +125,31 @@ export async function updateCollectedHistory(
       expression_part_index: index,
     }),
   )
+  return { userMessages, agentMessages }
+}
+
+export async function updateCollectedHistory(
+  env: Env,
+  input: {
+    userId: string
+    conversationId: string
+    expressionGroupId: string
+    syntheticUserMessageId: string
+    pending: PendingMessage[]
+    reply: string
+    replyParts: Array<{
+      id: string
+      content: string
+      index: number
+      total: number
+    }>
+    context: ChatMessage[] | undefined
+  },
+): Promise<ChatMessage[]> {
+  const currentAgentMessage = [...(input.context ?? [])]
+    .reverse()
+    .find((message) => message.role === "agent")
+  const { userMessages, agentMessages } = toCollectedMessages(input)
   const deleteIds = [
     input.syntheticUserMessageId,
     ...(currentAgentMessage ? [currentAgentMessage.id] : []),
@@ -155,6 +190,84 @@ export async function updateCollectedHistory(
   return messages
 }
 
+export async function appendCollectedHistory(
+  env: Env,
+  input: {
+    userId: string
+    conversationId: string
+    expressionGroupId: string
+    pending: PendingMessage[]
+    replyParts: Array<{
+      id: string
+      content: string
+      index: number
+      total: number
+    }>
+    context: ChatMessage[] | undefined
+  },
+): Promise<ChatMessage[]> {
+  const { userMessages, agentMessages } = toCollectedMessages(input)
+  await saveChatMessages(env, {
+    userId: input.userId,
+    conversationId: input.conversationId,
+    messages: [...userMessages, ...agentMessages],
+  }).catch((error) => {
+    console.error("Failed to append collected chat history", error)
+  })
+
+  const currentContext = (input.context ?? []).filter(
+    (message) =>
+      !userMessages.some((item) => item.id === message.id) &&
+      !agentMessages.some((item) => item.id === message.id),
+  )
+  const contextIds = new Set((input.context ?? []).map((message) => message.id))
+  const existingIds = new Set([
+    ...contextIds,
+    ...currentContext.map((message) => message.id),
+  ])
+  const messages = [
+    ...currentContext,
+    ...userMessages.filter((message) => !existingIds.has(message.id)),
+    ...agentMessages.filter((message) => !existingIds.has(message.id)),
+  ].slice(-20)
+  const recentContext: RecentContext = { messages }
+  await env.CHAT_CONTEXT.put(
+    `ctx:${input.userId}`,
+    JSON.stringify(recentContext),
+    {
+      expirationTtl: 60 * 60 * 6,
+    },
+  ).catch((error) => {
+    console.error("Failed to append collected recent context", error)
+  })
+  return messages
+}
+
+export async function persistVisibleReplyParts(
+  env: Env,
+  input: {
+    userId: string
+    conversationId: string
+    expressionGroupId: string
+    syntheticUserMessageId: string
+    pending: PendingMessage[]
+    reply: string
+    replyParts: Array<{
+      id: string
+      content: string
+      index: number
+      total: number
+    }>
+    context: ChatMessage[] | undefined
+    replaceSynthetic: boolean
+  },
+) {
+  if (input.replaceSynthetic) {
+    return updateCollectedHistory(env, input)
+  }
+  return appendCollectedHistory(env, input)
+}
+
 export async function handleChatWebSocket(
   request: Request,
   env: Env,
@@ -174,6 +287,8 @@ export async function handleChatWebSocket(
   const pair = new WebSocketPair()
   const [client, server] = Object.values(pair)
   server.accept()
+  let connectionOpen = true
+  let replyGeneration = 0
 
   const collector = new MessageCollector(
     {
@@ -184,7 +299,7 @@ export async function handleChatWebSocket(
     },
     {
       onStatus: (status) => {
-        send(server, {
+        trySend(server, {
           type: "agent_status",
           status,
         })
@@ -199,9 +314,10 @@ export async function handleChatWebSocket(
         const shortMessageBurst = isShortMessageBurst(pending)
         const syntheticUserMessageId = `${expressionGroupId}:combined`
         const conversationId = pending[0]?.sessionId ?? "default"
+        const currentReplyGeneration = replyGeneration
 
         if (!gentle) {
-          send(server, {
+          trySend(server, {
             type: "topic_start",
             topic_id: "default",
             label: "当前消息",
@@ -225,11 +341,11 @@ export async function handleChatWebSocket(
         await waitForMinimumReplyingTime(replyingStartedAt)
 
         if (gentle) {
-          send(server, {
+          trySend(server, {
             type: "gentle",
             content: result.reply,
           })
-          send(server, {
+          trySend(server, {
             type: "all_done",
             metadata: {
               emotion_state: result.emotionState,
@@ -237,30 +353,146 @@ export async function handleChatWebSocket(
             },
           })
         } else {
-          for (const part of replyParts) {
-            for (const delta of chunks(part.content)) {
-              send(server, {
-                type: "token",
-                topic_id: "default",
-                delta,
-                message_id: part.id,
-                expression_group_id: expressionGroupId,
-                expression_part_index: part.index,
-                expression_part_total: part.total,
+          let collectedContext = result.context
+          let replaceSynthetic = true
+          const deliveredReplyParts: typeof replyParts = []
+          let interrupted = false
+
+          for (const [partIndex, part] of replyParts.entries()) {
+            if (replyGeneration !== currentReplyGeneration) {
+              interrupted = true
+              if (replaceSynthetic) {
+                collectedContext = await persistVisibleReplyParts(env, {
+                  userId: user.id,
+                  conversationId: result.conversationId,
+                  expressionGroupId,
+                  syntheticUserMessageId,
+                  pending,
+                  reply: result.reply,
+                  replyParts: [],
+                  context: collectedContext,
+                  replaceSynthetic,
+                })
+                replaceSynthetic = false
+              }
+              break
+            }
+
+            if (!connectionOpen) {
+              collectedContext = await persistVisibleReplyParts(env, {
+                userId: user.id,
+                conversationId: result.conversationId,
+                expressionGroupId,
+                syntheticUserMessageId,
+                pending,
+                reply: result.reply,
+                replyParts,
+                context: collectedContext,
+                replaceSynthetic,
               })
+              replaceSynthetic = false
+              break
+            }
+
+            let sent = true
+            for (const delta of chunks(part.content)) {
+              sent =
+                trySend(server, {
+                  type: "token",
+                  topic_id: "default",
+                  delta,
+                  message_id: part.id,
+                  expression_group_id: expressionGroupId,
+                  expression_part_index: part.index,
+                  expression_part_total: part.total,
+                }) && sent
+              if (!sent) {
+                connectionOpen = false
+                break
+              }
+            }
+
+            if (!sent) {
+              collectedContext = await persistVisibleReplyParts(env, {
+                userId: user.id,
+                conversationId: result.conversationId,
+                expressionGroupId,
+                syntheticUserMessageId,
+                pending,
+                reply: result.reply,
+                replyParts,
+                context: collectedContext,
+                replaceSynthetic,
+              })
+              replaceSynthetic = false
+              break
+            }
+
+            deliveredReplyParts.push(part)
+            collectedContext = await persistVisibleReplyParts(env, {
+              userId: user.id,
+              conversationId: result.conversationId,
+              expressionGroupId,
+              syntheticUserMessageId,
+              pending,
+              reply: result.reply,
+              replyParts: deliveredReplyParts,
+              context: collectedContext,
+              replaceSynthetic,
+            })
+            replaceSynthetic = false
+
+            if (partIndex < replyParts.length - 1) {
+              await wait(replyPartDelayMs(part.content))
             }
           }
-          send(server, {
-            type: "topic_done",
-            topic_id: "default",
-          })
-          send(server, {
-            type: "all_done",
-            metadata: {
-              emotion_state: result.emotionState,
-              topics_count: 1,
-            },
-          })
+
+          if (
+            connectionOpen &&
+            replyGeneration === currentReplyGeneration &&
+            deliveredReplyParts.length === replyParts.length
+          ) {
+            trySend(server, {
+              type: "topic_done",
+              topic_id: "default",
+            })
+            trySend(server, {
+              type: "all_done",
+              metadata: {
+                emotion_state: result.emotionState,
+                topics_count: 1,
+              },
+            })
+          }
+
+          const persistLongTermMemory = async () => {
+            const visibleReply = interrupted
+              ? deliveredReplyParts.map((part) => part.content).join("")
+              : result.reply
+            if (!visibleReply) return
+            const memory = await extractLongTermMemory(env, {
+              userMessage: content,
+              reply: visibleReply,
+              emotionState: result.emotionState,
+              context: collectedContext,
+            })
+            await saveLongTermMemory(env, {
+              userId: user.id,
+              conversationId: result.conversationId,
+              memory,
+            })
+            await maybeSaveConversationSummary(env, {
+              userId: user.id,
+              conversationId: result.conversationId,
+              messages: collectedContext,
+            })
+          }
+          if (executionCtx) {
+            executionCtx.waitUntil(persistLongTermMemory())
+          } else {
+            await persistLongTermMemory()
+          }
+          return
         }
 
         const collectedContext = await updateCollectedHistory(env, {
@@ -299,13 +531,13 @@ export async function handleChatWebSocket(
         }
       },
       onNudge: (text) => {
-        send(server, {
+        trySend(server, {
           type: "nudge",
           content: text,
         })
       },
       onError: (error) => {
-        send(server, {
+        trySend(server, {
           type: "error",
           message: error instanceof Error ? error.message : "Chat failed",
         })
@@ -316,20 +548,23 @@ export async function handleChatWebSocket(
 
   server.addEventListener("message", async (event) => {
     try {
+      connectionOpen = true
       const message = clientWsMessageSchema.parse(
         JSON.parse(String(event.data)),
       )
       if (message.type === "ping") {
-        send(server, { type: "pong" })
+        trySend(server, { type: "pong" })
         return
       }
 
       if (message.type === "done") {
+        replyGeneration += 1
         await collector.forceDone()
         return
       }
 
-      send(server, {
+      replyGeneration += 1
+      trySend(server, {
         type: "agent_status",
         status: "received",
       })
@@ -339,14 +574,24 @@ export async function handleChatWebSocket(
         content: message.content,
       })
     } catch (error) {
-      send(server, {
+      trySend(server, {
         type: "error",
         message: error instanceof Error ? error.message : "Chat failed",
       })
     }
   })
-  server.addEventListener("close", () => collector.dispose())
-  server.addEventListener("error", () => collector.dispose())
+  server.addEventListener("close", () => {
+    connectionOpen = false
+    void collector.forceDone().catch((error) => {
+      console.error("Failed to finish disconnected chat reply", error)
+    })
+  })
+  server.addEventListener("error", () => {
+    connectionOpen = false
+    void collector.forceDone().catch((error) => {
+      console.error("Failed to finish errored chat reply", error)
+    })
+  })
 
   return new Response(null, {
     status: 101,
