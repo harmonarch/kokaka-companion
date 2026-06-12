@@ -96,7 +96,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               id: crypto.randomUUID,
               now: Date.now,
             }),
-            agentPresence: null,
+            agentPresence: "replying",
           })
         }
         if (message.type === "nudge") {
