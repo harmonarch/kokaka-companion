@@ -14,6 +14,7 @@ export const useChat = () => {
   const accountActions = useAccountActionsMenu()
 
   return {
+    restoringUser: session.restoringUser,
     user: session.user,
     chatTitle: header.chatTitle,
     agentStatusText: header.agentStatusText,

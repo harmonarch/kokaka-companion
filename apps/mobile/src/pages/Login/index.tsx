@@ -1,4 +1,12 @@
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native"
+import { Redirect } from "expo-router"
 import { useAppTheme } from "@/theme"
 import { useLogin } from "@/pages/Login/useLogin"
 import { useLoginForm } from "@/pages/Login/useLoginForm"
@@ -6,11 +14,21 @@ import { useLoginForm } from "@/pages/Login/useLoginForm"
 export default function Login() {
   const theme = useAppTheme()
   const form = useLoginForm()
-  
-  const { error, submit } = useLogin()
+
+  const { error, restoringUser, user, submit } = useLogin()
 
   const press = () =>
     submit(form.email, form.password, form.nickname, form.mode)
+
+  if (restoringUser) {
+    return (
+      <View style={[styles.page, { backgroundColor: theme.background }]}>
+        <ActivityIndicator color={theme.primary} />
+      </View>
+    )
+  }
+
+  if (user) return <Redirect href="/chat" />
 
   return (
     <View style={[styles.page, { backgroundColor: theme.background }]}>

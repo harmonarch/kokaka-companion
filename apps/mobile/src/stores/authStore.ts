@@ -43,11 +43,19 @@ export const useAuthStore = create<AuthState>((set, get) => {
     client,
     hydrate: async () => {
       const tokens = await loadTokens()
-      set({ tokens, ready: true })
-      if (tokens) {
+      if (!tokens) {
+        set({ user: null, tokens: null, ready: true })
+        return
+      }
+
+      set({ tokens, ready: false })
+      try {
         await get()
           .refreshUser()
-          .catch(() => set({ user: null, tokens: null }))
+        set({ ready: true })
+      } catch {
+        set({ user: null, tokens: null, ready: true })
+        await saveTokens(null)
       }
     },
     register: async (email, password, nickname) => {

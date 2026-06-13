@@ -1,5 +1,12 @@
 import type { ChatMessage, ChatProfiles } from "@ai-companion/shared"
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native"
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native"
 import { Redirect } from "expo-router"
 import { useAppTheme, type AppTheme } from "@/theme"
 import { useChat } from "@/pages/Chat/hooks/useChat"
@@ -83,6 +90,16 @@ type ThemedStatusProps = {
 export default function Chat() {
   const theme = useAppTheme()
   const chat = useChat()
+
+  if (chat.restoringUser) {
+    return (
+      <View style={[styles.page, { backgroundColor: theme.background }]}>
+        <View style={styles.loading}>
+          <ActivityIndicator color={theme.primary} />
+        </View>
+      </View>
+    )
+  }
 
   if (!chat.user) return <Redirect href="/login" />
 
@@ -415,6 +432,11 @@ const styles = StyleSheet.create({
   },
   chatBody: {
     flex: 1,
+  },
+  loading: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   listContent: {
     paddingHorizontal: 12,

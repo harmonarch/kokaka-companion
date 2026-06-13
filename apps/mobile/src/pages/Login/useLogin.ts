@@ -9,6 +9,9 @@ export function useLogin() {
   const login = useAuthStore((state) => state.login)
   const register = useAuthStore((state) => state.register)
   const user = useAuthStore((state) => state.user)
+  const ready = useAuthStore((state) => state.ready)
+  const tokens = useAuthStore((state) => state.tokens)
+  const restoringUser = !ready || Boolean(tokens && !user)
 
   useEffect(() => {
     if (user) {
@@ -37,6 +40,8 @@ export function useLogin() {
 
   return {
     error,
+    restoringUser,
+    user,
     submit,
   }
 }
