@@ -18,13 +18,11 @@ export function useChatHeader() {
   const relationshipState = useChatStore((state) => state.relationshipState)
 
   const agentStatusText =
-    agentPresence === "listening"
-      ? "正在倾听..."
-      : agentPresence === "replying"
-        ? "正在输入..."
-        : relationshipState
-          ? `${moodLabels[relationshipState.mood]} · 亲密度 ${relationshipState.intimacy}`
-          : null
+    agentPresence === "replying"
+      ? "正在输入..."
+      : relationshipState
+        ? `${moodLabels[relationshipState.mood]} · 亲密度 ${relationshipState.intimacy}`
+        : null
 
   return {
     chatTitle: agentNickname || "你的 Agent",
