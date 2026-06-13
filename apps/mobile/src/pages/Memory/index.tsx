@@ -18,7 +18,7 @@ import { MemoryCard } from "./components/MemoryCard"
 import { MemoryHeader } from "./components/MemoryHeader"
 import { useMemoryManager } from "./hooks/useMemoryManager"
 
-type MemoryTab = "preference" | "event"
+type MemoryTab = "preference" | "event" | "emotion_snapshot"
 type MemoryListItem =
   | {
       id: string
@@ -36,16 +36,17 @@ type MemoryListItem =
 const tabLabels: Record<MemoryTab, string> = {
   preference: "偏好",
   event: "事件",
+  emotion_snapshot: "情绪",
 }
 
 const tabDescriptions: Record<MemoryTab, string> = {
   preference: "这些是你告诉我的偏好，我会在对话中尽量参考。",
   event: "这些是你提到的重要事件，我会用来理解上下文。",
+  emotion_snapshot: "这些是你提到的持续情绪状态，我会用来理解近期感受。",
 }
 
 function belongsToTab(memory: MemoryItem, tab: MemoryTab) {
-  if (tab === "preference") return memory.type === "preference"
-  return memory.type === "event" || memory.type === "emotion_snapshot"
+  return memory.type === tab
 }
 
 function normalizeSearchText(text: string) {
@@ -130,6 +131,9 @@ export default function Memory() {
       ).length,
       event: searchedMemories.filter((memory) => belongsToTab(memory, "event"))
         .length,
+      emotion_snapshot: searchedMemories.filter((memory) =>
+        belongsToTab(memory, "emotion_snapshot"),
+      ).length,
     }),
     [searchedMemories],
   )
@@ -193,7 +197,7 @@ export default function Memory() {
                 webTextNoFocusOutline,
                 { color: theme.text },
               ]}
-              placeholder="搜索偏好和事件"
+              placeholder="搜索记忆"
               placeholderTextColor={theme.subtle}
               returnKeyType="search"
               autoCapitalize="none"
@@ -217,7 +221,7 @@ export default function Memory() {
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
-          {(["preference", "event"] as const).map((tab) => {
+          {(["preference", "event", "emotion_snapshot"] as const).map((tab) => {
             const selected = activeTab === tab
             return (
               <Pressable
