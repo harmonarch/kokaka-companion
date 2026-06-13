@@ -19,7 +19,7 @@ export function ProfileEditorModal({
   theme: AppTheme
 }) {
   const visible = Boolean(role && profile)
-  const title = role === "agent" ? "设置 Kokaka 头像和昵称" : "设置我的头像和昵称"
+  const title = "设置头像和昵称"
   const avatar = profile?.avatar.trim() ?? ""
   const nickname = profile?.nickname ?? ""
 
