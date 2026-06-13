@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>管理记忆 - 微信风格 UI</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --wechat-green: #07c160;
+        --wechat-green-pressed: #06ad56;
+        --danger: #fa5151;
+        --page: #ededed;
+        --surface: #ffffff;
+        --line: #e5e5e5;
+        --soft-line: #f0f0f0;
+        --text: #111111;
+        --secondary: #576b95;
+        --muted: #8a8a8a;
+        --subtle: #b2b2b2;
+        --field: #f7f7f7;
+        --shadow: rgba(0, 0, 0, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #d9d9d9;
+        color: var(--text);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+      }
+
+      button,
+      textarea {
+        font: inherit;
+      }
+
+      .phone {
+        width: min(100vw, 430px);
+        height: min(100vh, 932px);
+        min-height: 720px;
+        background: var(--page);
+        overflow: hidden;
+        box-shadow: 0 24px 70px var(--shadow);
+        position: relative;
+      }
+
+      .status-bar {
+        height: 48px;
+        padding: 15px 22px 0;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        background: var(--surface);
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .status-icons {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .signal {
+        display: flex;
+        align-items: flex-end;
+        gap: 2px;
+        height: 12px;
+      }
+
+      .signal span {
+        width: 3px;
+        border-radius: 2px;
+        background: var(--text);
+      }
+
+      .signal span:nth-child(1) {
+        height: 4px;
+      }
+
+      .signal span:nth-child(2) {
+        height: 7px;
+      }
+
+      .signal span:nth-child(3) {
+        height: 10px;
+      }
+
+      .wifi {
+        width: 15px;
+        height: 11px;
+        border: 2px solid var(--text);
+        border-left-color: transparent;
+        border-right-color: transparent;
+        border-bottom-color: transparent;
+        border-radius: 50% 50% 0 0;
+      }
+
+      .battery {
+        width: 24px;
+        height: 12px;
+        border: 1.8px solid var(--text);
+        border-radius: 3px;
+        position: relative;
+      }
+
+      .battery::before {
+        content: "";
+        position: absolute;
+        inset: 2px 5px 2px 2px;
+        background: var(--text);
+        border-radius: 1px;
+      }
+
+      .battery::after {
+        content: "";
+        position: absolute;
+        right: -4px;
+        top: 3px;
+        width: 2px;
+        height: 5px;
+        border-radius: 1px;
+        background: var(--text);
+      }
+
+      .nav {
+        height: 48px;
+        display: grid;
+        grid-template-columns: 52px 1fr 52px;
+        align-items: center;
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .nav-button {
+        width: 52px;
+        height: 48px;
+        border: 0;
+        background: transparent;
+        color: var(--text);
+        font-size: 30px;
+        line-height: 1;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+      }
+
+      .nav-title {
+        text-align: center;
+        font-size: 17px;
+        font-weight: 600;
+        letter-spacing: 0;
+      }
+
+      .tabs {
+        height: 48px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .tab {
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 16px;
+        position: relative;
+        cursor: pointer;
+      }
+
+      .tab[aria-selected="true"] {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .tab[aria-selected="true"]::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: 0;
+        width: 32px;
+        height: 3px;
+        border-radius: 3px 3px 0 0;
+        background: var(--wechat-green);
+        transform: translateX(-50%);
+      }
+
+      .summary {
+        margin: 10px 0;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--surface);
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .summary-label {
+        font-size: 15px;
+      }
+
+      .summary-value {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .panel {
+        display: none;
+        padding-bottom: 28px;
+      }
+
+      .panel.active {
+        display: block;
+      }
+
+      .section-title {
+        height: 30px;
+        padding: 8px 16px 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .list {
+        background: var(--surface);
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .memory-row {
+        padding-left: 16px;
+      }
+
+      .memory-inner {
+        min-height: 96px;
+        padding: 13px 16px 12px 0;
+        border-bottom: 1px solid var(--soft-line);
+      }
+
+      .memory-row:last-child .memory-inner {
+        border-bottom: 0;
+      }
+
+      .row-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 7px;
+      }
+
+      .row-title {
+        min-width: 0;
+        font-size: 16px;
+        font-weight: 500;
+        line-height: 22px;
+      }
+
+      .row-time {
+        flex: 0 0 auto;
+        color: var(--subtle);
+        font-size: 12px;
+      }
+
+      .memory-text {
+        width: 100%;
+        min-height: 44px;
+        resize: none;
+        border: 0;
+        border-radius: 4px;
+        padding: 0;
+        background: transparent;
+        color: var(--text);
+        font-size: 15px;
+        line-height: 22px;
+        outline: none;
+      }
+
+      .memory-text:focus {
+        background: var(--field);
+        padding: 7px 8px;
+      }
+
+      .actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 18px;
+        margin-top: 8px;
+        min-height: 28px;
+      }
+
+      .text-action {
+        border: 0;
+        padding: 4px 0;
+        background: transparent;
+        color: var(--secondary);
+        font-size: 14px;
+        cursor: pointer;
+      }
+
+      .text-action.danger {
+        color: var(--danger);
+      }
+
+      .save-action {
+        min-width: 58px;
+        height: 28px;
+        border: 0;
+        border-radius: 4px;
+        background: var(--wechat-green);
+        color: #ffffff;
+        font-size: 14px;
+        cursor: pointer;
+      }
+
+      .save-action:active {
+        background: var(--wechat-green-pressed);
+      }
+
+      .context {
+        margin: 10px 16px 0 0;
+        padding: 10px 12px;
+        border-radius: 4px;
+        background: var(--field);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 20px;
+      }
+
+      .empty {
+        margin: 80px 36px 0;
+        text-align: center;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 24px;
+      }
+
+      .home-indicator {
+        position: absolute;
+        left: 50%;
+        bottom: 9px;
+        width: 132px;
+        height: 5px;
+        border-radius: 999px;
+        background: #111111;
+        transform: translateX(-50%);
+      }
+
+      @media (max-width: 460px) {
+        body {
+          display: block;
+          background: var(--page);
+        }
+
+        .phone {
+          width: 100vw;
+          height: 100vh;
+          min-height: 100vh;
+          box-shadow: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="phone">
+      <div class="status-bar" aria-hidden="true">
+        <span>9:41</span>
+        <div class="status-icons">
+          <div class="signal"><span></span><span></span><span></span></div>
+          <div class="wifi"></div>
+          <div class="battery"></div>
+        </div>
+      </div>
+
+      <header class="nav">
+        <button class="nav-button" aria-label="返回">‹</button>
+        <div class="nav-title">管理记忆</div>
+        <div></div>
+      </header>
+
+      <nav class="tabs" aria-label="记忆分类">
+        <button class="tab" data-tab="preference" aria-selected="true">
+          偏好
+        </button>
+        <button class="tab" data-tab="event" aria-selected="false">
+          事件
+        </button>
+      </nav>
+
+      <section class="summary" aria-live="polite">
+        <span class="summary-label">长期记忆</span>
+        <span class="summary-value" id="summary-count">偏好 4 条</span>
+      </section>
+
+      <section class="panel active" data-panel="preference">
+        <div class="section-title">本周</div>
+        <div class="list">
+          <article class="memory-row">
+            <div class="memory-inner">
+              <div class="row-head">
+                <div class="row-title">饮食偏好</div>
+                <time class="row-time">今天 09:12</time>
+              </div>
+              <textarea class="memory-text" rows="2">喜欢清晨喝热茶，不喜欢太甜的饮料。</textarea>
+              <div class="actions">
+                <button class="text-action">上下文</button>
+                <button class="text-action danger">删除</button>
+                <button class="save-action">保存</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="memory-row">
+            <div class="memory-inner">
+              <div class="row-head">
+                <div class="row-title">安排偏好</div>
+                <time class="row-time">昨天 22:04</time>
+              </div>
+              <textarea class="memory-text" rows="2">不喜欢临时改计划，更希望提前一天确认。</textarea>
+              <div class="actions">
+                <button class="text-action">上下文</button>
+                <button class="text-action danger">删除</button>
+                <button class="save-action">保存</button>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="section-title">更早</div>
+        <div class="list">
+          <article class="memory-row">
+            <div class="memory-inner">
+              <div class="row-head">
+                <div class="row-title">沟通偏好</div>
+                <time class="row-time">06-10 18:30</time>
+              </div>
+              <textarea class="memory-text" rows="2">希望回答直接、简洁，先说结论。</textarea>
+              <div class="actions">
+                <button class="text-action">上下文</button>
+                <button class="text-action danger">删除</button>
+                <button class="save-action">保存</button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="event">
+        <div class="section-title">本周</div>
+        <div class="list">
+          <article class="memory-row">
+            <div class="memory-inner">
+              <div class="row-head">
+                <div class="row-title">工作事件</div>
+                <time class="row-time">今天 15:18</time>
+              </div>
+              <textarea class="memory-text" rows="2">今天开始准备新的产品原型，重点是移动端体验。</textarea>
+              <div class="actions">
+                <button class="text-action">上下文</button>
+                <button class="text-action danger">删除</button>
+                <button class="save-action">保存</button>
+              </div>
+              <div class="context">关联聊天：用户提到需要先出视觉图，再对照实现页面。</div>
+            </div>
+          </article>
+        </div>
+
+        <div class="section-title">更早</div>
+        <div class="list">
+          <article class="memory-row">
+            <div class="memory-inner">
+              <div class="row-head">
+                <div class="row-title">生活事件</div>
+                <time class="row-time">06-08 20:41</time>
+              </div>
+              <textarea class="memory-text" rows="2">完成一次长时间散步，觉得晚上精神更稳定。</textarea>
+              <div class="actions">
+                <button class="text-action">上下文</button>
+                <button class="text-action danger">删除</button>
+                <button class="save-action">保存</button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <div class="home-indicator" aria-hidden="true"></div>
+    </main>
+
+    <script>
+      const tabs = Array.from(document.querySelectorAll(".tab"))
+      const panels = Array.from(document.querySelectorAll(".panel"))
+      const summary = document.getElementById("summary-count")
+
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          const selected = tab.dataset.tab
+
+          tabs.forEach((item) => {
+            item.setAttribute(
+              "aria-selected",
+              String(item.dataset.tab === selected),
+            )
+          })
+
+          panels.forEach((panel) => {
+            panel.classList.toggle("active", panel.dataset.panel === selected)
+          })
+
+          summary.textContent = selected === "preference" ? "偏好 4 条" : "事件 2 条"
+        })
+      })
+    </script>
+  </body>
+</html>
