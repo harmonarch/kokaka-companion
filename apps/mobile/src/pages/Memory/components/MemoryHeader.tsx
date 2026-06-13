@@ -9,15 +9,17 @@ export function MemoryHeader({
   theme: AppTheme
 }) {
   return (
-    <View style={[styles.header, { borderColor: theme.border }]}>
+    <View
+      style={[
+        styles.header,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+      ]}
+    >
       <Pressable onPress={onBack} style={styles.iconButton}>
         <Text style={[styles.iconText, { color: theme.text }]}>‹</Text>
       </Pressable>
       <View style={styles.headerTitle}>
         <Text style={[styles.title, { color: theme.text }]}>管理记忆</Text>
-        <Text style={[styles.subtitle, { color: theme.muted }]}>
-          查看、编辑和删除
-        </Text>
       </View>
       <View style={styles.iconButton} />
     </View>
@@ -28,9 +30,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    minHeight: 56,
+    minHeight: 48,
     borderBottomWidth: 1,
-    paddingHorizontal: 12,
   },
   headerTitle: {
     flex: 1,
@@ -38,20 +39,17 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 17,
-    fontWeight: "800",
-  },
-  subtitle: {
-    fontSize: 12,
-    lineHeight: 17,
+    fontWeight: "600",
+    lineHeight: 24,
   },
   iconButton: {
-    width: 44,
-    height: 44,
+    width: 52,
+    height: 48,
     alignItems: "center",
     justifyContent: "center",
   },
   iconText: {
-    fontSize: 30,
+    fontSize: 32,
     lineHeight: 34,
     fontWeight: "300",
   },

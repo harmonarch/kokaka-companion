@@ -1,5 +1,13 @@
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native"
+import type { TextStyle } from "react-native"
 import type { ChatMessage, Memory } from "@ai-companion/shared"
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"
 import type { AppTheme } from "@/theme"
 
 const typeLabels: Record<Memory["type"], string> = {
@@ -11,10 +19,19 @@ const typeLabels: Record<Memory["type"], string> = {
 function formatDate(timestamp: number) {
   const date = new Date(timestamp)
   if (Number.isNaN(date.getTime())) return ""
-  const month = String(date.getMonth() + 1).padStart(2, "0")
-  const day = String(date.getDate()).padStart(2, "0")
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const diffDays = Math.round(
+    (today.getTime() - target.getTime()) / (24 * 60 * 60 * 1000),
+  )
   const hour = String(date.getHours()).padStart(2, "0")
   const minute = String(date.getMinutes()).padStart(2, "0")
+  if (diffDays === 0) return `今天 ${hour}:${minute}`
+  if (diffDays === 1) return `昨天 ${hour}:${minute}`
+  if (diffDays > 1 && diffDays < 7) return "本周"
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
   return `${month}-${day} ${hour}:${minute}`
 }
 
@@ -28,6 +45,8 @@ export function MemoryCard({
   draft,
   saving,
   deleting,
+  firstInSection,
+  lastInSection,
   contextOpen,
   contextLoading,
   contextMessages,
@@ -42,6 +61,8 @@ export function MemoryCard({
   draft: string
   saving: boolean
   deleting: boolean
+  firstInSection: boolean
+  lastInSection: boolean
   contextOpen: boolean
   contextLoading: boolean
   contextMessages: ChatMessage[]
@@ -54,198 +75,292 @@ export function MemoryCard({
 }) {
   const changed = draft.trim() !== memory.content.trim()
   const disabled = saving || deleting
+  const contextLabel = contextLoading
+    ? "载入中"
+    : contextOpen
+      ? "收起"
+      : "上下文"
+  const saveDisabled = !changed || disabled || !draft.trim()
+  const resetDisabled = !changed || disabled
+  const saveTextColor = saveDisabled ? theme.subtle : theme.primary
+  const inputBackgroundColor = changed ? theme.elevated : "transparent"
+  const rowRadius = {
+    borderTopLeftRadius: firstInSection ? 12 : 0,
+    borderTopRightRadius: firstInSection ? 12 : 0,
+    borderBottomLeftRadius: lastInSection ? 12 : 0,
+    borderBottomRightRadius: lastInSection ? 12 : 0,
+  }
 
   return (
-    <View
-      style={[
-        styles.card,
-        { backgroundColor: theme.surface, borderColor: theme.softBorder },
-      ]}
-    >
-      <View style={styles.metaRow}>
-        <Text style={[styles.type, { color: theme.text }]}>
-          {typeLabels[memory.type]}
-        </Text>
-        <Text style={[styles.date, { color: theme.muted }]}>
-          {formatDate(memory.created_at)}
-        </Text>
-      </View>
-      <TextInput
-        value={draft}
-        onChangeText={onChangeDraft}
-        editable={!disabled}
-        multiline
+    <View style={styles.row}>
+      <View
         style={[
-          styles.input,
+          styles.frame,
+          rowRadius,
           {
-            backgroundColor: theme.field,
+            backgroundColor: theme.surface,
             borderColor: theme.border,
-            color: theme.text,
+            borderTopWidth: firstInSection ? 1 : 0,
+            borderBottomWidth: lastInSection ? 1 : 0,
           },
         ]}
-        placeholder="记忆内容"
-        placeholderTextColor={theme.subtle}
-      />
-      <View style={styles.actions}>
-        <Pressable
-          onPress={onToggleContext}
-          disabled={contextLoading}
-          style={[
-            styles.secondary,
-            { borderColor: theme.border },
-            contextLoading && styles.disabled,
-          ]}
-        >
-          <Text style={[styles.secondaryText, { color: theme.text }]}>
-            {contextLoading ? "载入中" : contextOpen ? "收起" : "上下文"}
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={onReset}
-          disabled={!changed || disabled}
-          style={[
-            styles.secondary,
-            { borderColor: theme.border },
-            (!changed || disabled) && styles.disabled,
-          ]}
-        >
-          <Text style={[styles.secondaryText, { color: theme.text }]}>
-            还原
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={onSave}
-          disabled={!changed || disabled || !draft.trim()}
-          style={[
-            styles.primary,
-            { backgroundColor: theme.primary },
-            (!changed || disabled || !draft.trim()) && styles.disabled,
-          ]}
-        >
-          <Text style={[styles.primaryText, { color: theme.primaryText }]}>
-            {saving ? "保存中" : "保存"}
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={onDelete}
-          disabled={disabled}
-          style={[
-            styles.danger,
-            {
-              backgroundColor: theme.dangerSurface,
-              borderColor: theme.dangerBorder,
-            },
-            disabled && styles.disabled,
-          ]}
-        >
-          <Text style={[styles.dangerText, { color: theme.danger }]}>
-            {deleting ? "删除中" : "删除"}
-          </Text>
-        </Pressable>
-      </View>
-      {contextOpen ? (
+      >
         <View
           style={[
-            styles.context,
-            { backgroundColor: theme.field, borderColor: theme.border },
+            styles.main,
+            {
+              borderRightColor: theme.softBorder,
+              borderBottomColor: lastInSection
+                ? "transparent"
+                : theme.softBorder,
+            },
           ]}
         >
-          {contextMessages.length > 0 ? (
-            contextMessages.map((message) => (
-              <View key={message.id} style={styles.contextMessage}>
-                <Text style={[styles.contextRole, { color: theme.muted }]}>
-                  {roleLabels[message.role]}
-                </Text>
-                <Text style={[styles.contextContent, { color: theme.text }]}>
-                  {message.content}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text style={[styles.contextEmpty, { color: theme.muted }]}>
-              没有关联上下文
+          <TextInput
+            value={draft}
+            onChangeText={onChangeDraft}
+            editable={!disabled}
+            multiline
+            style={[
+              styles.input,
+              webNoFocusOutline,
+              {
+                backgroundColor: inputBackgroundColor,
+                color: theme.text,
+              },
+            ]}
+            placeholder="记忆内容"
+            placeholderTextColor={theme.subtle}
+          />
+          <Pressable
+            onPress={onToggleContext}
+            disabled={contextLoading}
+            style={({ pressed }) => [
+              styles.metaLine,
+              pressed && { backgroundColor: theme.elevated },
+              contextLoading && styles.disabled,
+            ]}
+          >
+            <Text style={[styles.metaIcon, { color: theme.subtle }]}>◇</Text>
+            <Text style={[styles.contextAction, { color: theme.link }]}>
+              {contextLabel}
             </Text>
-          )}
+            <Text style={[styles.metaDot, { color: theme.subtle }]}>·</Text>
+            <Text style={[styles.metaText, { color: theme.subtle }]}>
+              {typeLabels[memory.type]}
+            </Text>
+            <Text style={[styles.metaDot, { color: theme.subtle }]}>·</Text>
+            <Text style={[styles.metaText, { color: theme.subtle }]}>
+              {formatDate(memory.created_at)}
+            </Text>
+            <Text style={[styles.chevron, { color: theme.subtle }]}>
+              {contextOpen ? "⌄" : "›"}
+            </Text>
+          </Pressable>
+          {changed ? (
+            <View style={styles.changedLine}>
+              <Text style={[styles.changedText, { color: theme.subtle }]}>
+                已修改
+              </Text>
+              <Text style={[styles.metaDot, { color: theme.subtle }]}>·</Text>
+              <Pressable
+                onPress={onReset}
+                disabled={resetDisabled}
+                style={[styles.resetAction, resetDisabled && styles.disabled]}
+              >
+                <Text style={[styles.resetText, { color: theme.link }]}>
+                  还原
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {contextOpen ? (
+            <View
+              style={[
+                styles.context,
+                { backgroundColor: theme.elevated, borderColor: theme.border },
+              ]}
+            >
+              {contextMessages.length > 0 ? (
+                contextMessages.map((message) => (
+                  <View key={message.id} style={styles.contextMessage}>
+                    <Text style={[styles.contextRole, { color: theme.muted }]}>
+                      {roleLabels[message.role]}
+                    </Text>
+                    <Text
+                      style={[styles.contextContent, { color: theme.text }]}
+                    >
+                      {message.content}
+                    </Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={[styles.contextEmpty, { color: theme.muted }]}>
+                  没有关联上下文
+                </Text>
+              )}
+            </View>
+          ) : null}
         </View>
-      ) : null}
+        <View
+          style={[
+            styles.actionRail,
+            {
+              borderBottomColor: lastInSection
+                ? "transparent"
+                : theme.softBorder,
+            },
+          ]}
+        >
+          <Pressable
+            onPress={onSave}
+            disabled={saveDisabled}
+            style={({ pressed }) => [
+              styles.railButton,
+              pressed && !saveDisabled && { backgroundColor: theme.elevated },
+              saveDisabled && styles.disabled,
+            ]}
+          >
+            <Text style={[styles.saveText, { color: saveTextColor }]}>
+              {saving ? "保存中" : "保存"}
+            </Text>
+          </Pressable>
+          <View
+            style={[styles.railDivider, { backgroundColor: theme.softBorder }]}
+          />
+          <Pressable
+            onPress={onDelete}
+            disabled={disabled}
+            style={({ pressed }) => [
+              styles.railButton,
+              pressed && !disabled && { backgroundColor: theme.dangerSurface },
+              disabled && styles.disabled,
+            ]}
+          >
+            <Text style={[styles.deleteText, { color: theme.danger }]}>
+              {deleting ? "删除中" : "删除"}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    gap: 10,
+  row: {
+    marginHorizontal: 14,
   },
-  metaRow: {
+  frame: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 10,
-  },
-  type: {
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  date: {
-    fontSize: 12,
+    overflow: "hidden",
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
   },
   input: {
-    minHeight: 72,
-    borderWidth: 1,
+    minHeight: 48,
+    padding: 0,
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: "700",
     borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 15,
-    lineHeight: 21,
+    textAlignVertical: "top",
   },
-  actions: {
+  main: {
+    flex: 1,
+    minWidth: 0,
+    borderBottomWidth: 1,
+    borderRightWidth: 1,
+    paddingTop: 17,
+    paddingRight: 14,
+    paddingBottom: 13,
+    paddingLeft: 16,
+  },
+  metaLine: {
+    minHeight: 30,
+    marginTop: 7,
+    marginLeft: -4,
+    borderRadius: 4,
     flexDirection: "row",
-    gap: 8,
-    flexWrap: "wrap",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    gap: 7,
   },
-  primary: {
+  metaIcon: {
+    width: 18,
+    fontSize: 18,
+    lineHeight: 22,
+    textAlign: "center",
+  },
+  contextAction: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  metaDot: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  metaText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  chevron: {
+    marginLeft: "auto",
+    fontSize: 32,
+    lineHeight: 32,
+    fontWeight: "200",
+  },
+  changedLine: {
+    minHeight: 24,
+    marginTop: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  changedText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  resetAction: {
+    minHeight: 24,
+    justifyContent: "center",
+  },
+  resetText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  actionRail: {
+    width: 88,
+    borderBottomWidth: 1,
+  },
+  railButton: {
     flex: 1,
-    height: 38,
-    borderRadius: 5,
+    minHeight: 58,
     alignItems: "center",
     justifyContent: "center",
   },
-  secondary: {
-    flex: 1,
-    height: 38,
-    borderWidth: 1,
-    borderRadius: 5,
-    alignItems: "center",
-    justifyContent: "center",
+  saveText: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "600",
   },
-  danger: {
-    flex: 1,
-    height: 38,
-    borderWidth: 1,
-    borderRadius: 5,
-    alignItems: "center",
-    justifyContent: "center",
+  deleteText: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "600",
   },
-  primaryText: {
-    fontWeight: "800",
-  },
-  secondaryText: {
-    fontWeight: "800",
-  },
-  dangerText: {
-    fontWeight: "800",
+  railDivider: {
+    height: 1,
   },
   disabled: {
-    opacity: 0.45,
+    opacity: 0.55,
   },
   context: {
     borderWidth: 1,
     borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     gap: 8,
   },
   contextMessage: {
@@ -264,3 +379,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 })
+
+const webNoFocusOutline: (TextStyle & { outlineStyle?: "none" }) | null =
+  Platform.OS === "web"
+    ? {
+        outlineStyle: "none",
+      }
+    : null
