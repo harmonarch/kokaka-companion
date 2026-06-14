@@ -4,10 +4,12 @@ import { useMemoryStore } from "@/stores/memoryStore"
 
 export function useMemoryActions({
   drafts,
+  setDraft,
   resetDraft,
   removeDraft,
 }: {
   drafts: Record<string, string>
+  setDraft: (id: string, content: string) => void
   resetDraft: (memory: Memory) => void
   removeDraft: (id: string) => void
 }) {
@@ -19,7 +21,9 @@ export function useMemoryActions({
   }
 
   async function save(memory: Memory) {
-    await updateMemory(memory.id, drafts[memory.id] ?? memory.content)
+    const content = drafts[memory.id] ?? memory.content
+    const savedMemory = await updateMemory(memory.id, content)
+    if (savedMemory) setDraft(memory.id, savedMemory.content)
   }
 
   async function remove(memory: Memory) {

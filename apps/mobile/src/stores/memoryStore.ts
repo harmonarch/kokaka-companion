@@ -14,7 +14,7 @@ type MemoryState = {
   error: string | null
   loadMemories: () => Promise<void>
   toggleMemoryContext: (id: string) => Promise<void>
-  updateMemory: (id: string, content: string) => Promise<void>
+  updateMemory: (id: string, content: string) => Promise<Memory | null>
   deleteMemory: (id: string) => Promise<void>
 }
 
@@ -97,7 +97,7 @@ export const useMemoryStore = create<MemoryState>((set, get) => ({
     const trimmed = content.trim()
     if (!trimmed) {
       set({ error: "记忆内容不能为空" })
-      return
+      return null
     }
     set({ savingId: id, error: null })
     try {
@@ -113,11 +113,13 @@ export const useMemoryStore = create<MemoryState>((set, get) => ({
         savingId: null,
         error: null,
       })
+      return savedMemory
     } catch (error) {
       set({
         savingId: null,
         error: error instanceof Error ? error.message : "记忆保存失败",
       })
+      return null
     }
   },
   deleteMemory: async (id) => {

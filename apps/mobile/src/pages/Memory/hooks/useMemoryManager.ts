@@ -20,6 +20,7 @@ export function useMemoryManager() {
   const drafts = useMemoryDrafts(memories)
   const actions = useMemoryActions({
     drafts: drafts.drafts,
+    setDraft: drafts.setDraft,
     resetDraft: drafts.resetDraft,
     removeDraft: drafts.removeDraft,
   })
