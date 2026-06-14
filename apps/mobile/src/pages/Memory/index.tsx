@@ -12,15 +12,19 @@ import {
 } from "react-native"
 import type { TextStyle, ViewStyle } from "react-native"
 import Svg, { Path } from "react-native-svg"
+import { useProfileStore } from "@/stores/profileStore"
 import { useAppTheme } from "@/theme"
 import { MemoryCard } from "./components/MemoryCard"
+import { MemoryContextDialog } from "./components/MemoryContextDialog"
 import { MemoryHeader } from "./components/MemoryHeader"
+import { useMemoryDialogs } from "./hooks/useMemoryDialogs"
 import { useMemoryList } from "./hooks/useMemoryList"
 import { useMemoryManager } from "./hooks/useMemoryManager"
 import { tabDescriptions, tabLabels, type MemoryTab } from "./types"
 
 export default function Memory() {
   const theme = useAppTheme()
+  const profiles = useProfileStore((state) => state.profiles)
   const [activeTab, setActiveTab] = useState<MemoryTab>("preference")
   const [searchText, setSearchText] = useState("")
   const {
@@ -49,6 +53,21 @@ export default function Memory() {
     activeTab,
     searchText,
   })
+  const {
+    contextMemory,
+    contextMemoryId,
+    contextLoading,
+    openContext,
+    closeContext,
+  } = useMemoryDialogs({
+    memories,
+    contextOpenId,
+    contextLoadingId,
+    toggleMemoryContext,
+  })
+  const contextMessages = contextMemoryId
+    ? (contexts[contextMemoryId] ?? [])
+    : []
   if (restoringUser) {
     return (
       <View style={[styles.page, { backgroundColor: theme.background }]}>
@@ -217,18 +236,24 @@ export default function Memory() {
                 deleting={deletingId === memory.id}
                 firstInSection={item.firstInSection}
                 lastInSection={item.lastInSection}
-                contextOpen={contextOpenId === memory.id}
                 contextLoading={contextLoadingId === memory.id}
-                contextMessages={contexts[memory.id] ?? []}
                 onChangeDraft={(content) => setDraft(memory.id, content)}
                 onSave={() => save(memory)}
                 onReset={() => resetDraft(memory)}
                 onDelete={() => remove(memory)}
-                onToggleContext={() => toggleMemoryContext(memory.id)}
+                onToggleContext={() => void openContext(memory)}
                 theme={theme}
               />
             )
           }}
+        />
+        <MemoryContextDialog
+          memory={contextMemory}
+          messages={contextMessages}
+          loading={contextLoading}
+          profiles={profiles}
+          onClose={closeContext}
+          theme={theme}
         />
       </View>
     </View>

@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native"
 import type { TextStyle } from "react-native"
-import type { ChatMessage, Memory } from "@ai-companion/shared"
+import type { Memory } from "@ai-companion/shared"
 import type { AppTheme } from "@/theme"
 
 const typeLabels: Record<Memory["type"], string> = {
@@ -35,11 +35,6 @@ function formatDate(timestamp: number) {
   return `${month}-${day} ${hour}:${minute}`
 }
 
-const roleLabels: Record<ChatMessage["role"], string> = {
-  user: "我",
-  agent: "小练",
-}
-
 export function MemoryCard({
   memory,
   draft,
@@ -47,9 +42,7 @@ export function MemoryCard({
   deleting,
   firstInSection,
   lastInSection,
-  contextOpen,
   contextLoading,
-  contextMessages,
   onChangeDraft,
   onSave,
   onReset,
@@ -63,9 +56,7 @@ export function MemoryCard({
   deleting: boolean
   firstInSection: boolean
   lastInSection: boolean
-  contextOpen: boolean
   contextLoading: boolean
-  contextMessages: ChatMessage[]
   onChangeDraft: (content: string) => void
   onSave: () => void
   onReset: () => void
@@ -75,11 +66,7 @@ export function MemoryCard({
 }) {
   const changed = draft.trim() !== memory.content.trim()
   const disabled = saving || deleting
-  const contextLabel = contextLoading
-    ? "载入中"
-    : contextOpen
-      ? "收起"
-      : "上下文"
+  const contextLabel = contextLoading ? "载入中" : "上下文"
   const saveDisabled = !changed || disabled || !draft.trim()
   const resetDisabled = !changed || disabled
   const saveTextColor = saveDisabled ? theme.subtle : theme.primary
@@ -154,7 +141,7 @@ export function MemoryCard({
               {formatDate(memory.created_at)}
             </Text>
             <Text style={[styles.chevron, { color: theme.subtle }]}>
-              {contextOpen ? "⌄" : "›"}
+              ›
             </Text>
           </Pressable>
           {changed ? (
@@ -172,33 +159,6 @@ export function MemoryCard({
                   还原
                 </Text>
               </Pressable>
-            </View>
-          ) : null}
-          {contextOpen ? (
-            <View
-              style={[
-                styles.context,
-                { backgroundColor: theme.elevated, borderColor: theme.border },
-              ]}
-            >
-              {contextMessages.length > 0 ? (
-                contextMessages.map((message) => (
-                  <View key={message.id} style={styles.contextMessage}>
-                    <Text style={[styles.contextRole, { color: theme.muted }]}>
-                      {roleLabels[message.role]}
-                    </Text>
-                    <Text
-                      style={[styles.contextContent, { color: theme.text }]}
-                    >
-                      {message.content}
-                    </Text>
-                  </View>
-                ))
-              ) : (
-                <Text style={[styles.contextEmpty, { color: theme.muted }]}>
-                  没有关联上下文
-                </Text>
-              )}
             </View>
           ) : null}
         </View>
@@ -354,29 +314,6 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.55,
-  },
-  context: {
-    borderWidth: 1,
-    borderRadius: 6,
-    marginTop: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  contextMessage: {
-    gap: 3,
-  },
-  contextRole: {
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  contextContent: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  contextEmpty: {
-    fontSize: 14,
-    lineHeight: 20,
   },
 })
 
