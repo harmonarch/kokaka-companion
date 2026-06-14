@@ -21,6 +21,9 @@ const emptyChatProfiles: ChatProfiles = {
   },
 }
 
+let pendingLoadProfiles: Promise<void> | null = null
+let pendingLoadProfilesUserId: string | null = null
+
 function normalizeProfile(profile: ChatProfile): ChatProfile {
   const nickname = profile.nickname?.trim() || null
   const avatarUrl = profile.avatar_url?.trim() || null
@@ -37,18 +40,40 @@ export const useProfileStore = create<ProfileState>((set) => ({
   loadProfiles: async () => {
     const user = useAuthStore.getState().user
     if (!user) {
+      pendingLoadProfiles = null
+      pendingLoadProfilesUserId = null
       set({ profiles: emptyChatProfiles, ready: true, error: null })
       return
     }
-    try {
-      const profiles = await useAuthStore.getState().client.chatProfiles()
-      set({ profiles, ready: true, error: null })
-    } catch (error) {
-      set({
-        ready: true,
-        error: error instanceof Error ? error.message : "聊天资料载入失败",
-      })
+
+    const userId = user.id
+    if (pendingLoadProfiles && pendingLoadProfilesUserId === userId) {
+      return pendingLoadProfiles
     }
+
+    const request = useAuthStore
+      .getState()
+      .client.chatProfiles()
+      .then((profiles) => {
+        if (useAuthStore.getState().user?.id !== userId) return
+        set({ profiles, ready: true, error: null })
+      })
+      .catch((error) => {
+        if (useAuthStore.getState().user?.id !== userId) return
+        set({
+          ready: true,
+          error: error instanceof Error ? error.message : "聊天资料载入失败",
+        })
+      })
+      .finally(() => {
+        if (pendingLoadProfiles !== request) return
+        pendingLoadProfiles = null
+        pendingLoadProfilesUserId = null
+      })
+
+    pendingLoadProfiles = request
+    pendingLoadProfilesUserId = userId
+    return request
   },
   updateProfiles: async (profiles) => {
     const normalizedProfiles = {
