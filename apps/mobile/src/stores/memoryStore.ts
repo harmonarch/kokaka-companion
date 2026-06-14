@@ -131,7 +131,9 @@ export const useMemoryStore = create<MemoryState>((set, get) => ({
         deletingId: null,
         contextOpenId: get().contextOpenId === id ? null : get().contextOpenId,
         contexts: Object.fromEntries(
-          Object.entries(get().contexts).filter(([memoryId]) => memoryId !== id),
+          Object.entries(get().contexts).filter(
+            ([memoryId]) => memoryId !== id,
+          ),
         ),
         error: null,
       })
