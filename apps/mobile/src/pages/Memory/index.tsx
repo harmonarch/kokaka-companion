@@ -1,5 +1,5 @@
 import { Redirect } from "expo-router"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import {
   ActivityIndicator,
   FlatList,
@@ -11,85 +11,13 @@ import {
   View,
 } from "react-native"
 import type { TextStyle, ViewStyle } from "react-native"
-import type { Memory as MemoryItem } from "@ai-companion/shared"
 import Svg, { Path } from "react-native-svg"
 import { useAppTheme } from "@/theme"
 import { MemoryCard } from "./components/MemoryCard"
 import { MemoryHeader } from "./components/MemoryHeader"
+import { useMemoryList } from "./hooks/useMemoryList"
 import { useMemoryManager } from "./hooks/useMemoryManager"
-
-type MemoryTab = "preference" | "event" | "emotion_snapshot"
-type MemoryListItem =
-  | {
-      id: string
-      kind: "section"
-      title: string
-    }
-  | {
-      id: string
-      kind: "memory"
-      memory: MemoryItem
-      firstInSection: boolean
-      lastInSection: boolean
-    }
-
-const tabLabels: Record<MemoryTab, string> = {
-  preference: "偏好",
-  event: "事件",
-  emotion_snapshot: "情绪",
-}
-
-const tabDescriptions: Record<MemoryTab, string> = {
-  preference: "这些是你告诉我的偏好，我会在对话中尽量参考。",
-  event: "这些是你提到的重要事件，我会用来理解上下文。",
-  emotion_snapshot: "这些是你提到的持续情绪状态，我会用来理解近期感受。",
-}
-
-function belongsToTab(memory: MemoryItem, tab: MemoryTab) {
-  return memory.type === tab
-}
-
-function normalizeSearchText(text: string) {
-  return text.trim().toLowerCase()
-}
-
-function matchesSearch(memory: MemoryItem, query: string) {
-  if (!query) return true
-  return memory.content.toLowerCase().includes(query)
-}
-
-function isRecentMemory(memory: MemoryItem) {
-  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-  return memory.created_at >= weekAgo
-}
-
-function createMemoryItems(memories: MemoryItem[]): MemoryListItem[] {
-  return memories.map((memory, index) => ({
-    id: memory.id,
-    kind: "memory" as const,
-    memory,
-    firstInSection: index === 0,
-    lastInSection: index === memories.length - 1,
-  }))
-}
-
-function createListItems(memories: MemoryItem[]): MemoryListItem[] {
-  const recent = memories.filter(isRecentMemory)
-  const older = memories.filter((memory) => !isRecentMemory(memory))
-  const items: MemoryListItem[] = []
-
-  if (recent.length > 0) {
-    items.push({ id: "section-recent", kind: "section", title: "本周" })
-    items.push(...createMemoryItems(recent))
-  }
-
-  if (older.length > 0) {
-    items.push({ id: "section-older", kind: "section", title: "更早" })
-    items.push(...createMemoryItems(older))
-  }
-
-  return items
-}
+import { tabDescriptions, tabLabels, type MemoryTab } from "./types"
 
 export default function Memory() {
   const theme = useAppTheme()
@@ -116,36 +44,11 @@ export default function Memory() {
     resetDraft,
   } = useMemoryManager()
 
-  const searchQuery = useMemo(
-    () => normalizeSearchText(searchText),
-    [searchText],
-  )
-  const searchedMemories = useMemo(
-    () => memories.filter((memory) => matchesSearch(memory, searchQuery)),
-    [memories, searchQuery],
-  )
-  const counts = useMemo(
-    () => ({
-      preference: searchedMemories.filter((memory) =>
-        belongsToTab(memory, "preference"),
-      ).length,
-      event: searchedMemories.filter((memory) => belongsToTab(memory, "event"))
-        .length,
-      emotion_snapshot: searchedMemories.filter((memory) =>
-        belongsToTab(memory, "emotion_snapshot"),
-      ).length,
-    }),
-    [searchedMemories],
-  )
-  const currentMemories = useMemo(
-    () => searchedMemories.filter((memory) => belongsToTab(memory, activeTab)),
-    [activeTab, searchedMemories],
-  )
-  const listItems = useMemo(
-    () => createListItems(currentMemories),
-    [currentMemories],
-  )
-  const isSearching = searchQuery.length > 0
+  const { counts, isSearching, listItems } = useMemoryList({
+    memories,
+    activeTab,
+    searchText,
+  })
   if (restoringUser) {
     return (
       <View style={[styles.page, { backgroundColor: theme.background }]}>
