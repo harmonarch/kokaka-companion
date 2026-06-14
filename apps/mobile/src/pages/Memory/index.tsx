@@ -21,7 +21,12 @@ import { MemoryHeader } from "./components/MemoryHeader"
 import { useMemoryDialogs } from "./hooks/useMemoryDialogs"
 import { useMemoryList } from "./hooks/useMemoryList"
 import { useMemoryManager } from "./hooks/useMemoryManager"
-import { tabDescriptions, tabLabels, type MemoryTab } from "./types"
+import {
+  memoryTabs,
+  tabDescriptions,
+  tabLabels,
+  type MemoryTab,
+} from "./types"
 
 export default function Memory() {
   const theme = useAppTheme()
@@ -49,7 +54,7 @@ export default function Memory() {
     resetDraft,
   } = useMemoryManager()
 
-  const { counts, isSearching, listItems } = useMemoryList({
+  const { counts, isSearching, listItems, visibleCount } = useMemoryList({
     memories,
     activeTab,
     searchText,
@@ -98,7 +103,7 @@ export default function Memory() {
         <MemoryHeader onBack={goBack} theme={theme} />
         <View
           style={[
-            styles.searchSection,
+            styles.overview,
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
@@ -136,7 +141,7 @@ export default function Memory() {
             {isSearching ? (
               <Pressable
                 onPress={() => setSearchText("")}
-                style={styles.clearButton}
+                style={[styles.clearButton, webNoFocusOutline]}
               >
                 <Text style={[styles.clearText, { color: theme.subtle }]}>
                   ×
@@ -148,16 +153,22 @@ export default function Memory() {
         <View
           style={[
             styles.tabs,
-            { backgroundColor: theme.surface, borderColor: theme.border },
+            { backgroundColor: theme.background, borderColor: theme.border },
           ]}
         >
-          {(["preference", "event", "emotion_snapshot"] as const).map((tab) => {
+          {memoryTabs.map((tab) => {
             const selected = activeTab === tab
             return (
               <Pressable
                 key={tab}
                 onPress={() => setActiveTab(tab)}
-                style={[styles.tab, webNoFocusOutline]}
+                style={[
+                  styles.tab,
+                  {
+                    borderBottomColor: selected ? "#07c160" : "transparent",
+                  },
+                  webNoFocusOutline,
+                ]}
               >
                 <Text
                   style={[
@@ -166,20 +177,31 @@ export default function Memory() {
                     selected && styles.tabTextSelected,
                   ]}
                 >
-                  {tabLabels[tab]}
+                  {tabLabels[tab]}({counts[tab]})
                 </Text>
-                <View
-                  style={[
-                    styles.tabIndicator,
-                    {
-                      backgroundColor: selected ? theme.primary : "transparent",
-                    },
-                  ]}
-                />
               </Pressable>
             )
           })}
         </View>
+        <View style={styles.overviewCopy}>
+          <View
+            style={[
+              styles.overviewPanel,
+              { backgroundColor: theme.elevated, borderColor: theme.border },
+            ]}
+          >
+            <Text style={[styles.overviewTitle, { color: theme.text }]}>
+              <Text style={styles.overviewTitleAccent}>{visibleCount}</Text>
+              {` 条${tabLabels[activeTab]}记忆`}
+            </Text>
+            <Text style={[styles.overviewText, { color: theme.muted }]}>
+              {tabDescriptions[activeTab]}
+            </Text>
+          </View>
+        </View>
+        {error ? (
+          <Text style={[styles.error, { color: theme.danger }]}>{error}</Text>
+        ) : null}
         <FlatList
           data={listItems}
           keyExtractor={(item) => item.id}
@@ -188,23 +210,6 @@ export default function Memory() {
             listItems.length === 0 && styles.emptyContent,
           ]}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={
-            <View style={styles.listIntro}>
-              <View style={styles.introRow}>
-                <Text style={[styles.description, { color: theme.muted }]}>
-                  {tabDescriptions[activeTab]}
-                </Text>
-                <Text style={[styles.countText, { color: theme.subtle }]}>
-                  {counts[activeTab]} 条
-                </Text>
-              </View>
-              {error ? (
-                <Text style={[styles.error, { color: theme.danger }]}>
-                  {error}
-                </Text>
-              ) : null}
-            </View>
-          }
           ListEmptyComponent={
             <View
               style={[
@@ -221,8 +226,8 @@ export default function Memory() {
               </Text>
               <Text style={[styles.emptyText, { color: theme.muted }]}>
                 {isSearching
-                  ? "可以换个关键词试试。"
-                  : "以后从聊天中提取出的重要信息会出现在这里。"}
+                  ? "换个关键词，或切换到其他分类。"
+                  : "之后从聊天中整理出的内容会显示在这里。"}
               </Text>
             </View>
           }
@@ -293,19 +298,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  searchSection: {
+  overview: {
     borderBottomWidth: 1,
     paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingTop: 14,
+    paddingBottom: 14,
+  },
+  overviewCopy: {
+    paddingHorizontal: 18,
+    paddingTop: 12,
+  },
+  overviewPanel: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  overviewTitle: {
+    fontSize: 20,
+    lineHeight: 27,
+    fontWeight: "800",
+  },
+  overviewTitleAccent: {
+    color: "#07c160",
+  },
+  overviewText: {
+    marginTop: 3,
+    fontSize: 14,
+    lineHeight: 20,
   },
   searchBox: {
-    minHeight: 36,
-    borderRadius: 6,
+    minHeight: 40,
+    borderRadius: 8,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
-    gap: 8,
+    paddingHorizontal: 12,
+    gap: 9,
   },
   searchIcon: {
     width: 18,
@@ -331,74 +360,48 @@ const styles = StyleSheet.create({
     fontWeight: "300",
   },
   tabs: {
-    height: 58,
     flexDirection: "row",
     borderBottomWidth: 1,
+    paddingHorizontal: 18,
   },
   tab: {
     flex: 1,
+    minHeight: 52,
+    borderBottomWidth: 4,
     alignItems: "center",
     justifyContent: "center",
-    position: "relative",
   },
   tabText: {
-    fontSize: 18,
-    lineHeight: 25,
+    fontSize: 16,
+    lineHeight: 22,
   },
   tabTextSelected: {
-    fontWeight: "600",
-  },
-  tabIndicator: {
-    position: "absolute",
-    bottom: 0,
-    width: 32,
-    height: 3,
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
+    fontWeight: "800",
   },
   content: {
-    paddingBottom: 28,
+    paddingBottom: 20,
   },
   emptyContent: {
     flexGrow: 1,
   },
-  listIntro: {
-    paddingTop: 18,
-    paddingBottom: 8,
-  },
-  introRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    paddingHorizontal: 20,
-  },
-  description: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  countText: {
-    flexShrink: 0,
-    fontSize: 13,
-    lineHeight: 19,
-    paddingTop: 2,
-  },
   empty: {
-    minHeight: 220,
+    minHeight: 210,
     justifyContent: "center",
     alignItems: "center",
-    marginHorizontal: 36,
-    marginTop: 42,
+    marginHorizontal: 22,
+    marginTop: 30,
     paddingHorizontal: 22,
     paddingVertical: 32,
+    borderWidth: 1,
+    borderRadius: 8,
   },
   sectionTitle: {
-    height: 34,
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    height: 32,
+    paddingHorizontal: 18,
+    paddingTop: 9,
     fontSize: 13,
     lineHeight: 18,
+    fontWeight: "700",
   },
   emptyTitle: {
     fontSize: 17,

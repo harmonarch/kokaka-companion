@@ -29,7 +29,7 @@ export const tabLabels: Record<MemoryTab, string> = {
 }
 
 export const tabDescriptions: Record<MemoryTab, string> = {
-  preference: "这些是你告诉我的偏好，我会在对话中尽量参考。",
-  event: "这些是你提到的重要事件，我会用来理解上下文。",
-  emotion_snapshot: "这些是你提到的持续情绪状态，我会用来理解近期感受。",
+  preference: "会在对话中优先参考的个人偏好。",
+  event: "用于理解上下文的重要事件。",
+  emotion_snapshot: "用于理解近期感受的持续情绪状态。",
 }

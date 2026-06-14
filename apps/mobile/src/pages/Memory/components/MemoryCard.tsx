@@ -1,4 +1,5 @@
 import {
+  ActivityIndicator,
   Platform,
   Pressable,
   StyleSheet,
@@ -12,7 +13,7 @@ import type { AppTheme } from "@/theme"
 
 const typeLabels: Record<Memory["type"], string> = {
   event: "事件",
-  preference: "偏好",
+  preference: "记忆",
   emotion_snapshot: "情绪",
 }
 
@@ -29,7 +30,7 @@ function formatDate(timestamp: number) {
   const minute = String(date.getMinutes()).padStart(2, "0")
   if (diffDays === 0) return `今天 ${hour}:${minute}`
   if (diffDays === 1) return `昨天 ${hour}:${minute}`
-  if (diffDays > 1 && diffDays < 7) return "本周"
+  if (diffDays === 2) return `前天 ${hour}:${minute}`
   const month = String(date.getMonth() + 1).padStart(2, "0")
   const day = String(date.getDate()).padStart(2, "0")
   return `${month}-${day} ${hour}:${minute}`
@@ -69,40 +70,51 @@ export function MemoryCard({
   const contextLabel = contextLoading ? "载入中" : "上下文"
   const saveDisabled = !changed || disabled || !draft.trim()
   const resetDisabled = !changed || disabled
-  const saveTextColor = saveDisabled ? theme.subtle : theme.primary
-  const inputBackgroundColor = changed ? theme.elevated : "transparent"
-  const rowRadius = {
-    borderTopLeftRadius: firstInSection ? 12 : 0,
-    borderTopRightRadius: firstInSection ? 12 : 0,
-    borderBottomLeftRadius: lastInSection ? 12 : 0,
-    borderBottomRightRadius: lastInSection ? 12 : 0,
-  }
+  const saveTextColor = saveDisabled ? theme.subtle : theme.primaryText
+  const inputBackgroundColor = changed ? theme.elevated : theme.field
 
   return (
-    <View style={styles.row}>
+    <View
+      style={[
+        styles.row,
+        firstInSection && styles.firstRow,
+        lastInSection && styles.lastRow,
+      ]}
+    >
       <View
         style={[
           styles.frame,
-          rowRadius,
           {
             backgroundColor: theme.surface,
             borderColor: theme.border,
-            borderTopWidth: firstInSection ? 1 : 0,
-            borderBottomWidth: lastInSection ? 1 : 0,
           },
         ]}
       >
-        <View
-          style={[
-            styles.main,
-            {
-              borderRightColor: theme.softBorder,
-              borderBottomColor: lastInSection
-                ? "transparent"
-                : theme.softBorder,
-            },
-          ]}
-        >
+        <View style={styles.topLine}>
+          <View style={styles.typeLine}>
+            <Text style={[styles.typeText, { color: theme.text }]}>
+              {typeLabels[memory.type]}
+            </Text>
+            {changed ? (
+              <View
+                style={[
+                  styles.changedPill,
+                  { backgroundColor: theme.primarySoft },
+                ]}
+              >
+                <Text
+                  style={[styles.changedPillText, { color: theme.primaryText }]}
+                >
+                  已修改
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={[styles.dateText, { color: theme.subtle }]}>
+            {formatDate(memory.created_at)}
+          </Text>
+        </View>
+        <View style={styles.main}>
           <TextInput
             value={draft}
             onChangeText={onChangeDraft}
@@ -112,6 +124,7 @@ export function MemoryCard({
               styles.input,
               webNoFocusOutline,
               {
+                borderColor: changed ? theme.border : "transparent",
                 backgroundColor: inputBackgroundColor,
                 color: theme.text,
               },
@@ -119,88 +132,83 @@ export function MemoryCard({
             placeholder="记忆内容"
             placeholderTextColor={theme.subtle}
           />
+        </View>
+        <View style={styles.actionLine}>
           <Pressable
             onPress={onToggleContext}
             disabled={contextLoading}
             style={({ pressed }) => [
-              styles.metaLine,
+              styles.contextButton,
+              { backgroundColor: theme.elevated, borderColor: theme.border },
               pressed && { backgroundColor: theme.elevated },
               contextLoading && styles.disabled,
             ]}
           >
-            <Text style={[styles.metaIcon, { color: theme.subtle }]}>◇</Text>
-            <Text style={[styles.contextAction, { color: theme.link }]}>
+            {contextLoading ? (
+              <ActivityIndicator color={theme.muted} size="small" />
+            ) : null}
+            <Text style={[styles.contextAction, { color: theme.text }]}>
               {contextLabel}
             </Text>
-            <Text style={[styles.metaDot, { color: theme.subtle }]}>·</Text>
-            <Text style={[styles.metaText, { color: theme.subtle }]}>
-              {typeLabels[memory.type]}
-            </Text>
-            <Text style={[styles.metaDot, { color: theme.subtle }]}>·</Text>
-            <Text style={[styles.metaText, { color: theme.subtle }]}>
-              {formatDate(memory.created_at)}
-            </Text>
-            <Text style={[styles.chevron, { color: theme.subtle }]}>
-              ›
-            </Text>
           </Pressable>
-          {changed ? (
-            <View style={styles.changedLine}>
-              <Text style={[styles.changedText, { color: theme.subtle }]}>
-                已修改
+          <View style={styles.editActions}>
+            <Pressable
+              onPress={onReset}
+              disabled={resetDisabled}
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                { borderColor: theme.border },
+                pressed &&
+                  !resetDisabled && {
+                    backgroundColor: theme.elevated,
+                  },
+                resetDisabled && styles.disabled,
+              ]}
+            >
+              <Text style={[styles.secondaryButtonText, { color: theme.text }]}>
+                还原
               </Text>
-              <Text style={[styles.metaDot, { color: theme.subtle }]}>·</Text>
-              <Pressable
-                onPress={onReset}
-                disabled={resetDisabled}
-                style={[styles.resetAction, resetDisabled && styles.disabled]}
-              >
-                <Text style={[styles.resetText, { color: theme.link }]}>
-                  还原
-                </Text>
-              </Pressable>
-            </View>
-          ) : null}
-        </View>
-        <View
-          style={[
-            styles.actionRail,
-            {
-              borderBottomColor: lastInSection
-                ? "transparent"
-                : theme.softBorder,
-            },
-          ]}
-        >
-          <Pressable
-            onPress={onSave}
-            disabled={saveDisabled}
-            style={({ pressed }) => [
-              styles.railButton,
-              pressed && !saveDisabled && { backgroundColor: theme.elevated },
-              saveDisabled && styles.disabled,
-            ]}
-          >
-            <Text style={[styles.saveText, { color: saveTextColor }]}>
-              {saving ? "保存中" : "保存"}
-            </Text>
-          </Pressable>
-          <View
-            style={[styles.railDivider, { backgroundColor: theme.softBorder }]}
-          />
-          <Pressable
-            onPress={onDelete}
-            disabled={disabled}
-            style={({ pressed }) => [
-              styles.railButton,
-              pressed && !disabled && { backgroundColor: theme.dangerSurface },
-              disabled && styles.disabled,
-            ]}
-          >
-            <Text style={[styles.deleteText, { color: theme.danger }]}>
-              {deleting ? "删除中" : "删除"}
-            </Text>
-          </Pressable>
+            </Pressable>
+            <Pressable
+              onPress={onSave}
+              disabled={saveDisabled}
+              style={({ pressed }) => [
+                styles.saveButton,
+                { backgroundColor: theme.primary },
+                pressed &&
+                  !saveDisabled && {
+                    backgroundColor: theme.primaryPressed,
+                  },
+                saveDisabled && {
+                  backgroundColor: theme.elevated,
+                  borderColor: theme.border,
+                },
+                saveDisabled && styles.disabled,
+              ]}
+            >
+              <Text style={[styles.saveText, { color: saveTextColor }]}>
+                {saving ? "保存中" : "保存"}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={onDelete}
+              disabled={disabled}
+              style={({ pressed }) => [
+                styles.deleteButton,
+                {
+                  backgroundColor: theme.dangerSurface,
+                  borderColor: theme.dangerBorder,
+                },
+                pressed &&
+                  !disabled && { backgroundColor: theme.dangerSurface },
+                disabled && styles.disabled,
+              ]}
+            >
+              <Text style={[styles.deleteText, { color: theme.danger }]}>
+                {deleting ? "删除中" : "删除"}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     </View>
@@ -209,108 +217,140 @@ export function MemoryCard({
 
 const styles = StyleSheet.create({
   row: {
-    marginHorizontal: 14,
+    marginHorizontal: 16,
+    marginBottom: 10,
+  },
+  firstRow: {
+    marginTop: 2,
+  },
+  lastRow: {
+    marginBottom: 18,
   },
   frame: {
-    flexDirection: "row",
+    borderWidth: 1,
+    borderRadius: 8,
     overflow: "hidden",
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
+    paddingTop: 14,
   },
-  input: {
-    minHeight: 48,
-    padding: 0,
-    fontSize: 17,
-    lineHeight: 24,
-    fontWeight: "700",
-    borderRadius: 6,
-    textAlignVertical: "top",
-  },
-  main: {
-    flex: 1,
-    minWidth: 0,
-    borderBottomWidth: 1,
-    borderRightWidth: 1,
-    paddingTop: 17,
-    paddingRight: 14,
-    paddingBottom: 13,
-    paddingLeft: 16,
-  },
-  metaLine: {
-    minHeight: 30,
-    marginTop: 7,
-    marginLeft: -4,
-    borderRadius: 4,
+  topLine: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 4,
-    gap: 7,
+    justifyContent: "space-between",
+    gap: 12,
+    paddingHorizontal: 14,
   },
-  metaIcon: {
-    width: 18,
-    fontSize: 18,
-    lineHeight: 22,
-    textAlign: "center",
+  typeLine: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  typeText: {
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: "700",
+  },
+  changedPill: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  changedPillText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "700",
+  },
+  dateText: {
+    flexShrink: 0,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  main: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
+  },
+  input: {
+    minHeight: 76,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: "600",
+    borderRadius: 8,
+    borderWidth: 1,
+    textAlignVertical: "top",
+  },
+  actionLine: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 14,
+  },
+  contextButton: {
+    flexShrink: 1,
+    minHeight: 34,
+    borderRadius: 7,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
   },
   contextAction: {
     fontSize: 14,
     lineHeight: 20,
+    fontWeight: "600",
   },
-  metaDot: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  metaText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  chevron: {
-    marginLeft: "auto",
-    fontSize: 32,
-    lineHeight: 32,
-    fontWeight: "200",
-  },
-  changedLine: {
-    minHeight: 24,
-    marginTop: 2,
+  editActions: {
+    flexShrink: 0,
     flexDirection: "row",
     alignItems: "center",
-    gap: 7,
+    gap: 8,
   },
-  changedText: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  resetAction: {
-    minHeight: 24,
-    justifyContent: "center",
-  },
-  resetText: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  actionRail: {
-    width: 88,
-    borderBottomWidth: 1,
-  },
-  railButton: {
-    flex: 1,
-    minHeight: 58,
+  deleteButton: {
+    minHeight: 34,
+    borderRadius: 7,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
-  },
-  saveText: {
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: "600",
+    paddingHorizontal: 12,
   },
   deleteText: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "700",
+  },
+  secondaryButton: {
+    minHeight: 34,
+    borderRadius: 7,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  secondaryButtonText: {
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: "600",
   },
-  railDivider: {
-    height: 1,
+  saveButton: {
+    minHeight: 34,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  saveText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "700",
   },
   disabled: {
     opacity: 0.55,

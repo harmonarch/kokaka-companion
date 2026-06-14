@@ -30,21 +30,21 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    minHeight: 48,
+    minHeight: 54,
     borderBottomWidth: 1,
   },
   headerTitle: {
     flex: 1,
-    alignItems: "center",
+    alignItems: "flex-start",
   },
   title: {
-    fontSize: 17,
-    fontWeight: "600",
-    lineHeight: 24,
+    fontSize: 18,
+    fontWeight: "700",
+    lineHeight: 25,
   },
   iconButton: {
     width: 52,
-    height: 48,
+    height: 54,
     alignItems: "center",
     justifyContent: "center",
   },
