@@ -14,6 +14,7 @@ import {
   createTransientNudgeId,
   isTransientNudge,
 } from "./chatMessages"
+import { useConversationStore } from "./conversationStore"
 
 type ChatStatus = "idle" | "sending" | "agent_replying" | "error"
 type AgentPresence = "listening" | "replying" | null
@@ -27,6 +28,7 @@ type ChatState = {
   historyLoading: boolean
   historyHasMore: boolean
   historyUserId: string | null
+  historyConversationId: string | null
   emotionState: EmotionState | null
   relationshipState: RelationshipState | null
   error: string | null
@@ -69,6 +71,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   historyLoading: false,
   historyHasMore: true,
   historyUserId: null,
+  historyConversationId: null,
   emotionState: null,
   relationshipState: null,
   error: null,
@@ -156,13 +159,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   loadHistory: async () => {
     const userId = useAuthStore.getState().user?.id
+    const conversationId =
+      useConversationStore.getState().activeConversationId ?? "default"
     if (!userId) return
-    if (get().historyUserId && get().historyUserId !== userId) {
+    if (
+      get().historyUserId !== userId ||
+      get().historyConversationId !== conversationId
+    ) {
       set({
         messages: [],
         historyLoaded: false,
         historyHasMore: true,
         historyUserId: userId,
+        historyConversationId: conversationId,
       })
     }
     if (get().historyLoading || get().historyLoaded) return
@@ -170,13 +179,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       const history = await useAuthStore
         .getState()
-        .client.chatHistory({ limit: 20 })
+        .client.chatHistory({ limit: 20, sessionId: conversationId })
       set({
         messages: mergeMessages(get().messages, history.messages),
         historyLoaded: true,
         historyLoading: false,
         historyHasMore: history.has_more,
         historyUserId: userId,
+        historyConversationId: conversationId,
       })
     } catch (error) {
       set({
@@ -202,6 +212,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   loadOlderHistory: async () => {
     const userId = useAuthStore.getState().user?.id
+    const conversationId =
+      useConversationStore.getState().activeConversationId ?? "default"
     const messages = get().messages
     const oldestMessage = messages[messages.length - 1]
     if (
@@ -218,12 +230,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       const history = await useAuthStore
         .getState()
-        .client.chatHistory({ beforeId: oldestMessage.id, limit: 20 })
+        .client.chatHistory({
+          beforeId: oldestMessage.id,
+          limit: 20,
+          sessionId: conversationId,
+        })
       set({
         messages: mergeMessages(get().messages, history.messages),
         historyLoading: false,
         historyHasMore: history.has_more,
         historyUserId: userId,
+        historyConversationId: conversationId,
       })
     } catch (error) {
       set({
@@ -235,6 +252,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
   send: (content) => {
     const trimmed = content.trim()
     if (!trimmed) return
+    const conversationStore = useConversationStore.getState()
+    const conversationId = conversationStore.activeConversationId ?? "default"
+    const agents =
+      conversationStore
+        .getConversationAgents(conversationId)
+        .map((agent) => ({
+          id: agent.id,
+          name: agent.name,
+          persona_prompt: agent.persona_prompt,
+        })) ?? []
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
@@ -246,8 +273,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       status: "sending",
       agentPresence: null,
     })
+    conversationStore.updateConversationPreview(conversationId, trimmed)
     try {
-      get().controller?.send(trimmed, "default", userMessage.id)
+      get().controller?.send(trimmed, conversationId, userMessage.id, agents)
     } catch (error) {
       set({
         status: "error",
