@@ -128,15 +128,6 @@ export default function Profile() {
 
         <View style={styles.section}>
           <ProfileRow
-            title="记忆管理"
-            detail="查看和调整长期记忆"
-            theme={theme}
-            onPress={() => router.push("/memory")}
-          />
-        </View>
-
-        <View style={styles.section}>
-          <ProfileRow
             title="退出登录"
             detail={busy === "logout" ? "正在退出" : ""}
             theme={theme}
