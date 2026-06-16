@@ -15,7 +15,7 @@ export function useLogin() {
 
   useEffect(() => {
     if (user) {
-      router.replace("/chat")
+      router.replace("/chats")
     }
   }, [user])
 
@@ -32,7 +32,7 @@ export function useLogin() {
       } else {
         await login(email, password)
       }
-      router.replace("/chat")
+      router.replace("/chats")
     } catch (err) {
       setError(err instanceof Error ? err.message : "操作失败")
     }
