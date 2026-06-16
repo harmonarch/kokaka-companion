@@ -1,4 +1,5 @@
 import { Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native"
+import { webNoFocusInputHighlight } from "@/styles/noFocusHighlight"
 import type { AppTheme } from "@/theme"
 import type { ProfileRole } from "../profile/types"
 import type { EditableChatProfile } from "../profile/useEditableChatProfile"
@@ -82,12 +83,14 @@ export function ProfileEditorModal({
                 onChangeText={profile.setNickname}
                 style={[
                   styles.input,
+                  webNoFocusInputHighlight,
                   {
                     backgroundColor: theme.field,
                     borderColor: theme.border,
                     color: theme.text,
                   },
                 ]}
+                underlineColorAndroid="transparent"
                 placeholder="输入新的昵称"
                 placeholderTextColor={theme.subtle}
               />

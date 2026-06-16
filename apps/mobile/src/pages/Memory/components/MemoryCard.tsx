@@ -1,14 +1,13 @@
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native"
-import type { TextStyle } from "react-native"
 import type { Memory } from "@ai-companion/shared"
+import { webNoFocusInputHighlight } from "@/styles/noFocusHighlight"
 import type { AppTheme } from "@/theme"
 
 const typeLabels: Record<Memory["type"], string> = {
@@ -122,13 +121,14 @@ export function MemoryCard({
             multiline
             style={[
               styles.input,
-              webNoFocusOutline,
+              webNoFocusInputHighlight,
               {
                 borderColor: changed ? theme.border : "transparent",
                 backgroundColor: inputBackgroundColor,
                 color: theme.text,
               },
             ]}
+            underlineColorAndroid="transparent"
             placeholder="记忆内容"
             placeholderTextColor={theme.subtle}
           />
@@ -356,10 +356,3 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
 })
-
-const webNoFocusOutline: (TextStyle & { outlineStyle?: "none" }) | null =
-  Platform.OS === "web"
-    ? {
-        outlineStyle: "none",
-      }
-    : null

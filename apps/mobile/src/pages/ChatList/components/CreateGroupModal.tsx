@@ -11,6 +11,7 @@ import {
 } from "react-native"
 import type { AgentProfile } from "@/stores/conversationStore"
 import type { AppTheme } from "@/theme"
+import { webNoFocusInputHighlight } from "@/styles/noFocusHighlight"
 import { styles } from "../styles"
 import type { CreateGroupInput } from "../types"
 import { FormError, ModalHeader, SaveButton } from "./modalControls"
@@ -84,12 +85,14 @@ export function CreateGroupModal({
               onChangeText={setTitle}
               style={[
                 styles.input,
+                webNoFocusInputHighlight,
                 {
                   backgroundColor: theme.field,
                   borderColor: theme.border,
                   color: theme.text,
                 },
               ]}
+              underlineColorAndroid="transparent"
               placeholder="群聊名称，可留空"
               placeholderTextColor={theme.subtle}
             />

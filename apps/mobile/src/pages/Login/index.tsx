@@ -10,6 +10,7 @@ import { Redirect } from "expo-router"
 import { useAppTheme } from "@/theme"
 import { useLogin } from "@/pages/Login/useLogin"
 import { useLoginForm } from "@/pages/Login/useLoginForm"
+import { webNoFocusInputHighlight } from "@/styles/noFocusHighlight"
 
 export default function Login() {
   const theme = useAppTheme()
@@ -110,12 +111,14 @@ export default function Login() {
           onChangeText={form.setEmail}
           style={[
             styles.input,
+            webNoFocusInputHighlight,
             {
               backgroundColor: theme.field,
               borderColor: theme.border,
               color: theme.text,
             },
           ]}
+          underlineColorAndroid="transparent"
           placeholder="邮箱"
           placeholderTextColor={theme.subtle}
           autoCapitalize="none"
@@ -126,12 +129,14 @@ export default function Login() {
           onChangeText={form.setPassword}
           style={[
             styles.input,
+            webNoFocusInputHighlight,
             {
               backgroundColor: theme.field,
               borderColor: theme.border,
               color: theme.text,
             },
           ]}
+          underlineColorAndroid="transparent"
           placeholder="密码"
           placeholderTextColor={theme.subtle}
           secureTextEntry
@@ -142,12 +147,14 @@ export default function Login() {
             onChangeText={form.setNickname}
             style={[
               styles.input,
+              webNoFocusInputHighlight,
               {
                 backgroundColor: theme.field,
                 borderColor: theme.border,
                 color: theme.text,
               },
             ]}
+            underlineColorAndroid="transparent"
             placeholder="希望怎么称呼你"
             placeholderTextColor={theme.subtle}
           />

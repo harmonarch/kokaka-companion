@@ -10,6 +10,7 @@ import {
 } from "react-native"
 import type { AppTheme } from "@/theme"
 import { pickAvatarImage } from "@/pages/Chat/profile/pickAvatarImage"
+import { webNoFocusInputHighlight } from "@/styles/noFocusHighlight"
 import { styles } from "../styles"
 import type { CreateAgentInput } from "../types"
 import { FormError, ModalHeader, SaveButton } from "./modalControls"
@@ -129,12 +130,14 @@ export function AddAgentModal({
               onChangeText={setName}
               style={[
                 styles.input,
+                webNoFocusInputHighlight,
                 {
                   backgroundColor: theme.field,
                   borderColor: theme.border,
                   color: theme.text,
                 },
               ]}
+              underlineColorAndroid="transparent"
               placeholder="Agent 名称"
               placeholderTextColor={theme.subtle}
             />
@@ -144,12 +147,14 @@ export function AddAgentModal({
               editable={!copyPersonaPrompt}
               style={[
                 styles.promptInput,
+                webNoFocusInputHighlight,
                 {
                   backgroundColor: theme.field,
                   borderColor: theme.border,
                   color: theme.text,
                 },
               ]}
+              underlineColorAndroid="transparent"
               placeholder={
                 copyPersonaPrompt
                   ? "会复制当前 Agent 的人设提示词"

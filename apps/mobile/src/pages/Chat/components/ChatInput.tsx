@@ -9,8 +9,8 @@ import {
 import type {
   NativeSyntheticEvent,
   TextInputKeyPressEventData,
-  TextStyle,
 } from "react-native"
+import { webNoFocusInputHighlight } from "@/styles/noFocusHighlight"
 import type { AppTheme } from "@/theme"
 import { useAutoGrowingChatInputHeight } from "./useAutoGrowingChatInputHeight"
 import { useChatInputDraft } from "./useChatInputDraft"
@@ -97,7 +97,7 @@ export function ChatInput({
           placeholderTextColor={theme.subtle}
           style={[
             styles.input,
-            webNoFocusOutline,
+            webNoFocusInputHighlight,
             {
               backgroundColor: "transparent",
               color: theme.text,
@@ -105,6 +105,7 @@ export function ChatInput({
               maxHeight: autoHeight.maxHeight,
             },
           ]}
+          underlineColorAndroid="transparent"
         />
         <Pressable
           accessibilityRole="button"
@@ -180,10 +181,3 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 })
-
-const webNoFocusOutline: (TextStyle & { outlineStyle?: "none" }) | null =
-  Platform.OS === "web"
-    ? {
-        outlineStyle: "none",
-      }
-    : null

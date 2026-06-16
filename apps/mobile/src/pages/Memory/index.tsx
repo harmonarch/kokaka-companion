@@ -3,16 +3,18 @@ import { useState } from "react"
 import {
   ActivityIndicator,
   FlatList,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native"
-import type { TextStyle, ViewStyle } from "react-native"
 import Svg, { Path } from "react-native-svg"
 import { useProfileStore } from "@/stores/profileStore"
+import {
+  webNoFocusInputHighlight,
+  webNoFocusViewHighlight,
+} from "@/styles/noFocusHighlight"
 import { useAppTheme } from "@/theme"
 import { DeleteMemoryDialog } from "./components/DeleteMemoryDialog"
 import { MemoryCard } from "./components/MemoryCard"
@@ -129,9 +131,10 @@ export default function Memory() {
               onChangeText={setSearchText}
               style={[
                 styles.searchInput,
-                webTextNoFocusOutline,
+                webNoFocusInputHighlight,
                 { color: theme.text },
               ]}
+              underlineColorAndroid="transparent"
               placeholder="搜索记忆"
               placeholderTextColor={theme.subtle}
               returnKeyType="search"
@@ -141,7 +144,7 @@ export default function Memory() {
             {isSearching ? (
               <Pressable
                 onPress={() => setSearchText("")}
-                style={[styles.clearButton, webNoFocusOutline]}
+                style={[styles.clearButton, webNoFocusViewHighlight]}
               >
                 <Text style={[styles.clearText, { color: theme.subtle }]}>
                   ×
@@ -167,7 +170,7 @@ export default function Memory() {
                   {
                     borderBottomColor: selected ? "#07c160" : "transparent",
                   },
-                  webNoFocusOutline,
+                  webNoFocusViewHighlight,
                 ]}
               >
                 <Text
@@ -421,17 +424,3 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
 })
-
-const webNoFocusOutline: (ViewStyle & { outlineStyle?: "none" }) | null =
-  Platform.OS === "web"
-    ? {
-        outlineStyle: "none",
-      }
-    : null
-
-const webTextNoFocusOutline: (TextStyle & { outlineStyle?: "none" }) | null =
-  Platform.OS === "web"
-    ? {
-        outlineStyle: "none",
-      }
-    : null
