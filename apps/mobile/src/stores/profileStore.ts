@@ -1,10 +1,12 @@
 import { create } from "zustand"
 import type { ChatProfile, ChatProfiles } from "@ai-companion/shared"
 import { useAuthStore } from "@/stores/authStore"
+import { shouldLoadForUser } from "./requestCache"
 
 type ProfileState = {
   profiles: ChatProfiles
   ready: boolean
+  userId: string | null
   error: string | null
   loadProfiles: () => Promise<void>
   updateProfiles: (profiles: ChatProfiles) => Promise<void>
@@ -36,17 +38,42 @@ function normalizeProfile(profile: ChatProfile): ChatProfile {
 export const useProfileStore = create<ProfileState>((set) => ({
   profiles: emptyChatProfiles,
   ready: false,
+  userId: null,
   error: null,
   loadProfiles: async () => {
     const user = useAuthStore.getState().user
     if (!user) {
       pendingLoadProfiles = null
       pendingLoadProfilesUserId = null
-      set({ profiles: emptyChatProfiles, ready: true, error: null })
+      set({
+        profiles: emptyChatProfiles,
+        ready: true,
+        userId: null,
+        error: null,
+      })
       return
     }
 
     const userId = user.id
+    const state = useProfileStore.getState()
+    if (state.userId !== userId) {
+      set({
+        profiles: emptyChatProfiles,
+        ready: false,
+        userId,
+        error: null,
+      })
+    }
+    if (
+      state.userId === userId &&
+      !shouldLoadForUser(
+        { loaded: state.ready, loading: false, userId: state.userId },
+        userId,
+      )
+    ) {
+      return
+    }
+
     if (pendingLoadProfiles && pendingLoadProfilesUserId === userId) {
       return pendingLoadProfiles
     }
@@ -56,12 +83,13 @@ export const useProfileStore = create<ProfileState>((set) => ({
       .client.chatProfiles()
       .then((profiles) => {
         if (useAuthStore.getState().user?.id !== userId) return
-        set({ profiles, ready: true, error: null })
+        set({ profiles, ready: true, userId, error: null })
       })
       .catch((error) => {
         if (useAuthStore.getState().user?.id !== userId) return
         set({
           ready: true,
+          userId,
           error: error instanceof Error ? error.message : "聊天资料载入失败",
         })
       })
@@ -83,6 +111,11 @@ export const useProfileStore = create<ProfileState>((set) => ({
     const savedProfiles = await useAuthStore
       .getState()
       .client.updateChatProfiles(normalizedProfiles)
-    set({ profiles: savedProfiles, ready: true, error: null })
+    set({
+      profiles: savedProfiles,
+      ready: true,
+      userId: useAuthStore.getState().user?.id ?? null,
+      error: null,
+    })
   },
 }))

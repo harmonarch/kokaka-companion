@@ -1,11 +1,13 @@
 import type { ChatMessage, Memory } from "@ai-companion/shared"
 import { create } from "zustand"
 import { useAuthStore } from "@/stores/authStore"
+import { shouldLoadForUser } from "./requestCache"
 
 type MemoryState = {
   memories: Memory[]
   loaded: boolean
   loading: boolean
+  userId: string | null
   savingId: string | null
   deletingId: string | null
   contextOpenId: string | null
@@ -26,6 +28,7 @@ export const useMemoryStore = create<MemoryState>((set, get) => ({
   memories: [],
   loaded: false,
   loading: false,
+  userId: null,
   savingId: null,
   deletingId: null,
   contextOpenId: null,
@@ -39,28 +42,38 @@ export const useMemoryStore = create<MemoryState>((set, get) => ({
         memories: [],
         loaded: true,
         loading: false,
+        userId: null,
         contextOpenId: null,
         contexts: {},
         error: null,
       })
       return
     }
-    if (get().loading) return
-    set({ loading: true, error: null })
+    const userId = user.id
+    const state = get()
+    if (state.userId !== userId) {
+      set({ loaded: false, loading: false, userId })
+    }
+    if (state.userId === userId && !shouldLoadForUser(state, userId)) return
+    set({ loading: true, userId, error: null })
     try {
       const response = await useAuthStore.getState().client.memories()
+      if (useAuthStore.getState().user?.id !== userId) return
       set({
         memories: sortMemories(response.memories),
         loaded: true,
         loading: false,
+        userId,
         contextOpenId: null,
         contexts: {},
         error: null,
       })
     } catch (error) {
+      if (useAuthStore.getState().user?.id !== userId) return
       set({
         loaded: true,
         loading: false,
+        userId,
         error: error instanceof Error ? error.message : "记忆载入失败",
       })
     }

@@ -15,6 +15,12 @@ import {
   isTransientNudge,
 } from "./chatMessages"
 import { useConversationStore } from "./conversationStore"
+import {
+  isSameSession,
+  shouldLoadForSession,
+  shouldLoadForUser,
+  shouldResetSession,
+} from "./requestCache"
 
 type ChatStatus = "idle" | "sending" | "agent_replying" | "error"
 type AgentPresence = "listening" | "replying" | null
@@ -31,6 +37,9 @@ type ChatState = {
   historyConversationId: string | null
   emotionState: EmotionState | null
   relationshipState: RelationshipState | null
+  relationshipUserId: string | null
+  relationshipLoaded: boolean
+  relationshipLoading: boolean
   error: string | null
   controller: ChatController | null
   connect: () => void
@@ -74,9 +83,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   historyConversationId: null,
   emotionState: null,
   relationshipState: null,
+  relationshipUserId: null,
+  relationshipLoaded: false,
+  relationshipLoading: false,
   error: null,
   controller: null,
   connect: () => {
+    if (get().controller) return
     const controller = new ChatController({
       wsUrl: chatWsUrl,
       getTokens: () => useAuthStore.getState().tokens,
@@ -162,24 +175,50 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const conversationId =
       useConversationStore.getState().activeConversationId ?? "default"
     if (!userId) return
-    if (
-      get().historyUserId !== userId ||
-      get().historyConversationId !== conversationId
-    ) {
+    let historyState = {
+      loaded: get().historyLoaded,
+      loading: get().historyLoading,
+      userId: get().historyUserId,
+      sessionId: get().historyConversationId,
+    }
+    if (shouldResetSession(historyState, userId, conversationId)) {
       set({
         messages: [],
         historyLoaded: false,
+        historyLoading: false,
         historyHasMore: true,
         historyUserId: userId,
         historyConversationId: conversationId,
       })
+      historyState = {
+        loaded: false,
+        loading: false,
+        userId,
+        sessionId: conversationId,
+      }
     }
-    if (get().historyLoading || get().historyLoaded) return
+    if (!shouldLoadForSession(historyState, userId, conversationId)) return
     set({ historyLoading: true, error: null })
     try {
       const history = await useAuthStore
         .getState()
         .client.chatHistory({ limit: 20, sessionId: conversationId })
+      const currentState = get()
+      if (
+        useAuthStore.getState().user?.id !== userId ||
+        !isSameSession(
+          {
+            loaded: currentState.historyLoaded,
+            loading: currentState.historyLoading,
+            userId: currentState.historyUserId,
+            sessionId: currentState.historyConversationId,
+          },
+          userId,
+          conversationId,
+        )
+      ) {
+        return
+      }
       set({
         messages: mergeMessages(get().messages, history.messages),
         historyLoaded: true,
@@ -189,6 +228,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
         historyConversationId: conversationId,
       })
     } catch (error) {
+      const currentState = get()
+      if (
+        useAuthStore.getState().user?.id !== userId ||
+        !isSameSession(
+          {
+            loaded: currentState.historyLoaded,
+            loading: currentState.historyLoading,
+            userId: currentState.historyUserId,
+            sessionId: currentState.historyConversationId,
+          },
+          userId,
+          conversationId,
+        )
+      ) {
+        return
+      }
       set({
         historyLoading: false,
         error: error instanceof Error ? error.message : "历史聊天记录载入失败",
@@ -198,13 +253,35 @@ export const useChatStore = create<ChatState>((set, get) => ({
   loadRelationship: async () => {
     const userId = useAuthStore.getState().user?.id
     if (!userId) return
+    const state = get()
+    if (
+      !shouldLoadForUser(
+        {
+          loaded: state.relationshipLoaded,
+          loading: state.relationshipLoading,
+          userId: state.relationshipUserId,
+        },
+        userId,
+      )
+    ) {
+      return
+    }
+    set({ relationshipLoading: true, relationshipUserId: userId, error: null })
     try {
       const response = await useAuthStore.getState().client.relationship()
+      if (useAuthStore.getState().user?.id !== userId) return
       set({
         relationshipState: response.relationship_state,
+        relationshipUserId: userId,
+        relationshipLoaded: true,
+        relationshipLoading: false,
       })
     } catch (error) {
+      if (useAuthStore.getState().user?.id !== userId) return
       set({
+        relationshipUserId: userId,
+        relationshipLoaded: true,
+        relationshipLoading: false,
         error:
           error instanceof Error ? error.message : "关系状态载入失败",
       })

@@ -7,6 +7,7 @@ import type {
 } from "@ai-companion/shared"
 import { create } from "zustand"
 import { useAuthStore } from "@/stores/authStore"
+import { shouldLoadForUser } from "./requestCache"
 
 export type AgentProfile = ChatConversationAgent
 export type ChatConversation = SharedChatConversation
@@ -19,6 +20,7 @@ type ConversationState = {
   activeConversationId: string | null
   ready: boolean
   loading: boolean
+  userId: string | null
   error: string | null
   hydrate: () => Promise<void>
   createAgent: (input: {
@@ -163,6 +165,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
   activeConversationId: defaultConversation.id,
   ready: false,
   loading: false,
+  userId: null,
   error: null,
   hydrate: async () => {
     const user = useAuthStore.getState().user
@@ -173,14 +176,29 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         activeConversationId: defaultConversation.id,
         ready: true,
         loading: false,
+        userId: null,
         error: null,
       })
       return
     }
-    if (get().loading) return
-    set({ loading: true, error: null })
+    const userId = user.id
+    const current = get()
+    if (current.userId !== userId) {
+      set({ ready: false, loading: false, userId })
+    }
+    if (
+      current.userId === userId &&
+      !shouldLoadForUser(
+        { loaded: current.ready, loading: current.loading, userId },
+        userId,
+      )
+    ) {
+      return
+    }
+    set({ loading: true, userId, error: null })
     try {
       const response = await useAuthStore.getState().client.chatConversations()
+      if (useAuthStore.getState().user?.id !== userId) return
       const state = withDefaults(response)
       set({
         ...state,
@@ -190,15 +208,18 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         ),
         ready: true,
         loading: false,
+        userId,
         error: null,
       })
     } catch (error) {
+      if (useAuthStore.getState().user?.id !== userId) return
       const state = withDefaults()
       set({
         ...state,
         activeConversationId: defaultConversation.id,
         ready: true,
         loading: false,
+        userId,
         error: error instanceof Error ? error.message : "聊天列表载入失败",
       })
     }
