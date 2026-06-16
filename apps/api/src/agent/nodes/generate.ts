@@ -49,6 +49,33 @@ function fallbackReply(state: AgentState) {
   }
 }
 
+function formatAgentContext(state: AgentState) {
+  const agents = state.agents?.filter((agent) => agent.name.trim())
+  if (!agents?.length) return "当前 Agent：默认中文 AI 陪伴 Agent。"
+  if (agents.length === 1) {
+    const agent = agents[0]
+    return [
+      `当前 Agent：${agent.name}`,
+      agent.persona_prompt
+        ? `这个 Agent 的人设提示词：${agent.persona_prompt}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n")
+  }
+  return [
+    "当前是多 Agent 群聊。你需要综合这些 Agent 的人设，用自然群聊口吻回应；必要时可以用简短名字标明谁在说话。",
+    ...agents.map((agent, index) =>
+      [
+        `${index + 1}. ${agent.name}`,
+        agent.persona_prompt ? `人设提示词：${agent.persona_prompt}` : "",
+      ]
+        .filter(Boolean)
+        .join("；"),
+    ),
+  ].join("\n")
+}
+
 function buildPrompt(state: AgentState) {
   const recent = state.context
     .slice(-6)
@@ -66,6 +93,7 @@ function buildPrompt(state: AgentState) {
         ].join("；")
   return [
     "你是一个中文 AI 陪伴 Agent。",
+    formatAgentContext(state),
     "回复要短、真诚、像陪伴，不要像心理咨询报告。",
     "像真人聊天一样，句末不要使用句号。",
     state.shortMessageBurst

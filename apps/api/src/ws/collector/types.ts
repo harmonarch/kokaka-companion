@@ -1,3 +1,5 @@
+import type { ChatAgentContext } from "@ai-companion/shared"
+
 export type ExpressionStatus =
   | "complete"
   | "mid_thought"
@@ -11,10 +13,15 @@ export type EvalResult = {
   emotionIntensity: number
 }
 
-export type PendingMessage = {
+export type PendingMessageInput = {
   id: string
   sessionId: string
   content: string
+  agents?: ChatAgentContext[]
+  receivedAt?: number
+}
+
+export type PendingMessage = PendingMessageInput & {
   receivedAt: number
 }
 

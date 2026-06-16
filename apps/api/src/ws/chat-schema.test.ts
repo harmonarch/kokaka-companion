@@ -22,6 +22,41 @@ describe("chat websocket schemas", () => {
     })
   })
 
+  it("accepts agent persona context on client chat messages", () => {
+    expect(
+      clientWsMessageSchema.parse({
+        type: "message",
+        content: "今天有点乱",
+        session_id: "group-1",
+        client_message_id: "m1",
+        agents: [
+          {
+            id: "agent-1",
+            name: "小海",
+            persona_prompt: "温柔地陪我整理情绪",
+          },
+          {
+            id: "agent-2",
+            name: "晚风",
+            persona_prompt: "提醒我慢一点说",
+          },
+        ],
+      }),
+    ).toMatchObject({
+      session_id: "group-1",
+      agents: [
+        {
+          name: "小海",
+          persona_prompt: "温柔地陪我整理情绪",
+        },
+        {
+          name: "晚风",
+          persona_prompt: "提醒我慢一点说",
+        },
+      ],
+    })
+  })
+
   it("accepts nudge and gentle server messages", () => {
     expect(
       serverWsMessageSchema.parse({ type: "nudge", content: "嗯，我在听" }),

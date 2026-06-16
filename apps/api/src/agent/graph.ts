@@ -21,6 +21,7 @@ export async function runAgent(
     message: string
     conversationId?: string
     userMessageId?: string
+    agents?: AgentState["agents"]
     shortMessageBurst?: boolean
   },
 ): Promise<AgentRunResult> {
@@ -29,6 +30,7 @@ export async function runAgent(
       userId: null,
       conversationId: null,
       userMessageId: null,
+      agents: null,
       userMessage: null,
       shortMessageBurst: null,
       context: null,
@@ -69,6 +71,7 @@ export async function runAgent(
     userId: input.userId,
     conversationId,
     userMessageId: input.userMessageId,
+    agents: input.agents,
     userMessage: input.message,
     shortMessageBurst: input.shortMessageBurst ?? false,
     context: [],

@@ -1,4 +1,5 @@
 import type {
+  ChatAgentContext,
   ChatMessage,
   EmotionState,
   RelationshipState,
@@ -11,6 +12,7 @@ export type AgentState = {
   userId: string
   conversationId: string
   userMessageId?: string
+  agents?: ChatAgentContext[]
   userMessage: string
   shortMessageBurst: boolean
   context: ChatMessage[]

@@ -3,6 +3,7 @@ import type {
   ExpressionStatus,
   MessageCollectorCallbacks,
   MessageEvaluator,
+  PendingMessageInput,
   PendingMessage,
   TimingConfig,
 } from "./types"
@@ -31,7 +32,7 @@ export class MessageCollector {
     this.config = { ...defaultConfig, ...config }
   }
 
-  addMessage(input: { id: string; sessionId: string; content: string }) {
+  addMessage(input: PendingMessageInput) {
     if (!this.expressionGroupId) {
       this.expressionGroupId = crypto.randomUUID()
       this.nudgeSent = false
@@ -40,7 +41,8 @@ export class MessageCollector {
       id: input.id,
       sessionId: input.sessionId,
       content: input.content,
-      receivedAt: this.now(),
+      agents: input.agents,
+      receivedAt: input.receivedAt ?? this.now(),
     })
     this.callbacks.onStatus?.("listening")
     this.startEvalLoop()

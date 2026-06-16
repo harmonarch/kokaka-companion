@@ -314,6 +314,9 @@ export async function handleChatWebSocket(
         const shortMessageBurst = isShortMessageBurst(pending)
         const syntheticUserMessageId = `${expressionGroupId}:combined`
         const conversationId = pending[0]?.sessionId ?? "default"
+        const agents = [...pending].reverse().find((message) =>
+          message.agents?.length,
+        )?.agents
         const currentReplyGeneration = replyGeneration
 
         if (!gentle) {
@@ -331,6 +334,7 @@ export async function handleChatWebSocket(
           message: content,
           conversationId,
           userMessageId: syntheticUserMessageId,
+          agents,
           shortMessageBurst,
         })
         const replyParts = buildReplyParts(
@@ -576,6 +580,8 @@ export async function handleChatWebSocket(
         id: message.client_message_id,
         sessionId: message.session_id,
         content: message.content,
+        agents: message.agents,
+        receivedAt: Date.now(),
       })
     } catch (error) {
       trySend(server, {
