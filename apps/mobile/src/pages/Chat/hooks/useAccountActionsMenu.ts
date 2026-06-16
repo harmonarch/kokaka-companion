@@ -1,20 +1,24 @@
 import { useAccountMenuState } from "./useAccountMenuState"
 import { useAccountSessionActions } from "./useAccountSessionActions"
-import { useDeleteAccountConfirm } from "./useDeleteAccountConfirm"
 import { router } from "expo-router"
+import { useState } from "react"
+import type { AccountAction } from "../components/AccountActionConfirmDialog"
 
 export function useAccountActionsMenu() {
-  const deleteConfirm = useDeleteAccountConfirm()
   const menu = useAccountMenuState()
-  const sessionActions = useAccountSessionActions(menu.closeMenu)
+  const [confirmAction, setConfirmAction] = useState<AccountAction | null>(null)
+  const sessionActions = useAccountSessionActions(() => {
+    setConfirmAction(null)
+    menu.closeMenu()
+  })
 
   function openMenu() {
-    deleteConfirm.cancelDelete()
+    setConfirmAction(null)
     menu.openMenu()
   }
 
   function closeMenu() {
-    deleteConfirm.cancelDelete()
+    setConfirmAction(null)
     menu.closeMenu()
   }
 
@@ -23,21 +27,33 @@ export function useAccountActionsMenu() {
     router.push("/memory")
   }
 
-  async function remove() {
-    if (!deleteConfirm.confirmDelete) {
-      deleteConfirm.requestDeleteConfirmation()
-      return
-    }
-    await sessionActions.deleteCurrentAccount()
+  function signOut() {
+    setConfirmAction("logout")
+  }
+
+  function remove() {
+    setConfirmAction("delete")
+  }
+
+  function cancelConfirm() {
+    if (!sessionActions.busy) setConfirmAction(null)
+  }
+
+  function confirmSelectedAction() {
+    if (confirmAction === "logout") void sessionActions.signOut()
+    if (confirmAction === "delete") void sessionActions.deleteCurrentAccount()
   }
 
   return {
     visible: menu.visible,
-    confirmDelete: deleteConfirm.confirmDelete,
+    confirmAction,
+    loading: sessionActions.busy,
     openMenu,
     closeMenu,
     openMemoryManager,
-    signOut: sessionActions.signOut,
+    signOut,
     remove,
+    cancelConfirm,
+    confirmSelectedAction,
   }
 }

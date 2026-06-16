@@ -1,93 +1,123 @@
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native"
 import type { AppTheme } from "@/theme"
+import {
+  AccountActionConfirmDialog,
+  type AccountAction,
+} from "./AccountActionConfirmDialog"
 
 export function AccountActionsMenu({
   visible,
-  confirmDelete,
+  confirmAction,
+  loading,
   onClose,
   onOpenMemories,
   onSignOut,
   onRemove,
+  onCancelConfirm,
+  onConfirmAction,
   theme,
 }: {
   visible: boolean
-  confirmDelete: boolean
+  confirmAction: AccountAction | null
+  loading: boolean
   onClose: () => void
   onOpenMemories: () => void
   onSignOut: () => void
   onRemove: () => void
+  onCancelConfirm: () => void
+  onConfirmAction: () => void
   theme: AppTheme
 }) {
   return (
-    <Modal
-      animationType="fade"
-      transparent
-      visible={visible}
-      onRequestClose={onClose}
-    >
-      <View style={styles.layer}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={styles.rail}>
-          <View
-            style={[
-              styles.menu,
-              {
-                backgroundColor: theme.surface,
-                borderColor: theme.softBorder,
-              },
-            ]}
-          >
+    <>
+      <Modal
+        animationType="fade"
+        transparent
+        visible={visible}
+        onRequestClose={onClose}
+      >
+        <View style={styles.layer}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+          <View style={styles.rail}>
             <View
               style={[
-                styles.arrow,
+                styles.menu,
                 {
                   backgroundColor: theme.surface,
                   borderColor: theme.softBorder,
                 },
               ]}
-            />
-            <Pressable
-              onPress={onOpenMemories}
-              style={({ pressed }) => [
-                styles.menuItem,
-                pressed && { backgroundColor: theme.elevated },
-              ]}
             >
-              <Text style={[styles.itemIcon, { color: theme.text }]}>◎</Text>
-              <Text style={[styles.itemText, { color: theme.text }]}>
-                管理记忆
-              </Text>
-            </Pressable>
-            <View style={[styles.divider, { backgroundColor: theme.border }]} />
-            <Pressable
-              onPress={onSignOut}
-              style={({ pressed }) => [
-                styles.menuItem,
-                pressed && { backgroundColor: theme.elevated },
-              ]}
-            >
-              <Text style={[styles.itemIcon, { color: theme.text }]}>↪</Text>
-              <Text style={[styles.itemText, { color: theme.text }]}>
-                退出登录
-              </Text>
-            </Pressable>
-            <View style={[styles.divider, { backgroundColor: theme.border }]} />
-            <Pressable
-              onPress={onRemove}
-              style={({ pressed }) => [
-                styles.menuItem,
-                pressed && { backgroundColor: theme.dangerSurface },
-              ]}
-            >
-              <Text style={[styles.itemIcon, { color: theme.danger }]}>⌫</Text>
-              <Text style={[styles.itemText, { color: theme.danger }]}>
-                {confirmDelete ? "确认注销账号" : "注销账号"}
-              </Text>
-            </Pressable>
+              <View
+                style={[
+                  styles.arrow,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: theme.softBorder,
+                  },
+                ]}
+              />
+              <Pressable
+                onPress={onOpenMemories}
+                style={({ pressed }) => [
+                  styles.menuItem,
+                  pressed && { backgroundColor: theme.elevated },
+                ]}
+              >
+                <Text style={[styles.itemIcon, { color: theme.text }]}>◎</Text>
+                <Text style={[styles.itemText, { color: theme.text }]}>
+                  管理记忆
+                </Text>
+              </Pressable>
+              <View
+                style={[styles.divider, { backgroundColor: theme.border }]}
+              />
+              <Pressable
+                onPress={onSignOut}
+                disabled={loading}
+                style={({ pressed }) => [
+                  styles.menuItem,
+                  pressed && !loading && { backgroundColor: theme.elevated },
+                  loading && styles.disabled,
+                ]}
+              >
+                <Text style={[styles.itemIcon, { color: theme.text }]}>↪</Text>
+                <Text style={[styles.itemText, { color: theme.text }]}>
+                  退出登录
+                </Text>
+              </Pressable>
+              <View
+                style={[styles.divider, { backgroundColor: theme.border }]}
+              />
+              <Pressable
+                onPress={onRemove}
+                disabled={loading}
+                style={({ pressed }) => [
+                  styles.menuItem,
+                  pressed &&
+                    !loading && { backgroundColor: theme.dangerSurface },
+                  loading && styles.disabled,
+                ]}
+              >
+                <Text style={[styles.itemIcon, { color: theme.danger }]}>
+                  ⌫
+                </Text>
+                <Text style={[styles.itemText, { color: theme.danger }]}>
+                  注销账号
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+      <AccountActionConfirmDialog
+        action={confirmAction}
+        loading={loading}
+        onCancel={onCancelConfirm}
+        onConfirm={onConfirmAction}
+        theme={theme}
+      />
+    </>
   )
 }
 
@@ -142,5 +172,8 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
+  },
+  disabled: {
+    opacity: 0.55,
   },
 })
