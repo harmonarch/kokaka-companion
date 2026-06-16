@@ -136,6 +136,7 @@ export const styles = StyleSheet.create({
   },
   tabs: {
     height: 58,
+    marginTop: "auto",
     borderTopWidth: 1,
     flexDirection: "row",
   },
