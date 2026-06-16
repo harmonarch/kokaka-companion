@@ -14,7 +14,7 @@ export default function Index() {
     )
   }
 
-  return <Redirect href={user ? "/chat" : "/login"} />
+  return <Redirect href={user ? "/chats" : "/login"} />
 }
 
 const styles = StyleSheet.create({
