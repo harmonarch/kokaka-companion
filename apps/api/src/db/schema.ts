@@ -55,6 +55,61 @@ export const chatProfiles = sqliteTable(
   }),
 )
 
+export const chatAgents = sqliteTable(
+  "chat_agents",
+  {
+    id: text("id").notNull(),
+    userId: text("user_id").notNull(),
+    name: text("name").notNull(),
+    avatarUrl: text("avatar_url"),
+    personaPrompt: text("persona_prompt").notNull(),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.id] }),
+    userIdx: index("idx_chat_agents_user").on(table.userId, table.createdAt),
+  }),
+)
+
+export const chatConversations = sqliteTable(
+  "chat_conversations",
+  {
+    id: text("id").notNull(),
+    userId: text("user_id").notNull(),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    lastMessage: text("last_message").notNull(),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.id] }),
+    userUpdatedIdx: index("idx_chat_conversations_user_updated").on(
+      table.userId,
+      table.updatedAt,
+    ),
+  }),
+)
+
+export const chatConversationAgents = sqliteTable(
+  "chat_conversation_agents",
+  {
+    userId: text("user_id").notNull(),
+    conversationId: text("conversation_id").notNull(),
+    agentId: text("agent_id").notNull(),
+    position: integer("position").notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.userId, table.conversationId, table.agentId],
+    }),
+    userConversationIdx: index(
+      "idx_chat_conversation_agents_user_conversation",
+    ).on(table.userId, table.conversationId, table.position),
+  }),
+)
+
 export const memories = sqliteTable(
   "memories",
   {

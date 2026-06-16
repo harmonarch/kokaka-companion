@@ -91,6 +91,9 @@ describe("account routes", () => {
       "conversation_summaries",
       "chat_messages",
       "chat_profiles",
+      "chat_conversation_agents",
+      "chat_conversations",
+      "chat_agents",
       "relationship_states",
     ])
   })
