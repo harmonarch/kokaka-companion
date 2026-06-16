@@ -8,7 +8,7 @@
     "build": "expo export --platform web",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit",
-    "test": "node -e \"console.log('mobile smoke test')\""
+    "test": "rm -rf .test-dist && tsc -p tsconfig.test.json && node --test .test-dist/**/*.test.js"
   },
   "dependencies": {
     "@ai-companion/api-client": "workspace:*",
