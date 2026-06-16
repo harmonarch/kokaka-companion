@@ -6,51 +6,56 @@ import type { ProfileRole } from "../profile/types"
 export function MessageBubble({
   message,
   profiles,
+  agentAvatarUrl,
   theme,
   onAvatarPress,
 }: {
   message: ChatMessage
   profiles: ChatProfiles
+  agentAvatarUrl: string | null
   theme: AppTheme
   onAvatarPress: (role: ProfileRole) => void
 }) {
   const isUser = message.role === "user"
   const profile = isUser ? profiles.user : profiles.agent
-  const avatar = profile.avatar_url?.trim() ?? ""
+  const avatar =
+    (isUser ? profile.avatar_url?.trim() : agentAvatarUrl?.trim()) ||
+    profile.avatar_url?.trim() ||
+    ""
   const hasAvatar = Boolean(avatar)
   const fallbackInitial = isUser ? "我" : "K"
 
   return (
     <View style={[styles.row, isUser && styles.rowRight]}>
       <View style={[styles.messageLine, isUser && styles.messageLineRight]}>
-          <Pressable
-            onPress={() => onAvatarPress(isUser ? "user" : "agent")}
-            style={[
-              styles.avatar,
-              {
+        <Pressable
+          onPress={() => onAvatarPress(isUser ? "user" : "agent")}
+          style={[
+            styles.avatar,
+            {
               backgroundColor: isUser ? "#7fa18c" : "#d8c18b",
-                borderColor: theme.border,
-              },
-            ]}
-          >
+              borderColor: theme.border,
+            },
+          ]}
+        >
           {hasAvatar ? (
             <Image source={{ uri: avatar }} style={styles.avatarImage} />
           ) : (
             <Text style={styles.avatarText}>{fallbackInitial}</Text>
           )}
-          </Pressable>
+        </Pressable>
         <View style={[styles.message, isUser && styles.messageRight]}>
           <View style={[styles.bubbleWrap, isUser && styles.bubbleWrapRight]}>
-              <View
-                style={[
-                  styles.tail,
-                  isUser ? styles.tailRight : styles.tailLeft,
-                  {
+            <View
+              style={[
+                styles.tail,
+                isUser ? styles.tailRight : styles.tailLeft,
+                {
                   borderRightColor: isUser ? "transparent" : theme.surface,
-                    borderLeftColor: isUser ? theme.primary : "transparent",
-                  },
-                ]}
-              />
+                  borderLeftColor: isUser ? theme.primary : "transparent",
+                },
+              ]}
+            />
             <View
               style={[
                 styles.bubble,

@@ -2,7 +2,6 @@ import { useChatComposerState } from "./useChatComposerState"
 import { useChatHeader } from "./useChatHeader"
 import { useChatMessages } from "./useChatMessages"
 import { useChatSession } from "./useChatSession"
-import { useAccountActionsMenu } from "./useAccountActionsMenu"
 import { useProfileEditorModal } from "./useProfileEditorModal"
 
 export const useChat = () => {
@@ -11,7 +10,6 @@ export const useChat = () => {
   const composer = useChatComposerState()
   const messages = useChatMessages()
   const profileEditor = useProfileEditorModal()
-  const accountActions = useAccountActionsMenu()
 
   return {
     restoringUser: session.restoringUser,
@@ -21,7 +19,6 @@ export const useChat = () => {
     inputDisabled: composer.inputDisabled,
     disabledReason: composer.disabledReason,
     profileEditor,
-    accountActions,
     ...messages,
   }
 }

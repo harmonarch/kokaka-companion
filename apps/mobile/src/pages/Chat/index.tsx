@@ -7,10 +7,9 @@ import {
   Text,
   View,
 } from "react-native"
-import { Redirect } from "expo-router"
+import { Redirect, router } from "expo-router"
 import { useAppTheme, type AppTheme } from "@/theme"
 import { useChat } from "@/pages/Chat/hooks/useChat"
-import { AccountActionsMenu } from "./components/AccountActionsMenu"
 import { ChatInput } from "./components/ChatInput"
 import { MessageBubble } from "./components/MessageBubble"
 import { ProfileEditorModal } from "./components/ProfileEditorModal"
@@ -31,12 +30,13 @@ type ChatHeaderProps = {
   title: string
   statusText: string | null
   theme: AppTheme
-  onOpenAccountMenu: () => void
+  onBack: () => void
 }
 
 type ChatBodyProps = {
   messages: ChatMessage[]
   profiles: ChatProfiles
+  agentAvatarUrl: string | null
   error: string | null
   historyLoading: boolean
   historyLoaded: boolean
@@ -52,6 +52,7 @@ type ChatMessageListProps = {
   items: ChatListItem[]
   isEmpty: boolean
   profiles: ChatProfiles
+  agentAvatarUrl: string | null
   historyLoading: boolean
   historyLoaded: boolean
   theme: AppTheme
@@ -61,13 +62,13 @@ type ChatMessageListProps = {
 
 type ChatOverlaysProps = {
   profileEditor: ReturnType<typeof useChat>["profileEditor"]
-  accountActions: ReturnType<typeof useChat>["accountActions"]
   theme: AppTheme
 }
 
 type ChatListRowProps = {
   item: ChatListItem
   profiles: ChatProfiles
+  agentAvatarUrl: string | null
   theme: AppTheme
   onAvatarPress: (role: ProfileRole) => void
 }
@@ -110,11 +111,12 @@ export default function Chat() {
           title={chat.chatTitle}
           statusText={chat.agentStatusText}
           theme={theme}
-          onOpenAccountMenu={chat.accountActions.openMenu}
+          onBack={() => router.replace("/chats")}
         />
         <ChatBody
           messages={chat.messages}
           profiles={chat.profiles}
+          agentAvatarUrl={chat.agentAvatarUrl}
           error={chat.error}
           historyLoading={chat.historyLoading}
           historyLoaded={chat.historyLoaded}
@@ -125,25 +127,18 @@ export default function Chat() {
           onLoadOlderHistory={chat.loadOlderHistory}
           onSend={chat.send}
         />
-        <ChatOverlays
-          profileEditor={chat.profileEditor}
-          accountActions={chat.accountActions}
-          theme={theme}
-        />
+        <ChatOverlays profileEditor={chat.profileEditor} theme={theme} />
       </View>
     </View>
   )
 }
 
-function ChatHeader({
-  title,
-  statusText,
-  theme,
-  onOpenAccountMenu,
-}: ChatHeaderProps) {
+function ChatHeader({ title, statusText, theme, onBack }: ChatHeaderProps) {
   return (
     <View style={[styles.header, { borderColor: theme.border }]}>
-      <View style={styles.iconButton} />
+      <Pressable onPress={onBack} style={styles.iconButton}>
+        <Text style={[styles.backText, { color: theme.text }]}>‹</Text>
+      </Pressable>
       <View style={styles.headerTitle}>
         <Text style={[styles.title, { color: theme.accent }]}>{title}</Text>
         {statusText ? (
@@ -152,9 +147,7 @@ function ChatHeader({
           </Text>
         ) : null}
       </View>
-      <Pressable onPress={onOpenAccountMenu} style={styles.iconButton}>
-        <Text style={[styles.moreText, { color: theme.text }]}>···</Text>
-      </Pressable>
+      <View style={styles.iconButton} />
     </View>
   )
 }
@@ -162,6 +155,7 @@ function ChatHeader({
 function ChatBody({
   messages,
   profiles,
+  agentAvatarUrl,
   error,
   historyLoading,
   historyLoaded,
@@ -180,6 +174,7 @@ function ChatBody({
         items={listItems}
         isEmpty={messages.length === 0}
         profiles={profiles}
+        agentAvatarUrl={agentAvatarUrl}
         historyLoading={historyLoading}
         historyLoaded={historyLoaded}
         theme={theme}
@@ -201,6 +196,7 @@ function ChatMessageList({
   items,
   isEmpty,
   profiles,
+  agentAvatarUrl,
   historyLoading,
   historyLoaded,
   theme,
@@ -224,6 +220,7 @@ function ChatMessageList({
         <ChatListRow
           item={item}
           profiles={profiles}
+          agentAvatarUrl={agentAvatarUrl}
           theme={theme}
           onAvatarPress={onAvatarPress}
         />
@@ -241,6 +238,7 @@ function ChatMessageList({
 function ChatListRow({
   item,
   profiles,
+  agentAvatarUrl,
   theme,
   onAvatarPress,
 }: ChatListRowProps) {
@@ -252,6 +250,7 @@ function ChatListRow({
     <MessageBubble
       message={item.message}
       profiles={profiles}
+      agentAvatarUrl={agentAvatarUrl}
       theme={theme}
       onAvatarPress={onAvatarPress}
     />
@@ -274,10 +273,7 @@ function DateSeparator({ label, theme }: DateSeparatorProps) {
   )
 }
 
-function HistoryLoadingStatus({
-  visible,
-  theme,
-}: ThemedVisibilityProps) {
+function HistoryLoadingStatus({ visible, theme }: ThemedVisibilityProps) {
   if (!visible) return null
 
   return (
@@ -297,7 +293,13 @@ function HistoryLoadingStatus({
 
 function EmptyChatState({ theme }: { theme: AppTheme }) {
   return (
-    <View style={[styles.empty, { backgroundColor: theme.surface }]}>
+    <View
+      style={[
+        styles.empty,
+        styles.emptyListInversionFix,
+        { backgroundColor: theme.surface },
+      ]}
+    >
       <Text style={[styles.emptyTitle, { color: theme.text }]}>
         可以从一句很小的话开始。
       </Text>
@@ -308,40 +310,22 @@ function EmptyChatState({ theme }: { theme: AppTheme }) {
   )
 }
 
-function ChatErrorMessage({
-  error,
-  theme,
-}: ThemedStatusProps) {
+function ChatErrorMessage({ error, theme }: ThemedStatusProps) {
   if (!error) return null
 
   return <Text style={[styles.error, { color: theme.danger }]}>{error}</Text>
 }
 
-function ChatOverlays({
-  profileEditor,
-  accountActions,
-  theme,
-}: ChatOverlaysProps) {
+function ChatOverlays({ profileEditor, theme }: ChatOverlaysProps) {
   return (
-    <>
-      <ProfileEditorModal
-        role={profileEditor.activeRole}
-        profile={profileEditor.activeProfile}
-        error={profileEditor.error}
-        onClose={profileEditor.closeProfileEditor}
-        onSave={profileEditor.saveProfile}
-        theme={theme}
-      />
-      <AccountActionsMenu
-        visible={accountActions.visible}
-        confirmDelete={accountActions.confirmDelete}
-        onClose={accountActions.closeMenu}
-        onOpenMemories={accountActions.openMemoryManager}
-        onSignOut={accountActions.signOut}
-        onRemove={accountActions.remove}
-        theme={theme}
-      />
-    </>
+    <ProfileEditorModal
+      role={profileEditor.activeRole}
+      profile={profileEditor.activeProfile}
+      error={profileEditor.error}
+      onClose={profileEditor.closeProfileEditor}
+      onSave={profileEditor.saveProfile}
+      theme={theme}
+    />
   )
 }
 
@@ -416,16 +400,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  iconText: {
-    fontSize: 30,
-    lineHeight: 34,
+  backText: {
+    fontSize: 34,
+    lineHeight: 36,
     fontWeight: "300",
-  },
-  moreText: {
-    fontSize: 22,
-    lineHeight: 24,
-    fontWeight: "700",
-    marginTop: -7,
+    marginTop: -2,
   },
   list: {
     flex: 1,
@@ -472,6 +451,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     paddingHorizontal: 26,
     paddingVertical: 32,
+  },
+  emptyListInversionFix: {
+    transform: [{ scaleY: -1 }],
   },
   emptyTitle: {
     fontSize: 17,

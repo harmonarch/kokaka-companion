@@ -1,5 +1,5 @@
-import { useProfileStore } from "@/stores/profileStore"
 import { useChatStore } from "@/stores/chatStore"
+import { useConversationStore } from "@/stores/conversationStore"
 
 const moodLabels = {
   calm: "平静",
@@ -11,8 +11,11 @@ const moodLabels = {
 } as const
 
 export function useChatHeader() {
-  const agentNickname = useProfileStore((state) =>
-    state.profiles.agent.nickname?.trim(),
+  const activeConversationId = useConversationStore(
+    (state) => state.activeConversationId,
+  )
+  const conversation = useConversationStore((state) =>
+    state.conversations.find((item) => item.id === activeConversationId),
   )
   const agentPresence = useChatStore((state) => state.agentPresence)
   const relationshipState = useChatStore((state) => state.relationshipState)
@@ -25,7 +28,7 @@ export function useChatHeader() {
         : null
 
   return {
-    chatTitle: agentNickname || "你的 Agent",
+    chatTitle: conversation?.title || "聊天",
     agentStatusText,
   }
 }
