@@ -1,5 +1,5 @@
 import { Redirect, router } from "expo-router"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import {
   ActivityIndicator,
   Image,
@@ -17,6 +17,7 @@ import {
 } from "@/pages/Chat/components/AccountActionConfirmDialog"
 import { ProfileEditorModal } from "@/pages/Chat/components/ProfileEditorModal"
 import { useProfileEditorModal } from "@/pages/Chat/hooks/useProfileEditorModal"
+import { BottomTabs } from "@/pages/ChatList/components/BottomTabs"
 
 export default function Profile() {
   const theme = useAppTheme()
@@ -222,58 +223,6 @@ function ProfileRow({
   )
 }
 
-function BottomTabs({
-  active,
-  theme,
-}: {
-  active: "chats" | "profile"
-  theme: AppTheme
-}) {
-  const tabs = useMemo(
-    () => [
-      { key: "chats" as const, label: "聊天", icon: "○", href: "/chats" },
-      { key: "profile" as const, label: "我", icon: "●", href: "/profile" },
-    ],
-    [],
-  )
-  return (
-    <View
-      style={[
-        styles.tabs,
-        { backgroundColor: theme.surface, borderColor: theme.border },
-      ]}
-    >
-      {tabs.map((tab) => {
-        const selected = active === tab.key
-        return (
-          <Pressable
-            key={tab.key}
-            onPress={() => router.replace(tab.href)}
-            style={styles.tab}
-          >
-            <Text
-              style={[
-                styles.tabIcon,
-                { color: selected ? theme.primaryPressed : theme.subtle },
-              ]}
-            >
-              {tab.icon}
-            </Text>
-            <Text
-              style={[
-                styles.tabLabel,
-                { color: selected ? theme.primaryPressed : theme.muted },
-              ]}
-            >
-              {tab.label}
-            </Text>
-          </Pressable>
-        )
-      })}
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
   page: {
     flex: 1,
@@ -367,25 +316,5 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.55,
-  },
-  tabs: {
-    height: 62,
-    marginTop: "auto",
-    borderTopWidth: 1,
-    flexDirection: "row",
-  },
-  tab: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 2,
-  },
-  tabIcon: {
-    fontSize: 18,
-    lineHeight: 20,
-  },
-  tabLabel: {
-    fontSize: 12,
-    fontWeight: "700",
   },
 })
