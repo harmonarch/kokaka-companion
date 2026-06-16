@@ -4,10 +4,15 @@ import type {
   LogoutRequest,
   RefreshRequest,
   RegisterRequest,
+  CreateGroupChatRequest,
+  CreateChatConversationResponse,
+  CreateSingleChatRequest,
   UpdateChatProfilesRequest,
   UpdateMeRequest,
   User,
+  ChatConversationsResponse,
   ChatHistoryResponse,
+  ChatHistoryRequest,
   ChatProfiles,
   MemoriesResponse,
   MemoryContextResponse,
@@ -17,6 +22,8 @@ import type {
 } from "@ai-companion/shared"
 import {
   authResponseSchema,
+  chatConversationsResponseSchema,
+  createChatConversationResponseSchema,
   chatHistoryResponseSchema,
   chatProfilesSchema,
   memoryContextResponseSchema,
@@ -187,17 +194,62 @@ export function createHttpClient(options: HttpClientOptions) {
   async function chatHistory(input?: {
     beforeId?: string
     limit?: number
+    sessionId?: string
   }): Promise<ChatHistoryResponse> {
     const searchParams = new URLSearchParams()
-    if (input?.beforeId) searchParams.set("before_id", input.beforeId)
-    if (input?.limit) searchParams.set("limit", String(input.limit))
-    const query = searchParams.toString()
+    const queryParams: Partial<ChatHistoryRequest> = {}
+    if (input?.beforeId) queryParams.before_id = input.beforeId
+    if (input?.limit) queryParams.limit = input.limit
+    if (input?.sessionId) queryParams.session_id = input.sessionId
+    if (queryParams.before_id) {
+      searchParams.set("before_id", queryParams.before_id)
+    }
+    if (queryParams.limit) searchParams.set("limit", String(queryParams.limit))
+    if (queryParams.session_id) {
+      searchParams.set("session_id", queryParams.session_id)
+    }
+    const queryString = searchParams.toString()
     const data = await request<unknown>(
-      `/chat/history${query ? `?${query}` : ""}`,
+      `/chat/history${queryString ? `?${queryString}` : ""}`,
       undefined,
       { auth: true },
     )
     return chatHistoryResponseSchema.parse(data)
+  }
+
+  async function chatConversations(): Promise<ChatConversationsResponse> {
+    const data = await request<unknown>("/chat/conversations", undefined, {
+      auth: true,
+    })
+    return chatConversationsResponseSchema.parse(data)
+  }
+
+  async function createSingleChat(
+    input: CreateSingleChatRequest,
+  ): Promise<CreateChatConversationResponse> {
+    const data = await request<unknown>(
+      "/chat/conversations/single",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+      { auth: true },
+    )
+    return createChatConversationResponseSchema.parse(data)
+  }
+
+  async function createGroupChat(
+    input: CreateGroupChatRequest,
+  ): Promise<CreateChatConversationResponse> {
+    const data = await request<unknown>(
+      "/chat/conversations/group",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+      { auth: true },
+    )
+    return createChatConversationResponseSchema.parse(data)
   }
 
   async function relationship(): Promise<RelationshipResponse> {
@@ -257,6 +309,9 @@ export function createHttpClient(options: HttpClientOptions) {
     chatProfiles,
     updateChatProfiles,
     chatHistory,
+    chatConversations,
+    createSingleChat,
+    createGroupChat,
     relationship,
     memories,
     memoryContext,
