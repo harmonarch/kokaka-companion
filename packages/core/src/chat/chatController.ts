@@ -1,5 +1,6 @@
 import type {
   AuthTokens,
+  ChatAgentContext,
   ClientWsMessage,
   ServerWsMessage,
 } from "@ai-companion/shared"
@@ -86,13 +87,19 @@ export class ChatController {
     this.client.connect()
   }
 
-  send(content: string, sessionId: string, clientMessageId: string) {
+  send(
+    content: string,
+    sessionId: string,
+    clientMessageId: string,
+    agents?: ChatAgentContext[],
+  ) {
     try {
       this.client?.send({
         type: "message",
         content,
         session_id: sessionId,
         client_message_id: clientMessageId,
+        agents,
       })
     } catch (error) {
       this.options.onStatus?.("error")

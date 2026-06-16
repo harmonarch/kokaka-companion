@@ -161,3 +161,71 @@ describe("ChatController reconnect", () => {
     assert.deepEqual(statuses, ["connecting", "connecting"])
   })
 })
+
+describe("ChatController send", () => {
+  it("sends a single-agent chat message with session and persona context", () => {
+    const { clients, controller } = createHarness()
+
+    controller.connect()
+    clients[0].options.onOpen?.()
+    controller.send("今天有点乱", "chat:agent-1", "m1", [
+      {
+        id: "agent-1",
+        name: "小海",
+        persona_prompt: "温柔地陪我整理情绪",
+      },
+    ])
+
+    assert.deepEqual(clients[0].sent[0], {
+      type: "message",
+      content: "今天有点乱",
+      session_id: "chat:agent-1",
+      client_message_id: "m1",
+      agents: [
+        {
+          id: "agent-1",
+          name: "小海",
+          persona_prompt: "温柔地陪我整理情绪",
+        },
+      ],
+    })
+  })
+
+  it("sends a group chat message with multiple agent persona contexts", () => {
+    const { clients, controller } = createHarness()
+
+    controller.connect()
+    clients[0].options.onOpen?.()
+    controller.send("一起帮我复盘一下", "group-1", "m2", [
+      {
+        id: "agent-1",
+        name: "小海",
+        persona_prompt: "温柔地陪我整理情绪",
+      },
+      {
+        id: "agent-2",
+        name: "晚风",
+        persona_prompt: "提醒我慢一点说",
+      },
+    ])
+
+    assert.deepEqual(clients[0].sent[0], {
+      type: "message",
+      content: "一起帮我复盘一下",
+      session_id: "group-1",
+      client_message_id: "m2",
+      agents: [
+        {
+          id: "agent-1",
+          name: "小海",
+          persona_prompt: "温柔地陪我整理情绪",
+        },
+        {
+          id: "agent-2",
+          name: "晚风",
+          persona_prompt: "提醒我慢一点说",
+        },
+      ],
+    })
+  })
+})
