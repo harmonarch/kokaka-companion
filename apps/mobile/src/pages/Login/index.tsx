@@ -52,9 +52,7 @@ export default function Login() {
               {form.mode === "register" ? "创建新账号" : "欢迎回来"}
             </Text>
           </View>
-          <View style={styles.headerSide}>
-            <Text style={[styles.helpText, { color: theme.muted }]}>帮助</Text>
-          </View>
+          <View style={styles.headerSide} />
         </View>
         <View style={styles.panel}>
           <View style={[styles.mark, { backgroundColor: theme.primarySoft }]}>
@@ -252,10 +250,6 @@ const styles = StyleSheet.create({
   navSubtitle: {
     fontSize: 12,
     lineHeight: 17,
-  },
-  helpText: {
-    fontSize: 13,
-    fontWeight: "700",
   },
   title: {
     fontSize: 22,
