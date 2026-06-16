@@ -1,26 +1,180 @@
 import {
   chatHistoryResponseSchema,
+  chatHistoryRequestSchema,
+  chatConversationsResponseSchema,
+  createChatConversationResponseSchema,
+  createGroupChatRequestSchema,
+  createSingleChatRequestSchema,
   relationshipResponseSchema,
 } from "@ai-companion/shared"
 import { Hono } from "hono"
 import type { AppBindings } from "@/middleware/auth"
 import { authMiddleware } from "@/middleware/auth"
 import { ensureChatMessagesTable } from "@/chat/history"
+import {
+  createGroupChatConversation,
+  createSingleChatConversation,
+  getChatConversationList,
+} from "@/chat/conversations"
 import { getRelationshipState } from "@/agent/relationship/stateMachine"
 
 export const chatRoutes = new Hono<AppBindings>()
 
 chatRoutes.use("*", authMiddleware)
 
+chatRoutes.get("/conversations", async (c) => {
+  const user = c.get("user")
+  const response = await getChatConversationList(c.env, user.id)
+  return c.json(chatConversationsResponseSchema.parse(response))
+})
+
+chatRoutes.post("/conversations/single", async (c) => {
+  const user = c.get("user")
+  const input = createSingleChatRequestSchema.parse(await c.req.json())
+  const response = await createSingleChatConversation(c.env, {
+    userId: user.id,
+    name: input.name,
+    avatarUrl: input.avatar_url,
+    personaPrompt: input.persona_prompt,
+    copyPersonaPrompt: input.copy_persona_prompt,
+  })
+  return c.json(createChatConversationResponseSchema.parse(response), 201)
+})
+
+chatRoutes.post("/conversations/group", async (c) => {
+  const user = c.get("user")
+  const input = createGroupChatRequestSchema.parse(await c.req.json())
+  const response = await createGroupChatConversation(c.env, {
+    userId: user.id,
+    title: input.title,
+    agentIds: input.agent_ids,
+  })
+  return c.json(createChatConversationResponseSchema.parse(response), 201)
+})
+
+export function createChatHistoryCursorQuery(input: {
+  userId: string
+  beforeId: string
+  sessionId?: string
+}) {
+  if (input.sessionId) {
+    return {
+      sql: `SELECT created_at AS createdAt, rowid AS rowId
+         FROM chat_messages
+         WHERE user_id = ? AND conversation_id = ? AND id = ?`,
+      values: [input.userId, input.sessionId, input.beforeId],
+    }
+  }
+  return {
+    sql: `SELECT created_at AS createdAt, rowid AS rowId
+         FROM chat_messages
+         WHERE user_id = ? AND id = ?`,
+    values: [input.userId, input.beforeId],
+  }
+}
+
+export function createChatHistoryPageQuery(input: {
+  userId: string
+  limit: number
+  sessionId?: string
+  cursor?: {
+    createdAt: number
+    rowId: number
+  }
+}) {
+  if (input.cursor) {
+    if (input.sessionId) {
+      return {
+        sql: `SELECT
+           id,
+           role,
+           content,
+           created_at,
+           expression_group_id,
+           expression_part_index
+         FROM chat_messages
+         WHERE user_id = ?
+           AND conversation_id = ?
+           AND (created_at < ? OR (created_at = ? AND rowid < ?))
+         ORDER BY created_at DESC, rowid DESC
+         LIMIT ?`,
+        values: [
+          input.userId,
+          input.sessionId,
+          input.cursor.createdAt,
+          input.cursor.createdAt,
+          input.cursor.rowId,
+          input.limit + 1,
+        ],
+      }
+    }
+    return {
+      sql: `SELECT
+           id,
+           role,
+           content,
+           created_at,
+           expression_group_id,
+           expression_part_index
+         FROM chat_messages
+         WHERE user_id = ?
+           AND (created_at < ? OR (created_at = ? AND rowid < ?))
+         ORDER BY created_at DESC, rowid DESC
+         LIMIT ?`,
+      values: [
+        input.userId,
+        input.cursor.createdAt,
+        input.cursor.createdAt,
+        input.cursor.rowId,
+        input.limit + 1,
+      ],
+    }
+  }
+
+  if (input.sessionId) {
+    return {
+      sql: `SELECT
+           id,
+           role,
+           content,
+           created_at,
+           expression_group_id,
+           expression_part_index
+         FROM chat_messages
+         WHERE user_id = ? AND conversation_id = ?
+         ORDER BY created_at DESC, rowid DESC
+         LIMIT ?`,
+      values: [input.userId, input.sessionId, input.limit + 1],
+    }
+  }
+
+  return {
+    sql: `SELECT
+           id,
+           role,
+           content,
+           created_at,
+           expression_group_id,
+           expression_part_index
+         FROM chat_messages
+         WHERE user_id = ?
+         ORDER BY created_at DESC, rowid DESC
+         LIMIT ?`,
+    values: [input.userId, input.limit + 1],
+  }
+}
+
 chatRoutes.get("/history", async (c) => {
   const user = c.get("user")
   await ensureChatMessagesTable(c.env)
   const url = new URL(c.req.url)
-  const limitParam = Number(url.searchParams.get("limit") ?? 20)
-  const limit = Number.isFinite(limitParam)
-    ? Math.min(Math.max(limitParam, 1), 50)
-    : 20
-  const beforeId = url.searchParams.get("before_id")
+  const query = chatHistoryRequestSchema.parse({
+    before_id: url.searchParams.get("before_id") ?? undefined,
+    limit: url.searchParams.get("limit") ?? undefined,
+    session_id: url.searchParams.get("session_id") ?? undefined,
+  })
+  const limit = query.limit
+  const sessionId = query.session_id
 
   let rows: Array<{
     id: string
@@ -31,11 +185,14 @@ chatRoutes.get("/history", async (c) => {
     expression_part_index: number | null
   }>
 
-  if (beforeId) {
-    const cursor = await c.env.DB.prepare(
-      "SELECT created_at AS createdAt, rowid AS rowId FROM chat_messages WHERE user_id = ? AND id = ?",
-    )
-      .bind(user.id, beforeId)
+  if (query.before_id) {
+    const cursorQuery = createChatHistoryCursorQuery({
+      userId: user.id,
+      beforeId: query.before_id,
+      sessionId,
+    })
+    const cursor = await c.env.DB.prepare(cursorQuery.sql)
+      .bind(...cursorQuery.values)
       .first<{
         createdAt: number
         rowId: number
@@ -47,44 +204,24 @@ chatRoutes.get("/history", async (c) => {
       )
     }
 
-    rows = await c.env.DB.prepare(
-      `SELECT
-         id,
-         role,
-         content,
-         created_at,
-         expression_group_id,
-         expression_part_index
-       FROM chat_messages
-       WHERE user_id = ?
-         AND (created_at < ? OR (created_at = ? AND rowid < ?))
-       ORDER BY created_at DESC, rowid DESC
-       LIMIT ?`,
-    )
-      .bind(
-        user.id,
-        cursor.createdAt,
-        cursor.createdAt,
-        cursor.rowId,
-        limit + 1,
-      )
+    const historyQuery = createChatHistoryPageQuery({
+      userId: user.id,
+      limit,
+      sessionId,
+      cursor,
+    })
+    rows = await c.env.DB.prepare(historyQuery.sql)
+      .bind(...historyQuery.values)
       .all<(typeof rows)[number]>()
       .then((result) => result.results ?? [])
   } else {
-    rows = await c.env.DB.prepare(
-      `SELECT
-         id,
-         role,
-         content,
-         created_at,
-         expression_group_id,
-         expression_part_index
-       FROM chat_messages
-       WHERE user_id = ?
-       ORDER BY created_at DESC, rowid DESC
-       LIMIT ?`,
-    )
-      .bind(user.id, limit + 1)
+    const historyQuery = createChatHistoryPageQuery({
+      userId: user.id,
+      limit,
+      sessionId,
+    })
+    rows = await c.env.DB.prepare(historyQuery.sql)
+      .bind(...historyQuery.values)
       .all<(typeof rows)[number]>()
       .then((result) => result.results ?? [])
   }

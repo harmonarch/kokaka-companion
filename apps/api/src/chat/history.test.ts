@@ -61,4 +61,67 @@ describe("chat history", () => {
       0,
     ])
   })
+
+  it("saves single and group messages under separate conversations", async () => {
+    const statements: Array<{
+      sql: string
+      values: unknown[]
+    }> = []
+    const env = {
+      DB: {
+        prepare: (sql: string) => ({
+          bind: (...values: unknown[]) => {
+            statements.push({ sql, values })
+            return {}
+          },
+          all: async () => ({
+            results: [
+              { name: "id" },
+              { name: "user_id" },
+              { name: "conversation_id" },
+              { name: "role" },
+              { name: "content" },
+              { name: "created_at" },
+              { name: "expression_group_id" },
+              { name: "expression_part_index" },
+            ],
+          }),
+        }),
+        batch: async (queries: unknown[]) => queries,
+      },
+    } as unknown as Env
+
+    await saveChatMessages(env, {
+      userId: "u1",
+      conversationId: "chat:agent-1",
+      messages: [
+        {
+          id: "single-1",
+          role: "user",
+          content: "单聊消息",
+          created_at: 1,
+        },
+      ],
+    })
+    await saveChatMessages(env, {
+      userId: "u1",
+      conversationId: "group-1",
+      messages: [
+        {
+          id: "group-1",
+          role: "user",
+          content: "群聊消息",
+          created_at: 2,
+        },
+      ],
+    })
+
+    const inserts = statements.filter((statement) =>
+      statement.sql.includes("INSERT OR IGNORE INTO chat_messages"),
+    )
+    expect(inserts.map((insert) => insert.values[2])).toEqual([
+      "chat:agent-1",
+      "group-1",
+    ])
+  })
 })
