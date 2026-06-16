@@ -11,6 +11,10 @@ import {
 import { useAuthStore } from "@/stores/authStore"
 import { useProfileStore } from "@/stores/profileStore"
 import { useAppTheme, type AppTheme } from "@/theme"
+import {
+  AccountActionConfirmDialog,
+  type AccountAction,
+} from "@/pages/Chat/components/AccountActionConfirmDialog"
 import { ProfileEditorModal } from "@/pages/Chat/components/ProfileEditorModal"
 import { useProfileEditorModal } from "@/pages/Chat/hooks/useProfileEditorModal"
 
@@ -23,7 +27,7 @@ export default function Profile() {
   const profiles = useProfileStore((state) => state.profiles)
   const loadProfiles = useProfileStore((state) => state.loadProfiles)
   const profileEditor = useProfileEditorModal()
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<AccountAction | null>(null)
   const [busy, setBusy] = useState<"logout" | "delete" | null>(null)
 
   useEffect(() => {
@@ -47,21 +51,36 @@ export default function Profile() {
   const avatar = userProfile.avatar_url?.trim() ?? ""
 
   async function signOut() {
+    if (busy !== null) return
     setBusy("logout")
-    await logout()
-    setBusy(null)
-    router.replace("/login")
+    try {
+      await logout()
+      setBusy(null)
+      setConfirmAction(null)
+      router.replace("/login")
+    } catch (error) {
+      setBusy(null)
+      throw error
+    }
   }
 
   async function removeAccount() {
-    if (!confirmDelete) {
-      setConfirmDelete(true)
-      return
-    }
+    if (busy !== null) return
     setBusy("delete")
-    await deleteAccount()
-    setBusy(null)
-    router.replace("/login")
+    try {
+      await deleteAccount()
+      setBusy(null)
+      setConfirmAction(null)
+      router.replace("/login")
+    } catch (error) {
+      setBusy(null)
+      throw error
+    }
+  }
+
+  function confirmSelectedAction() {
+    if (confirmAction === "logout") void signOut()
+    if (confirmAction === "delete") void removeAccount()
   }
 
   return (
@@ -120,14 +139,16 @@ export default function Profile() {
             title="退出登录"
             detail={busy === "logout" ? "正在退出" : ""}
             theme={theme}
-            onPress={signOut}
+            disabled={busy !== null}
+            onPress={() => setConfirmAction("logout")}
           />
           <ProfileRow
-            title={confirmDelete ? "确认注销账号" : "注销账号"}
+            title="注销账号"
             detail="会清除当前账号数据"
             danger
             theme={theme}
-            onPress={removeAccount}
+            disabled={busy !== null}
+            onPress={() => setConfirmAction("delete")}
           />
         </View>
         <BottomTabs active="profile" theme={theme} />
@@ -140,6 +161,15 @@ export default function Profile() {
         onSave={profileEditor.saveProfile}
         theme={theme}
       />
+      <AccountActionConfirmDialog
+        action={confirmAction}
+        loading={busy !== null}
+        onCancel={() => {
+          if (busy === null) setConfirmAction(null)
+        }}
+        onConfirm={confirmSelectedAction}
+        theme={theme}
+      />
     </View>
   )
 }
@@ -148,24 +178,28 @@ function ProfileRow({
   title,
   detail,
   danger,
+  disabled,
   theme,
   onPress,
 }: {
   title: string
   detail: string
   danger?: boolean
+  disabled?: boolean
   theme: AppTheme
   onPress: () => void
 }) {
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       style={({ pressed }) => [
         styles.settingRow,
         {
           backgroundColor: pressed ? theme.elevated : theme.surface,
           borderColor: theme.softBorder,
         },
+        disabled && styles.disabled,
       ]}
     >
       <View style={styles.settingCopy}>
@@ -330,6 +364,9 @@ const styles = StyleSheet.create({
     fontSize: 28,
     lineHeight: 30,
     fontWeight: "300",
+  },
+  disabled: {
+    opacity: 0.55,
   },
   tabs: {
     height: 62,
