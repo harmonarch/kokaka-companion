@@ -7,6 +7,11 @@ import type {
 } from "@ai-companion/shared"
 import { create } from "zustand"
 import { useAuthStore } from "@/stores/authStore"
+import { useToastStore } from "@/stores/toastStore"
+import {
+  getNetworkErrorMessage,
+  getReadableErrorMessage,
+} from "@/utils/errors"
 import { shouldLoadForUser } from "./requestCache"
 
 export type AgentProfile = ChatConversationAgent
@@ -157,6 +162,11 @@ function getNextActiveConversationId(
   return conversations[0]?.id || defaultConversation.id
 }
 
+function showNetworkErrorToast(error: unknown) {
+  const message = getNetworkErrorMessage(error)
+  if (message) useToastStore.getState().showToast(message)
+}
+
 export const useConversationStore = create<ConversationState>((set, get) => ({
   agents: [defaultAgent],
   conversations: [defaultConversation],
@@ -212,6 +222,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         error: null,
       })
     } catch (error) {
+      showNetworkErrorToast(error)
       if (useAuthStore.getState().user?.id !== userId) return
       const state = withDefaults()
       set({
@@ -220,7 +231,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         ready: true,
         loading: false,
         userId,
-        error: error instanceof Error ? error.message : "聊天列表载入失败",
+        error: getReadableErrorMessage(error, "聊天列表载入失败"),
       })
     }
   },
