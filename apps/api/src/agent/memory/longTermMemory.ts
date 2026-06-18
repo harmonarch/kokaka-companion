@@ -118,7 +118,7 @@ function hasSelfReference(value: string) {
 }
 
 function asksAboutAssistant(value: string) {
-  const assistantRef = /(你|您|你们|小练|助手|助理|模型|Kokaka|kokaka)/
+  const assistantRef = /(你|您|你们|助手|助理|模型|Kokaka|kokaka)/
   const questionLike = /[?？]|什么|吗|呢|如何|怎么|是不是|能不能|会不会|有没有/
   const personalTopic =
     /(喜欢|讨厌|生日|名字|叫|工作|公司|住|在哪|心情|想法|建议)/
