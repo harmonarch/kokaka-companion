@@ -1,6 +1,11 @@
 import { create } from "zustand"
 import type { ChatProfile, ChatProfiles } from "@ai-companion/shared"
 import { useAuthStore } from "@/stores/authStore"
+import { useToastStore } from "@/stores/toastStore"
+import {
+  getNetworkErrorMessage,
+  getReadableErrorMessage,
+} from "@/utils/errors"
 import { shouldLoadForUser } from "./requestCache"
 
 type ProfileState = {
@@ -33,6 +38,11 @@ function normalizeProfile(profile: ChatProfile): ChatProfile {
     nickname,
     avatar_url: avatarUrl,
   }
+}
+
+function showNetworkErrorToast(error: unknown) {
+  const message = getNetworkErrorMessage(error)
+  if (message) useToastStore.getState().showToast(message)
 }
 
 export const useProfileStore = create<ProfileState>((set) => ({
@@ -86,11 +96,12 @@ export const useProfileStore = create<ProfileState>((set) => ({
         set({ profiles, ready: true, userId, error: null })
       })
       .catch((error) => {
+        showNetworkErrorToast(error)
         if (useAuthStore.getState().user?.id !== userId) return
         set({
           ready: true,
           userId,
-          error: error instanceof Error ? error.message : "聊天资料载入失败",
+          error: getReadableErrorMessage(error, "聊天资料载入失败"),
         })
       })
       .finally(() => {

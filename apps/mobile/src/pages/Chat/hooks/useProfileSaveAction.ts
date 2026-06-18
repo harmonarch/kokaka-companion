@@ -1,5 +1,10 @@
 import type { ChatProfiles } from "@ai-companion/shared"
 import { useProfileStore } from "@/stores/profileStore"
+import { useToastStore } from "@/stores/toastStore"
+import {
+  getNetworkErrorMessage,
+  getReadableErrorMessage,
+} from "@/utils/errors"
 
 export function useProfileSaveAction({
   createProfiles,
@@ -11,6 +16,7 @@ export function useProfileSaveAction({
   setError: (error: string | null) => void
 }) {
   const updateProfiles = useProfileStore((state) => state.updateProfiles)
+  const showToast = useToastStore((state) => state.showToast)
 
   async function saveProfile() {
     setError(null)
@@ -18,7 +24,9 @@ export function useProfileSaveAction({
       await updateProfiles(createProfiles())
       closeProfileEditor()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败")
+      const networkError = getNetworkErrorMessage(err)
+      if (networkError) showToast(networkError)
+      setError(getReadableErrorMessage(err, "保存失败"))
     }
   }
 
