@@ -24,6 +24,11 @@ import {
   type PendingOutgoingMessage,
 } from "./chatReliability"
 import { loadJson, saveJson } from "@/utils/storage"
+import { useToastStore } from "@/stores/toastStore"
+import {
+  getNetworkErrorMessage,
+  getReadableErrorMessage,
+} from "@/utils/errors"
 import { useConversationStore } from "./conversationStore"
 import {
   isSameSession,
@@ -85,6 +90,11 @@ function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]) {
     if (a.role !== b.role) return a.role === "agent" ? -1 : 1
     return 0
   })
+}
+
+function showNetworkErrorToast(error: unknown) {
+  const message = getNetworkErrorMessage(error)
+  if (message) useToastStore.getState().showToast(message)
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -154,6 +164,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           void sendPendingMessages()
             .then(() => get().loadHistory(true))
             .catch((error) => {
+              showNetworkErrorToast(error)
               set({
                 status: "error",
                 error: null,
@@ -182,10 +193,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
             })
             void savePendingOutgoing({ loadJson, saveJson }, pendingOutgoing)
               .catch((error) => {
+                showNetworkErrorToast(error)
                 set({
                   status: "error",
-                  error:
-                    error instanceof Error ? error.message : "消息确认保存失败",
+                  error: getReadableErrorMessage(error, "消息确认保存失败"),
                   agentPresence: null,
                 })
               })
@@ -321,6 +332,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         historyConversationId: conversationId,
       })
     } catch (error) {
+      showNetworkErrorToast(error)
       const currentState = get()
       if (
         useAuthStore.getState().user?.id !== userId ||
@@ -339,7 +351,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
       set({
         historyLoading: false,
-        error: error instanceof Error ? error.message : "历史聊天记录载入失败",
+        error: getReadableErrorMessage(error, "历史聊天记录载入失败"),
       })
     }
   },
@@ -370,13 +382,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         relationshipLoading: false,
       })
     } catch (error) {
+      showNetworkErrorToast(error)
       if (useAuthStore.getState().user?.id !== userId) return
       set({
         relationshipUserId: userId,
         relationshipLoaded: true,
         relationshipLoading: false,
-        error:
-          error instanceof Error ? error.message : "关系状态载入失败",
+        error: getReadableErrorMessage(error, "关系状态载入失败"),
       })
     }
   },
@@ -413,9 +425,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         historyConversationId: conversationId,
       })
     } catch (error) {
+      showNetworkErrorToast(error)
       set({
         historyLoading: false,
-        error: error instanceof Error ? error.message : "历史聊天记录载入失败",
+        error: getReadableErrorMessage(error, "历史聊天记录载入失败"),
       })
     }
   },
@@ -450,9 +463,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       await savePendingOutgoing({ loadJson, saveJson }, pendingOutgoing)
     } catch (error) {
+      showNetworkErrorToast(error)
       set({
         status: "error",
-        error: error instanceof Error ? error.message : "消息保存失败",
+        error: getReadableErrorMessage(error, "消息保存失败"),
         agentPresence: null,
       })
       throw error
@@ -468,6 +482,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       get().controller?.send(trimmed, conversationId, userMessage.id, agents)
     } catch (error) {
+      showNetworkErrorToast(error)
       set({
         status: "error",
         error: null,
@@ -498,6 +513,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       )
       set({ status: "sending", error: null, agentPresence: null })
     } catch (error) {
+      showNetworkErrorToast(error)
       set({
         status: "error",
         error: null,
