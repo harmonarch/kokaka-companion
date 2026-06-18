@@ -1,5 +1,7 @@
 import { Stack } from "expo-router"
 import { useEffect } from "react"
+import { View } from "react-native"
+import { NetworkToast } from "@/components/NetworkToast"
 import { useAuthStore } from "@/stores/authStore"
 import { useAppTheme } from "@/theme"
 
@@ -11,11 +13,14 @@ export default function Layout() {
   }, [hydrate])
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: theme.background },
-      }}
-    />
+    <View style={{ flex: 1 }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: theme.background },
+        }}
+      />
+      <NetworkToast />
+    </View>
   )
 }
