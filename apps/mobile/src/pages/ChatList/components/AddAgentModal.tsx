@@ -10,7 +10,12 @@ import {
 } from "react-native"
 import type { AppTheme } from "@/theme"
 import { pickAvatarImage } from "@/pages/Chat/profile/pickAvatarImage"
+import { useToastStore } from "@/stores/toastStore"
 import { webNoFocusInputHighlight } from "@/styles/noFocusHighlight"
+import {
+  getNetworkErrorMessage,
+  getReadableErrorMessage,
+} from "@/utils/errors"
 import { styles } from "../styles"
 import type { CreateAgentInput } from "../types"
 import { FormError, ModalHeader, SaveButton } from "./modalControls"
@@ -32,6 +37,7 @@ export function AddAgentModal({
   const [copyPersonaPrompt, setCopyPersonaPrompt] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const showToast = useToastStore((state) => state.showToast)
   const canSave = name.trim().length > 0
 
   async function chooseAvatar() {
@@ -72,7 +78,9 @@ export function AddAgentModal({
       reset()
     } catch (error) {
       setSaving(false)
-      setError(error instanceof Error ? error.message : "创建单聊失败")
+      const networkError = getNetworkErrorMessage(error)
+      if (networkError) showToast(networkError)
+      setError(getReadableErrorMessage(error, "创建单聊失败"))
     }
   }
 

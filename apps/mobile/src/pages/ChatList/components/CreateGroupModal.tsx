@@ -10,8 +10,13 @@ import {
   View,
 } from "react-native"
 import type { AgentProfile } from "@/stores/conversationStore"
+import { useToastStore } from "@/stores/toastStore"
 import type { AppTheme } from "@/theme"
 import { webNoFocusInputHighlight } from "@/styles/noFocusHighlight"
+import {
+  getNetworkErrorMessage,
+  getReadableErrorMessage,
+} from "@/utils/errors"
 import { styles } from "../styles"
 import type { CreateGroupInput } from "../types"
 import { FormError, ModalHeader, SaveButton } from "./modalControls"
@@ -33,6 +38,7 @@ export function CreateGroupModal({
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const showToast = useToastStore((state) => state.showToast)
   const canSave = selectedIds.length >= 1
 
   function toggleAgent(agentId: string) {
@@ -64,7 +70,9 @@ export function CreateGroupModal({
       reset()
     } catch (error) {
       setSaving(false)
-      setError(error instanceof Error ? error.message : "创建群聊失败")
+      const networkError = getNetworkErrorMessage(error)
+      if (networkError) showToast(networkError)
+      setError(getReadableErrorMessage(error, "创建群聊失败"))
     }
   }
 
