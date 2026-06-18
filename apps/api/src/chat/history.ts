@@ -85,6 +85,22 @@ export async function replaceChatMessages(
   ])
 }
 
+export async function chatMessageExists(
+  env: Env,
+  input: {
+    userId: string
+    messageId: string
+  },
+) {
+  await ensureChatMessagesTable(env)
+  const row = await env.DB.prepare(
+    "SELECT id FROM chat_messages WHERE user_id = ? AND id = ? LIMIT 1",
+  )
+    .bind(input.userId, input.messageId)
+    .first<{ id: string }>()
+  return Boolean(row)
+}
+
 function createInsertChatMessageStatement(
   env: Env,
   input: {

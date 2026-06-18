@@ -1,4 +1,5 @@
 import type {
+  ChatAgentContext,
   ChatMessage,
   EmotionState,
   RelationshipState,
@@ -14,6 +15,12 @@ import {
   createTransientNudgeId,
   isTransientNudge,
 } from "./chatMessages"
+import {
+  removeConfirmedOutgoing,
+  shouldRecoverConnection,
+  upsertPendingOutgoing,
+  type PendingOutgoingMessage,
+} from "./chatReliability"
 import { useConversationStore } from "./conversationStore"
 import {
   isSameSession,
@@ -42,8 +49,9 @@ type ChatState = {
   relationshipLoading: boolean
   error: string | null
   controller: ChatController | null
+  pendingOutgoing: PendingOutgoingMessage<ChatAgentContext>[]
   connect: () => void
-  loadHistory: () => Promise<void>
+  loadHistory: (force?: boolean) => Promise<void>
   loadRelationship: () => Promise<void>
   loadOlderHistory: () => Promise<void>
   send: (content: string) => void
@@ -88,20 +96,55 @@ export const useChatStore = create<ChatState>((set, get) => ({
   relationshipLoading: false,
   error: null,
   controller: null,
+  pendingOutgoing: [],
   connect: () => {
     if (get().controller) return
+    function sendPendingMessages() {
+      const controller = get().controller
+      if (!controller) return
+      for (const message of get().pendingOutgoing) {
+        controller.send(
+          message.content,
+          message.conversationId,
+          message.id,
+          message.agents,
+        )
+      }
+    }
     const controller = new ChatController({
       wsUrl: chatWsUrl,
       getTokens: () => useAuthStore.getState().tokens,
       createClient: (options) => new ChatWebSocketClient(options),
-      onStatus: (connection) =>
+      onStatus: (connection) => {
+        const previousConnection = get().connection
         set({
           connection,
           agentPresence:
             connection === "connected" ? get().agentPresence : null,
-        }),
+        })
+        if (shouldRecoverConnection(previousConnection, connection)) {
+          try {
+            sendPendingMessages()
+            void get().loadHistory(true)
+          } catch (error) {
+            set({
+              status: "error",
+              error: error instanceof Error ? error.message : "消息发送失败",
+              agentPresence: null,
+            })
+          }
+        }
+      },
       onMessage: (message: ServerWsMessage) => {
         if (message.type === "agent_status") {
+          if (message.status === "received" && message.client_message_id) {
+            set({
+              pendingOutgoing: removeConfirmedOutgoing(
+                get().pendingOutgoing,
+                message.client_message_id,
+              ),
+            })
+          }
           if (message.status === "listening") {
             set({ agentPresence: "listening" })
           }
@@ -170,7 +213,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     controller.connect()
     set({ controller })
   },
-  loadHistory: async () => {
+  loadHistory: async (force = false) => {
     const userId = useAuthStore.getState().user?.id
     const conversationId =
       useConversationStore.getState().activeConversationId ?? "default"
@@ -197,7 +240,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         sessionId: conversationId,
       }
     }
-    if (!shouldLoadForSession(historyState, userId, conversationId)) return
+    if (!force && !shouldLoadForSession(historyState, userId, conversationId)) {
+      return
+    }
     set({ historyLoading: true, error: null })
     try {
       const history = await useAuthStore
@@ -349,6 +394,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: [userMessage, ...get().messages],
       status: "sending",
       agentPresence: null,
+      pendingOutgoing: upsertPendingOutgoing(get().pendingOutgoing, {
+        id: userMessage.id,
+        content: trimmed,
+        conversationId,
+        agents,
+      }),
     })
     conversationStore.updateConversationPreview(conversationId, trimmed)
     try {

@@ -5,6 +5,7 @@ import type { Env } from "@/env"
 import { createAccessToken } from "@/auth/tokens"
 import {
   appendCollectedHistory,
+  acknowledgeChatMessage,
   buildReplyParts,
   isShortMessageBurst,
   persistVisibleReplyParts,
@@ -66,6 +67,13 @@ function createMemoryEnv() {
                     rowId: row.rowid,
                   } as T)
                 : null
+            }
+            if (sql.includes("SELECT id FROM chat_messages")) {
+              const [userId, id] = values
+              const row = rows.find(
+                (item) => item.user_id === userId && item.id === id,
+              )
+              return row ? ({ id: row.id } as T) : null
             }
             return null
           },
@@ -542,6 +550,40 @@ describe("reply parts", () => {
       "我在",
       "先陪你一会儿",
       "慢慢说",
+    ])
+  })
+
+  it("acknowledges duplicate client messages without reprocessing them", async () => {
+    const { env, rows } = createMemoryEnv()
+    rows.push({
+      id: "m1",
+      user_id: "u1",
+      conversation_id: "c1",
+      role: "user",
+      content: "已经收到过",
+      created_at: 1,
+      expression_group_id: null,
+      expression_part_index: null,
+      rowid: 1,
+    })
+    const sent: unknown[] = []
+    const socket = {
+      send: (value: string) => sent.push(JSON.parse(value)),
+    } as unknown as WebSocket
+
+    await expect(
+      acknowledgeChatMessage(env, {
+        userId: "u1",
+        clientMessageId: "m1",
+        socket,
+      }),
+    ).resolves.toBe(true)
+    expect(sent).toEqual([
+      {
+        type: "agent_status",
+        status: "received",
+        client_message_id: "m1",
+      },
     ])
   })
 

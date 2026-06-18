@@ -4,7 +4,11 @@ import type { Env } from "@/env"
 import { findUserById } from "@/auth/session"
 import { verifyAccessToken } from "@/auth/tokens"
 import { runAgent } from "@/agent/graph"
-import { replaceChatMessages, saveChatMessages } from "@/chat/history"
+import {
+  chatMessageExists,
+  replaceChatMessages,
+  saveChatMessages,
+} from "@/chat/history"
 import {
   extractLongTermMemory,
   maybeSaveConversationSummary,
@@ -88,6 +92,26 @@ async function waitForMinimumReplyingTime(replyingStartedAt: number) {
 
 export function replyPartDelayMs(content: string) {
   return Math.min(2000 + Array.from(content).length * 200, 5000)
+}
+
+export async function acknowledgeChatMessage(
+  env: Env,
+  input: {
+    userId: string
+    clientMessageId: string
+    socket: WebSocket
+  },
+) {
+  const alreadyReceived = await chatMessageExists(env, {
+    userId: input.userId,
+    messageId: input.clientMessageId,
+  })
+  trySend(input.socket, {
+    type: "agent_status",
+    status: "received",
+    client_message_id: input.clientMessageId,
+  })
+  return alreadyReceived
 }
 
 function toCollectedMessages(input: {
@@ -572,10 +596,12 @@ export async function handleChatWebSocket(
       }
 
       replyGeneration += 1
-      trySend(server, {
-        type: "agent_status",
-        status: "received",
+      const alreadyReceived = await acknowledgeChatMessage(env, {
+        userId: user.id,
+        clientMessageId: message.client_message_id,
+        socket: server,
       })
+      if (alreadyReceived) return
       collector.addMessage({
         id: message.client_message_id,
         sessionId: message.session_id,

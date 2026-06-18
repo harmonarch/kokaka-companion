@@ -146,6 +146,7 @@ export type AgentStatus = z.infer<typeof agentStatusSchema>
 export const agentStatusMessageSchema = z.object({
   type: z.literal("agent_status"),
   status: agentStatusSchema,
+  client_message_id: z.string().min(1).optional(),
 })
 
 export const pongMessageSchema = z.object({

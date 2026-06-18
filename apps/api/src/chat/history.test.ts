@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { saveChatMessages } from "@/chat/history"
+import { chatMessageExists, saveChatMessages } from "@/chat/history"
 import type { Env } from "@/env"
 
 describe("chat history", () => {
@@ -123,5 +123,42 @@ describe("chat history", () => {
       "chat:agent-1",
       "group-1",
     ])
+  })
+
+  it("checks whether a user message was already saved", async () => {
+    const env = {
+      DB: {
+        prepare: (sql: string) => ({
+          bind: (...values: unknown[]) => ({
+            first: async () =>
+              sql.includes("SELECT id FROM chat_messages") &&
+              values[0] === "u1" &&
+              values[1] === "m1"
+                ? { id: "m1" }
+                : null,
+          }),
+          all: async () => ({
+            results: [
+              { name: "id" },
+              { name: "user_id" },
+              { name: "conversation_id" },
+              { name: "role" },
+              { name: "content" },
+              { name: "created_at" },
+              { name: "expression_group_id" },
+              { name: "expression_part_index" },
+            ],
+          }),
+        }),
+        batch: async (queries: unknown[]) => queries,
+      },
+    } as unknown as Env
+
+    await expect(
+      chatMessageExists(env, { userId: "u1", messageId: "m1" }),
+    ).resolves.toBe(true)
+    await expect(
+      chatMessageExists(env, { userId: "u1", messageId: "missing" }),
+    ).resolves.toBe(false)
   })
 })

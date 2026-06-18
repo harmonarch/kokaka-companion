@@ -93,10 +93,12 @@ describe("chat websocket schemas", () => {
       serverWsMessageSchema.parse({
         type: "agent_status",
         status: "received",
+        client_message_id: "m1",
       }),
     ).toEqual({
       type: "agent_status",
       status: "received",
+      client_message_id: "m1",
     })
     expect(
       serverWsMessageSchema.parse({

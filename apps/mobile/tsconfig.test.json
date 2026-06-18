@@ -13,6 +13,8 @@
     ]
   },
   "include": [
+    "src/stores/chatReliability.ts",
+    "src/stores/chatReliability.test.ts",
     "src/stores/requestCache.ts",
     "src/stores/requestCache.test.ts"
   ]
