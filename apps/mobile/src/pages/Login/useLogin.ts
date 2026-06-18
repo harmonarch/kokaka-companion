@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react"
 import { router } from "expo-router"
 import { useAuthStore } from "@/stores/authStore"
+import { useToastStore } from "@/stores/toastStore"
+import {
+  getNetworkErrorMessage,
+  getReadableErrorMessage,
+} from "@/utils/errors"
 import type { LoginMode } from "./useLoginForm"
 
 export function useLogin() {
@@ -8,6 +13,7 @@ export function useLogin() {
 
   const login = useAuthStore((state) => state.login)
   const register = useAuthStore((state) => state.register)
+  const showToast = useToastStore((state) => state.showToast)
   const user = useAuthStore((state) => state.user)
   const ready = useAuthStore((state) => state.ready)
   const tokens = useAuthStore((state) => state.tokens)
@@ -34,7 +40,9 @@ export function useLogin() {
       }
       router.replace("/chats")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "操作失败")
+      const networkError = getNetworkErrorMessage(err)
+      if (networkError) showToast(networkError)
+      setError(getReadableErrorMessage(err, "操作失败"))
     }
   }
 
