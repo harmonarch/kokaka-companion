@@ -6,6 +6,7 @@ import {
   getNetworkErrorMessage,
   getReadableErrorMessage,
 } from "@/utils/errors"
+import { getAuthFieldsError } from "./authValidation"
 import type { LoginMode } from "./useLoginForm"
 
 export function useLogin() {
@@ -32,6 +33,12 @@ export function useLogin() {
     mode: LoginMode,
   ) {
     setError(null)
+    const validationError = getAuthFieldsError(email, password)
+    if (validationError) {
+      showToast(validationError)
+      return
+    }
+
     try {
       if (mode === "register") {
         await register(email, password, nickname)
