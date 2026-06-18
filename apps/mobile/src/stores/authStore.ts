@@ -1,8 +1,9 @@
 import type { AuthTokens, User } from "@ai-companion/shared"
 import { createHttpClient } from "@ai-companion/api-client"
 import { create } from "zustand"
-import { loadTokens, saveTokens } from "@/utils/storage"
+import { loadJson, loadTokens, saveJson, saveTokens } from "@/utils/storage"
 import { apiBaseUrl } from "@/config/api"
+import { clearPendingOutgoing } from "./chatReliability"
 
 type AuthState = {
   user: User | null
@@ -56,6 +57,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       } catch {
         set({ user: null, tokens: null, ready: true })
         await saveTokens(null)
+        await clearPendingOutgoing({ loadJson, saveJson })
       }
     },
     register: async (email, password, nickname) => {
@@ -78,11 +80,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
       await client.logout().catch(() => undefined)
       set({ user: null, tokens: null })
       await saveTokens(null)
+      await clearPendingOutgoing({ loadJson, saveJson })
     },
     deleteAccount: async () => {
       await client.deleteAccount()
       set({ user: null, tokens: null })
       await saveTokens(null)
+      await clearPendingOutgoing({ loadJson, saveJson })
     },
   }
 })

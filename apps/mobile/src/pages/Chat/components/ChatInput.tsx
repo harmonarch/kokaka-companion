@@ -23,7 +23,7 @@ export function ChatInput({
 }: {
   disabled?: boolean
   disabledReason?: string
-  onSend: (content: string) => void
+  onSend: (content: string) => Promise<void>
   theme: AppTheme
 }) {
   const draft = useChatInputDraft({ disabled, onSend })

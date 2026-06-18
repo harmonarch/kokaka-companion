@@ -45,7 +45,7 @@ type ChatBodyProps = {
   theme: AppTheme
   onAvatarPress: (role: ProfileRole) => void
   onLoadOlderHistory: () => Promise<void>
-  onSend: (content: string) => void
+  onSend: (content: string) => Promise<void>
 }
 
 type ChatMessageListProps = {

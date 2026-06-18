@@ -16,11 +16,15 @@ import {
   isTransientNudge,
 } from "./chatMessages"
 import {
+  loadPendingOutgoing,
   removeConfirmedOutgoing,
+  savePendingOutgoing,
   shouldRecoverConnection,
+  toPendingUserMessages,
   upsertPendingOutgoing,
   type PendingOutgoingMessage,
 } from "./chatReliability"
+import { loadJson, saveJson } from "@/utils/storage"
 import { useConversationStore } from "./conversationStore"
 import {
   isSameSession,
@@ -50,11 +54,15 @@ type ChatState = {
   error: string | null
   controller: ChatController | null
   pendingOutgoing: PendingOutgoingMessage<ChatAgentContext>[]
+  pendingOutgoingLoaded: boolean
+  loadPendingOutgoing: () => Promise<
+    PendingOutgoingMessage<ChatAgentContext>[]
+  >
   connect: () => void
   loadHistory: (force?: boolean) => Promise<void>
   loadRelationship: () => Promise<void>
   loadOlderHistory: () => Promise<void>
-  send: (content: string) => void
+  send: (content: string) => Promise<void>
   disconnect: () => void
 }
 
@@ -97,12 +105,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
   error: null,
   controller: null,
   pendingOutgoing: [],
+  pendingOutgoingLoaded: false,
+  loadPendingOutgoing: async () => {
+    if (get().pendingOutgoingLoaded) return get().pendingOutgoing
+    const pending = await loadPendingOutgoing<ChatAgentContext>({
+      loadJson,
+      saveJson,
+    })
+    set({
+      pendingOutgoing: pending,
+      pendingOutgoingLoaded: true,
+      messages: mergeMessages(
+        get().messages,
+        toPendingUserMessages(
+          pending,
+          useConversationStore.getState().activeConversationId ?? "default",
+        ),
+      ),
+    })
+    return pending
+  },
   connect: () => {
     if (get().controller) return
-    function sendPendingMessages() {
+    async function sendPendingMessages() {
       const controller = get().controller
       if (!controller) return
-      for (const message of get().pendingOutgoing) {
+      const pending = await get().loadPendingOutgoing()
+      for (const message of pending) {
         controller.send(
           message.content,
           message.conversationId,
@@ -123,27 +152,53 @@ export const useChatStore = create<ChatState>((set, get) => ({
             connection === "connected" ? get().agentPresence : null,
         })
         if (shouldRecoverConnection(previousConnection, connection)) {
-          try {
-            sendPendingMessages()
-            void get().loadHistory(true)
-          } catch (error) {
+          void sendPendingMessages()
+            .then(() => get().loadHistory(true))
+            .catch((error) => {
+              set({
+                status: "error",
+                error: error instanceof Error ? error.message : "消息发送失败",
+                agentPresence: null,
+              })
+            })
+        }
+        if (connection === "connected" && !get().pendingOutgoingLoaded) {
+          void sendPendingMessages().catch((error) => {
             set({
               status: "error",
               error: error instanceof Error ? error.message : "消息发送失败",
               agentPresence: null,
             })
-          }
+          })
         }
       },
       onMessage: (message: ServerWsMessage) => {
         if (message.type === "agent_status") {
           if (message.status === "received" && message.client_message_id) {
+            const pendingOutgoing = removeConfirmedOutgoing(
+              get().pendingOutgoing,
+              message.client_message_id,
+            )
             set({
-              pendingOutgoing: removeConfirmedOutgoing(
-                get().pendingOutgoing,
-                message.client_message_id,
+              pendingOutgoing,
+              messages: mergeMessages(
+                get().messages,
+                toPendingUserMessages(
+                  pendingOutgoing,
+                  useConversationStore.getState().activeConversationId ??
+                    "default",
+                ),
               ),
             })
+            void savePendingOutgoing({ loadJson, saveJson }, pendingOutgoing)
+              .catch((error) => {
+                set({
+                  status: "error",
+                  error:
+                    error instanceof Error ? error.message : "消息确认保存失败",
+                  agentPresence: null,
+                })
+              })
           }
           if (message.status === "listening") {
             set({ agentPresence: "listening" })
@@ -265,7 +320,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return
       }
       set({
-        messages: mergeMessages(get().messages, history.messages),
+        messages: mergeMessages(
+          mergeMessages(get().messages, history.messages),
+          toPendingUserMessages(get().pendingOutgoing, conversationId),
+        ),
         historyLoaded: true,
         historyLoading: false,
         historyHasMore: history.has_more,
@@ -371,7 +429,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       })
     }
   },
-  send: (content) => {
+  send: async (content) => {
     const trimmed = content.trim()
     if (!trimmed) return
     const conversationStore = useConversationStore.getState()
@@ -384,22 +442,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
           name: agent.name,
           persona_prompt: agent.persona_prompt,
         })) ?? []
+    const createdAt = Date.now()
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
       content: trimmed,
-      created_at: Date.now(),
+      created_at: createdAt,
+    }
+    const currentPending = await get().loadPendingOutgoing()
+    const pendingOutgoing = upsertPendingOutgoing(currentPending, {
+      id: userMessage.id,
+      content: trimmed,
+      conversationId,
+      agents,
+      createdAt,
+    })
+    try {
+      await savePendingOutgoing({ loadJson, saveJson }, pendingOutgoing)
+    } catch (error) {
+      set({
+        status: "error",
+        error: error instanceof Error ? error.message : "消息保存失败",
+        agentPresence: null,
+      })
+      throw error
     }
     set({
       messages: [userMessage, ...get().messages],
       status: "sending",
       agentPresence: null,
-      pendingOutgoing: upsertPendingOutgoing(get().pendingOutgoing, {
-        id: userMessage.id,
-        content: trimmed,
-        conversationId,
-        agents,
-      }),
+      pendingOutgoing,
+      pendingOutgoingLoaded: true,
     })
     conversationStore.updateConversationPreview(conversationId, trimmed)
     try {
