@@ -19,7 +19,6 @@ import {
   loadPendingOutgoing,
   removeConfirmedOutgoing,
   savePendingOutgoing,
-  shouldRecoverConnection,
   toPendingUserMessages,
   upsertPendingOutgoing,
   type PendingOutgoingMessage,
@@ -145,31 +144,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
       getTokens: () => useAuthStore.getState().tokens,
       createClient: (options) => new ChatWebSocketClient(options),
       onStatus: (connection) => {
-        const previousConnection = get().connection
         set({
           connection,
           agentPresence:
             connection === "connected" ? get().agentPresence : null,
         })
-        if (shouldRecoverConnection(previousConnection, connection)) {
+        if (connection === "connected") {
           void sendPendingMessages()
             .then(() => get().loadHistory(true))
             .catch((error) => {
               set({
                 status: "error",
-                error: error instanceof Error ? error.message : "消息发送失败",
+                error: null,
                 agentPresence: null,
               })
             })
-        }
-        if (connection === "connected" && !get().pendingOutgoingLoaded) {
-          void sendPendingMessages().catch((error) => {
-            set({
-              status: "error",
-              error: error instanceof Error ? error.message : "消息发送失败",
-              agentPresence: null,
-            })
-          })
         }
       },
       onMessage: (message: ServerWsMessage) => {
