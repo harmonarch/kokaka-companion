@@ -16,6 +16,8 @@
     "src/stores/chatReliability.ts",
     "src/stores/chatReliability.test.ts",
     "src/stores/requestCache.ts",
-    "src/stores/requestCache.test.ts"
+    "src/stores/requestCache.test.ts",
+    "src/utils/errors.ts",
+    "src/utils/errors.test.ts"
   ]
 }
