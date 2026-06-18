@@ -42,10 +42,12 @@ type ChatBodyProps = {
   historyLoaded: boolean
   inputDisabled: boolean
   disabledReason: string | undefined
+  failedMessageIds: Set<string>
   theme: AppTheme
   onAvatarPress: (role: ProfileRole) => void
   onLoadOlderHistory: () => Promise<void>
   onSend: (content: string) => Promise<void>
+  onRetrySend: (messageId: string) => Promise<void>
 }
 
 type ChatMessageListProps = {
@@ -56,7 +58,9 @@ type ChatMessageListProps = {
   historyLoading: boolean
   historyLoaded: boolean
   theme: AppTheme
+  failedMessageIds: Set<string>
   onAvatarPress: (role: ProfileRole) => void
+  onRetrySend: (messageId: string) => Promise<void>
   onLoadOlderHistory: () => Promise<void>
 }
 
@@ -70,7 +74,9 @@ type ChatListRowProps = {
   profiles: ChatProfiles
   agentAvatarUrl: string | null
   theme: AppTheme
+  failedMessageIds: Set<string>
   onAvatarPress: (role: ProfileRole) => void
+  onRetrySend: (messageId: string) => Promise<void>
 }
 
 type DateSeparatorProps = {
@@ -122,10 +128,12 @@ export default function Chat() {
           historyLoaded={chat.historyLoaded}
           inputDisabled={chat.inputDisabled}
           disabledReason={chat.disabledReason}
+          failedMessageIds={chat.failedMessageIds}
           theme={theme}
           onAvatarPress={chat.profileEditor.openProfileEditor}
           onLoadOlderHistory={chat.loadOlderHistory}
           onSend={chat.send}
+          onRetrySend={chat.retrySend}
         />
         <ChatOverlays profileEditor={chat.profileEditor} theme={theme} />
       </View>
@@ -161,10 +169,12 @@ function ChatBody({
   historyLoaded,
   inputDisabled,
   disabledReason,
+  failedMessageIds,
   theme,
   onAvatarPress,
   onLoadOlderHistory,
   onSend,
+  onRetrySend,
 }: ChatBodyProps) {
   const listItems = createChatListItems(messages)
 
@@ -177,8 +187,10 @@ function ChatBody({
         agentAvatarUrl={agentAvatarUrl}
         historyLoading={historyLoading}
         historyLoaded={historyLoaded}
+        failedMessageIds={failedMessageIds}
         theme={theme}
         onAvatarPress={onAvatarPress}
+        onRetrySend={onRetrySend}
         onLoadOlderHistory={onLoadOlderHistory}
       />
       <ChatErrorMessage error={error} theme={theme} />
@@ -199,8 +211,10 @@ function ChatMessageList({
   agentAvatarUrl,
   historyLoading,
   historyLoaded,
+  failedMessageIds,
   theme,
   onAvatarPress,
+  onRetrySend,
   onLoadOlderHistory,
 }: ChatMessageListProps) {
   return (
@@ -221,8 +235,10 @@ function ChatMessageList({
           item={item}
           profiles={profiles}
           agentAvatarUrl={agentAvatarUrl}
+          failedMessageIds={failedMessageIds}
           theme={theme}
           onAvatarPress={onAvatarPress}
+          onRetrySend={onRetrySend}
         />
       )}
       ListFooterComponent={
@@ -239,8 +255,10 @@ function ChatListRow({
   item,
   profiles,
   agentAvatarUrl,
+  failedMessageIds,
   theme,
   onAvatarPress,
+  onRetrySend,
 }: ChatListRowProps) {
   if (item.type === "date") {
     return <DateSeparator label={item.label} theme={theme} />
@@ -251,8 +269,10 @@ function ChatListRow({
       message={item.message}
       profiles={profiles}
       agentAvatarUrl={agentAvatarUrl}
+      failed={failedMessageIds.has(item.message.id)}
       theme={theme}
       onAvatarPress={onAvatarPress}
+      onRetry={() => onRetrySend(item.message.id)}
     />
   )
 }

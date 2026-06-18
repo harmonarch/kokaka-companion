@@ -114,6 +114,18 @@ describe("chat reliability helpers", () => {
     )
   })
 
+  it("exposes pending message ids as retry targets", () => {
+    const pending = upsertPendingOutgoing([], {
+      id: "m1",
+      content: "重试这条",
+      conversationId: "c1",
+      agents: [],
+      createdAt: 1,
+    })
+
+    assert.deepEqual(pending.map((message) => message.id), ["m1"])
+  })
+
   it("clears pending outgoing messages on account exit", async () => {
     const storage = createMemoryStorage()
     await savePendingOutgoing(storage, [

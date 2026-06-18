@@ -62,6 +62,7 @@ type ChatState = {
   loadRelationship: () => Promise<void>
   loadOlderHistory: () => Promise<void>
   send: (content: string) => Promise<void>
+  retrySend: (messageId: string) => Promise<void>
   disconnect: () => void
 }
 
@@ -469,7 +470,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } catch (error) {
       set({
         status: "error",
-        error: error instanceof Error ? error.message : "消息发送失败",
+        error: null,
+        agentPresence: null,
+      })
+    }
+  },
+  retrySend: async (messageId) => {
+    const message = (await get().loadPendingOutgoing()).find(
+      (item) => item.id === messageId,
+    )
+    if (!message) return
+
+    let controller = get().controller
+    if (!controller) {
+      get().connect()
+      controller = get().controller
+    } else if (get().connection !== "connected") {
+      controller.connect()
+    }
+
+    try {
+      controller?.send(
+        message.content,
+        message.conversationId,
+        message.id,
+        message.agents,
+      )
+      set({ status: "sending", error: null, agentPresence: null })
+    } catch (error) {
+      set({
+        status: "error",
+        error: null,
         agentPresence: null,
       })
     }

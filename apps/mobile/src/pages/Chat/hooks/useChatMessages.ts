@@ -9,6 +9,14 @@ export function useChatMessages() {
   const error = useChatStore((state) => state.error)
   const loadOlderHistory = useChatStore((state) => state.loadOlderHistory)
   const send = useChatStore((state) => state.send)
+  const retrySend = useChatStore((state) => state.retrySend)
+  const connection = useChatStore((state) => state.connection)
+  const pendingOutgoing = useChatStore((state) => state.pendingOutgoing)
+  const failedMessageIds = new Set(
+    connection === "connected"
+      ? []
+      : pendingOutgoing.map((message) => message.id),
+  )
   const profiles = useProfileStore((state) => state.profiles)
   const agentAvatarUrl = useConversationStore((state) => {
     const conversationId = state.activeConversationId
@@ -26,5 +34,7 @@ export function useChatMessages() {
     historyLoaded,
     loadOlderHistory,
     send,
+    retrySend,
+    failedMessageIds,
   }
 }

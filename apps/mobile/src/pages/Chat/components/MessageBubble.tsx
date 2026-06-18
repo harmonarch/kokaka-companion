@@ -7,14 +7,18 @@ export function MessageBubble({
   message,
   profiles,
   agentAvatarUrl,
+  failed,
   theme,
   onAvatarPress,
+  onRetry,
 }: {
   message: ChatMessage
   profiles: ChatProfiles
   agentAvatarUrl: string | null
+  failed?: boolean
   theme: AppTheme
   onAvatarPress: (role: ProfileRole) => void
+  onRetry?: () => void
 }) {
   const isUser = message.role === "user"
   const profile = isUser ? profiles.user : profiles.agent
@@ -45,41 +49,56 @@ export function MessageBubble({
           )}
         </Pressable>
         <View style={[styles.message, isUser && styles.messageRight]}>
-          <View style={[styles.bubbleWrap, isUser && styles.bubbleWrapRight]}>
-            <View
-              style={[
-                styles.tail,
-                isUser ? styles.tailRight : styles.tailLeft,
-                {
-                  borderRightColor: isUser ? "transparent" : theme.surface,
-                  borderLeftColor: isUser ? theme.primary : "transparent",
-                },
-              ]}
-            />
-            <View
-              style={[
-                styles.bubble,
-                isUser
-                  ? {
-                      backgroundColor: theme.primary,
-                      borderColor: theme.primary,
-                      borderWidth: 1,
-                    }
-                  : {
-                      backgroundColor: theme.surface,
-                      borderColor: theme.bubbleBorder,
-                      borderWidth: 1,
-                    },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.text,
-                  { color: isUser ? theme.primaryText : theme.text },
+          <View style={styles.bubbleRow}>
+            {isUser && failed ? (
+              <Pressable
+                accessibilityLabel="重新发送"
+                accessibilityRole="button"
+                onPress={onRetry}
+                style={({ pressed }) => [
+                  styles.retryButton,
+                  pressed && styles.retryButtonPressed,
                 ]}
               >
-                {message.content}
-              </Text>
+                <Text style={styles.retryIcon}>↻</Text>
+              </Pressable>
+            ) : null}
+            <View style={[styles.bubbleWrap, isUser && styles.bubbleWrapRight]}>
+              <View
+                style={[
+                  styles.tail,
+                  isUser ? styles.tailRight : styles.tailLeft,
+                  {
+                    borderRightColor: isUser ? "transparent" : theme.surface,
+                    borderLeftColor: isUser ? theme.primary : "transparent",
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.bubble,
+                  isUser
+                    ? {
+                        backgroundColor: theme.primary,
+                        borderColor: theme.primary,
+                        borderWidth: 1,
+                      }
+                    : {
+                        backgroundColor: theme.surface,
+                        borderColor: theme.bubbleBorder,
+                        borderWidth: 1,
+                      },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.text,
+                    { color: isUser ? theme.primaryText : theme.text },
+                  ]}
+                >
+                  {message.content}
+                </Text>
+              </View>
             </View>
           </View>
           <Text
@@ -135,6 +154,28 @@ const styles = StyleSheet.create({
   },
   bubbleWrapRight: {
     alignItems: "flex-end",
+  },
+  bubbleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  retryButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#d64545",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  retryButtonPressed: {
+    opacity: 0.8,
+  },
+  retryIcon: {
+    color: "#ffffff",
+    fontSize: 14,
+    lineHeight: 17,
+    fontWeight: "800",
   },
   tail: {
     position: "absolute",
