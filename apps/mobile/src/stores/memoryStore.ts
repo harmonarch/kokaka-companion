@@ -1,6 +1,11 @@
 import type { ChatMessage, Memory } from "@ai-companion/shared"
 import { create } from "zustand"
 import { useAuthStore } from "@/stores/authStore"
+import { useToastStore } from "@/stores/toastStore"
+import {
+  getNetworkErrorMessage,
+  getReadableErrorMessage,
+} from "@/utils/errors"
 import { shouldLoadForUser } from "./requestCache"
 
 type MemoryState = {
@@ -22,6 +27,11 @@ type MemoryState = {
 
 function sortMemories(memories: Memory[]) {
   return [...memories].sort((a, b) => b.created_at - a.created_at)
+}
+
+function showNetworkErrorToast(error: unknown) {
+  const message = getNetworkErrorMessage(error)
+  if (message) useToastStore.getState().showToast(message)
 }
 
 export const useMemoryStore = create<MemoryState>((set, get) => ({
@@ -69,12 +79,13 @@ export const useMemoryStore = create<MemoryState>((set, get) => ({
         error: null,
       })
     } catch (error) {
+      showNetworkErrorToast(error)
       if (useAuthStore.getState().user?.id !== userId) return
       set({
         loaded: true,
         loading: false,
         userId,
-        error: error instanceof Error ? error.message : "记忆载入失败",
+        error: getReadableErrorMessage(error, "记忆载入失败"),
       })
     }
   },
@@ -99,10 +110,11 @@ export const useMemoryStore = create<MemoryState>((set, get) => ({
         error: null,
       })
     } catch (error) {
+      showNetworkErrorToast(error)
       set({
         contextOpenId: null,
         contextLoadingId: null,
-        error: error instanceof Error ? error.message : "上下文载入失败",
+        error: getReadableErrorMessage(error, "上下文载入失败"),
       })
     }
   },
@@ -128,9 +140,10 @@ export const useMemoryStore = create<MemoryState>((set, get) => ({
       })
       return savedMemory
     } catch (error) {
+      showNetworkErrorToast(error)
       set({
         savingId: null,
-        error: error instanceof Error ? error.message : "记忆保存失败",
+        error: getReadableErrorMessage(error, "记忆保存失败"),
       })
       return null
     }
@@ -151,9 +164,10 @@ export const useMemoryStore = create<MemoryState>((set, get) => ({
         error: null,
       })
     } catch (error) {
+      showNetworkErrorToast(error)
       set({
         deletingId: null,
-        error: error instanceof Error ? error.message : "记忆删除失败",
+        error: getReadableErrorMessage(error, "记忆删除失败"),
       })
     }
   },
