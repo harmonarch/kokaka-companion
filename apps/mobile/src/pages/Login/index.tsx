@@ -188,20 +188,11 @@ export default function Login() {
 const styles = StyleSheet.create({
   page: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 18,
+    alignItems: "stretch",
   },
   shell: {
     flex: 1,
     width: "100%",
-    maxWidth: 390,
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOpacity: 0.14,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 18 },
   },
   header: {
     minHeight: 56,
@@ -219,6 +210,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   panel: {
+    flex: 1,
     width: "100%",
     paddingHorizontal: 20,
     paddingTop: 46,
