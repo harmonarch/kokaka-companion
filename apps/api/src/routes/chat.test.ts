@@ -568,4 +568,43 @@ describe("chat conversation routes", () => {
       },
     })
   })
+
+  it("rejects group chat with fewer than two agents", async () => {
+    const { env } = createEnvFixture()
+    const firstResponse = await chatRoutes.request(
+      new Request("http://localhost/conversations/single", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "安安",
+          persona_prompt: "提醒我慢一点说",
+        }),
+      }),
+      undefined,
+      env,
+    )
+    const first = (await firstResponse.json()) as CreateChatConversationResponse
+    expect(first.agent).toBeDefined()
+
+    const groupResponse = await chatRoutes.request(
+      new Request("http://localhost/conversations/group", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "只有一个 Agent",
+          agent_ids: [first.agent!.id],
+        }),
+      }),
+      undefined,
+      env,
+    )
+
+    expect(groupResponse.status).toBe(400)
+  })
 })

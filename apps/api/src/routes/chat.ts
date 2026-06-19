@@ -8,6 +8,7 @@ import {
   relationshipResponseSchema,
 } from "@ai-companion/shared"
 import { Hono } from "hono"
+import { HTTPException } from "hono/http-exception"
 import type { AppBindings } from "@/middleware/auth"
 import { authMiddleware } from "@/middleware/auth"
 import { ensureChatMessagesTable } from "@/chat/history"
@@ -43,7 +44,11 @@ chatRoutes.post("/conversations/single", async (c) => {
 
 chatRoutes.post("/conversations/group", async (c) => {
   const user = c.get("user")
-  const input = createGroupChatRequestSchema.parse(await c.req.json())
+  const parsed = createGroupChatRequestSchema.safeParse(await c.req.json())
+  if (!parsed.success) {
+    throw new HTTPException(400, { message: "至少选择两个 Agent" })
+  }
+  const input = parsed.data
   const response = await createGroupChatConversation(c.env, {
     userId: user.id,
     title: input.title,

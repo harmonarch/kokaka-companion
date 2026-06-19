@@ -39,7 +39,7 @@ export function CreateGroupModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const showToast = useToastStore((state) => state.showToast)
-  const canSave = selectedIds.length >= 1
+  const canSave = selectedIds.length >= 2
 
   function toggleAgent(agentId: string) {
     setSelectedIds((current) =>
@@ -105,7 +105,7 @@ export function CreateGroupModal({
               placeholderTextColor={theme.subtle}
             />
             <Text style={[styles.sectionLabel, { color: theme.muted }]}>
-              选择至少一个 Agent，系统会把我一起加入
+              选择至少两个 Agent，系统会把我一起加入
             </Text>
             <ScrollView style={styles.agentScroll}>
               <View style={styles.agentList}>

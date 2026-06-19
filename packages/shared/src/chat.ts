@@ -68,7 +68,7 @@ export type CreateSingleChatRequest = z.infer<
 
 export const createGroupChatRequestSchema = z.object({
   title: z.string().trim().max(80).optional(),
-  agent_ids: z.array(z.string().min(1)).min(1).max(12),
+  agent_ids: z.array(z.string().min(1)).min(2).max(12),
 })
 
 export type CreateGroupChatRequest = z.infer<

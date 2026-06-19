@@ -350,8 +350,8 @@ export async function createGroupChatConversation(
   await ensureDefaultConversation(env, input.userId)
   const uniqueAgentIds = Array.from(new Set(input.agentIds))
   const selectedAgents = await getAgentsByIds(env, input.userId, uniqueAgentIds)
-  if (!selectedAgents.length) {
-    throw new Error("至少选择一个 Agent")
+  if (selectedAgents.length < 2) {
+    throw new Error("至少选择两个 Agent")
   }
   const selectedAgentIds = selectedAgents.map((agent) => agent.id)
   const now = Date.now()
