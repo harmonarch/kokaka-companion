@@ -1,5 +1,13 @@
 import type { ChatMessage, ChatProfiles } from "@ai-companion/shared"
-import { Image, Pressable, StyleSheet, Text, View } from "react-native"
+import {
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native"
+import type { TextStyle } from "react-native"
 import type { AppTheme } from "@/theme"
 import type { AgentProfile } from "@/stores/conversationStore"
 import type { ProfileRole } from "../profile/types"
@@ -37,7 +45,8 @@ export function MessageBubble({
     profile.avatar_url?.trim() ||
     ""
   const hasAvatar = Boolean(avatar)
-  const agentName = message.agent_name?.trim() || messageAgent?.name.trim() || ""
+  const agentName =
+    message.agent_name?.trim() || messageAgent?.name.trim() || ""
   const fallbackInitial = isUser ? "我" : (agentName || "K").slice(0, 1)
   const showSpeakerName = !isUser && showAgentNames && agentName
 
@@ -110,6 +119,7 @@ export function MessageBubble({
                 <Text
                   style={[
                     styles.text,
+                    Platform.OS === "web" ? webTextBreakStyle : null,
                     { color: isUser ? theme.primaryText : theme.text },
                   ]}
                 >
@@ -150,7 +160,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   messageLine: {
-    maxWidth: "91%",
+    maxWidth: "82%",
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 9,
@@ -160,6 +170,7 @@ const styles = StyleSheet.create({
   },
   message: {
     flexShrink: 1,
+    maxWidth: "100%",
     alignItems: "flex-start",
   },
   messageRight: {
@@ -167,6 +178,8 @@ const styles = StyleSheet.create({
   },
   bubbleWrap: {
     position: "relative",
+    flexShrink: 1,
+    maxWidth: "100%",
     alignItems: "flex-start",
   },
   bubbleWrapRight: {
@@ -180,6 +193,7 @@ const styles = StyleSheet.create({
   bubbleRow: {
     flexDirection: "row",
     alignItems: "center",
+    maxWidth: "100%",
     gap: 7,
   },
   retryButton: {
@@ -238,12 +252,14 @@ const styles = StyleSheet.create({
   },
   bubble: {
     borderRadius: 4,
+    maxWidth: "100%",
     paddingHorizontal: 12,
     paddingVertical: 9,
   },
   text: {
     fontSize: 15,
     lineHeight: 22,
+    flexShrink: 1,
   },
   time: {
     fontSize: 12,
@@ -253,3 +269,8 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
 })
+
+const webTextBreakStyle = {
+  wordBreak: "break-word",
+  overflowWrap: "anywhere",
+} as unknown as TextStyle
