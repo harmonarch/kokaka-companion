@@ -123,6 +123,8 @@ export const tokenMessageSchema = z.object({
   topic_id: z.literal("default"),
   delta: z.string(),
   message_id: z.string().optional(),
+  agent_id: z.string().optional().nullable(),
+  agent_name: z.string().optional().nullable(),
   expression_group_id: z.string().optional().nullable(),
   expression_part_index: z.number().int().nonnegative().optional().nullable(),
   expression_part_total: z.number().int().positive().optional(),
@@ -163,6 +165,8 @@ export const nudgeMessageSchema = z.object({
 export const gentleMessageSchema = z.object({
   type: z.literal("gentle"),
   content: z.string(),
+  agent_id: z.string().optional().nullable(),
+  agent_name: z.string().optional().nullable(),
 })
 
 export const errorMessageSchema = z.object({

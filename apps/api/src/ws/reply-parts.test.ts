@@ -10,8 +10,10 @@ import {
   isShortMessageBurst,
   persistVisibleReplyParts,
   replyPartDelayMs,
+  selectReplySpeakers,
   splitReplyIntoParts,
   updateCollectedHistory,
+  withReplySpeakers,
 } from "@/ws/chat"
 
 type DbRow = {
@@ -83,8 +85,15 @@ function createMemoryEnv() {
             if (sql.includes("FROM chat_messages")) {
               const userId = values[0]
               const limit = Number(values.at(-1))
+              const conversationId = sql.includes("conversation_id = ?")
+                ? values[1]
+                : null
               const selected = rows
-                .filter((row) => row.user_id === userId)
+                .filter(
+                  (row) =>
+                    row.user_id === userId &&
+                    (!conversationId || row.conversation_id === conversationId),
+                )
                 .sort((a, b) => {
                   if (a.created_at !== b.created_at) {
                     return b.created_at - a.created_at
@@ -217,6 +226,60 @@ describe("reply parts", () => {
     ])
   })
 
+  it("assigns group reply parts to named agents", () => {
+    const speakers = selectReplySpeakers(
+      [
+        { id: "agent-1", name: "安安", persona_prompt: "慢一点说" },
+        { id: "agent-2", name: "晴晴", persona_prompt: "帮我看行动" },
+      ],
+      "安安先说说",
+    )
+
+    expect(speakers).toEqual([{ id: "agent-1", name: "安安" }])
+    expect(
+      withReplySpeakers(
+        [
+          { id: "reply-1", content: "先慢一点", index: 0, total: 1 },
+        ],
+        speakers,
+      ),
+    ).toEqual([
+      {
+        id: "reply-1",
+        content: "先慢一点",
+        index: 0,
+        total: 1,
+        agentId: "agent-1",
+        agentName: "安安",
+      },
+    ])
+  })
+
+  it("uses up to two group agents when nobody is named", () => {
+    const speakers = selectReplySpeakers(
+      [
+        { id: "agent-1", name: "安安", persona_prompt: "慢一点说" },
+        { id: "agent-2", name: "晴晴", persona_prompt: "帮我看行动" },
+        { id: "agent-3", name: "南南", persona_prompt: "补充风险" },
+      ],
+      "大家说说",
+    )
+
+    expect(speakers).toEqual([
+      { id: "agent-1", name: "安安" },
+      { id: "agent-2", name: "晴晴" },
+    ])
+  })
+
+  it("keeps single chat speaker metadata when one agent is active", () => {
+    expect(
+      selectReplySpeakers(
+        [{ id: "agent-1", name: "安安", persona_prompt: "慢一点说" }],
+        "今天好累",
+      ),
+    ).toEqual([{ id: "agent-1", name: "安安" }])
+  })
+
   it("waits between reply parts based on visible text length", () => {
     expect(replyPartDelayMs("好")).toBe(2200)
     expect(replyPartDelayMs("一二三四五六七八九十")).toBe(4000)
@@ -346,12 +409,18 @@ describe("reply parts", () => {
       { id: "user-2", sessionId: "c1", content: "嘿嘿", receivedAt: 2 },
       { id: "user-3", sessionId: "c1", content: "在吗", receivedAt: 3 },
     ]
-    const replyParts = [
-      { id: "agent-1", content: "在呀", index: 0, total: 4 },
-      { id: "agent-2", content: "我也想你", index: 1, total: 4 },
-      { id: "agent-3", content: "刚刚在等你", index: 2, total: 4 },
-      { id: "agent-4", content: "现在我在", index: 3, total: 4 },
-    ]
+    const replyParts = withReplySpeakers(
+      [
+        { id: "agent-1", content: "在呀", index: 0, total: 4 },
+        { id: "agent-2", content: "我也想你", index: 1, total: 4 },
+        { id: "agent-3", content: "刚刚在等你", index: 2, total: 4 },
+        { id: "agent-4", content: "现在我在", index: 3, total: 4 },
+      ],
+      [
+        { id: "agent:xiaolian", name: "小练" },
+        { id: "agent:anan", name: "安安" },
+      ],
+    )
 
     let currentContext = await persistVisibleReplyParts(env, {
       userId: "u1",
@@ -414,11 +483,15 @@ describe("reply parts", () => {
     expect(agentRows).toEqual([
       expect.objectContaining({
         content: "在呀",
+        agent_id: "agent:xiaolian",
+        agent_name: "小练",
         expression_group_id: "group-1",
         expression_part_index: 0,
       }),
       expect.objectContaining({
         content: "我也想你",
+        agent_id: "agent:anan",
+        agent_name: "安安",
         expression_group_id: "group-1",
         expression_part_index: 1,
       }),
@@ -500,19 +573,25 @@ describe("reply parts", () => {
   it("keeps disconnected replies in database and chat history", async () => {
     const { env, rows } = createMemoryEnv()
     const pending = [
-      { id: "user-1", sessionId: "c1", content: "想你", receivedAt: 1 },
-      { id: "user-2", sessionId: "c1", content: "嘿嘿", receivedAt: 2 },
-      { id: "user-3", sessionId: "c1", content: "睡不着", receivedAt: 3 },
+      { id: "user-1", sessionId: "group-1", content: "想你", receivedAt: 1 },
+      { id: "user-2", sessionId: "group-1", content: "嘿嘿", receivedAt: 2 },
+      { id: "user-3", sessionId: "group-1", content: "睡不着", receivedAt: 3 },
     ]
-    const replyParts = [
-      { id: "agent-1", content: "我在", index: 0, total: 3 },
-      { id: "agent-2", content: "先陪你一会儿", index: 1, total: 3 },
-      { id: "agent-3", content: "慢慢说", index: 2, total: 3 },
-    ]
+    const replyParts = withReplySpeakers(
+      [
+        { id: "agent-1", content: "我在", index: 0, total: 3 },
+        { id: "agent-2", content: "先陪你一会儿", index: 1, total: 3 },
+        { id: "agent-3", content: "慢慢说", index: 2, total: 3 },
+      ],
+      [
+        { id: "agent:xiaolian", name: "小练" },
+        { id: "agent:anan", name: "安安" },
+      ],
+    )
 
     await persistVisibleReplyParts(env, {
       userId: "u1",
-      conversationId: "c1",
+      conversationId: "group-1",
       expressionGroupId: "group-1",
       syntheticUserMessageId: "group-1:combined",
       pending,
@@ -541,15 +620,30 @@ describe("reply parts", () => {
       expect.objectContaining({ id: "user-3", content: "睡不着" }),
     ])
     expect(rows.filter((row) => row.role === "agent")).toEqual([
-      expect.objectContaining({ id: "agent-1", content: "我在" }),
-      expect.objectContaining({ id: "agent-2", content: "先陪你一会儿" }),
-      expect.objectContaining({ id: "agent-3", content: "慢慢说" }),
+      expect.objectContaining({
+        id: "agent-1",
+        content: "我在",
+        agent_id: "agent:xiaolian",
+        agent_name: "小练",
+      }),
+      expect.objectContaining({
+        id: "agent-2",
+        content: "先陪你一会儿",
+        agent_id: "agent:anan",
+        agent_name: "安安",
+      }),
+      expect.objectContaining({
+        id: "agent-3",
+        content: "慢慢说",
+        agent_id: "agent:xiaolian",
+        agent_name: "小练",
+      }),
     ])
 
     const token = await createAccessToken("u1", env)
     const { chatRoutes } = await import("@/routes/chat")
     const response = await chatRoutes.request(
-      new Request("http://localhost/history?limit=20", {
+      new Request("http://localhost/history?limit=20&session_id=group-1", {
         headers: { authorization: `Bearer ${token}` },
       }),
       undefined,
@@ -563,6 +657,15 @@ describe("reply parts", () => {
       "我在",
       "先陪你一会儿",
       "慢慢说",
+    ])
+    expect(
+      history.messages
+        .filter((message) => message.role === "agent")
+        .map((message) => [message.agent_id, message.agent_name]),
+    ).toEqual([
+      ["agent:xiaolian", "小练"],
+      ["agent:anan", "安安"],
+      ["agent:xiaolian", "小练"],
     ])
   })
 
@@ -610,6 +713,8 @@ describe("reply parts", () => {
         topic_id: "default",
         delta: "嘿嘿，我也想你了～",
         message_id: "agent-1",
+        agent_id: "agent:xiaolian",
+        agent_name: "小练",
         expression_group_id: "group-1",
         expression_part_index: 0,
         expression_part_total: 2,
@@ -623,6 +728,8 @@ describe("reply parts", () => {
         topic_id: "default",
         delta: "今天过得开心吗？",
         message_id: "agent-2",
+        agent_id: "agent:anan",
+        agent_name: "安安",
         expression_group_id: "group-1",
         expression_part_index: 1,
         expression_part_total: 2,
@@ -633,11 +740,15 @@ describe("reply parts", () => {
     expect(second).toEqual([
       expect.objectContaining({
         id: "agent-2",
+        agent_id: "agent:anan",
+        agent_name: "安安",
         content: "今天过得开心吗？",
         expression_part_index: 1,
       }),
       expect.objectContaining({
         id: "agent-1",
+        agent_id: "agent:xiaolian",
+        agent_name: "小练",
         content: "嘿嘿，我也想你了～",
         expression_part_index: 0,
       }),

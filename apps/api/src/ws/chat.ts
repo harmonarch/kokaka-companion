@@ -1,5 +1,9 @@
 import { clientWsMessageSchema } from "@ai-companion/shared"
-import type { ChatMessage, RecentContext } from "@ai-companion/shared"
+import type {
+  ChatAgentContext,
+  ChatMessage,
+  RecentContext,
+} from "@ai-companion/shared"
 import type { Env } from "@/env"
 import { findUserById } from "@/auth/session"
 import { verifyAccessToken } from "@/auth/tokens"
@@ -70,6 +74,17 @@ export function trimReplyPartEnding(content: string) {
   return content.replace(/[。.]$/u, "")
 }
 
+type ReplySpeaker = Pick<ChatAgentContext, "id" | "name">
+
+type ReplyPart = {
+  id: string
+  content: string
+  index: number
+  total: number
+  agentId?: string | null
+  agentName?: string | null
+}
+
 export function buildReplyParts(reply: string, shouldSplit: boolean) {
   const parts = shouldSplit ? splitReplyIntoParts(reply) : [reply]
   return parts.slice(0, 4).map((content, index) => ({
@@ -78,6 +93,35 @@ export function buildReplyParts(reply: string, shouldSplit: boolean) {
     index,
     total: Math.min(parts.length, 4),
   }))
+}
+
+export function selectReplySpeakers(
+  agents: ChatAgentContext[] | undefined,
+  message: string,
+): ReplySpeaker[] {
+  const available = agents?.filter((agent) => agent.id && agent.name.trim()) ?? []
+  if (available.length <= 1) {
+    return available.map((agent) => ({ id: agent.id, name: agent.name }))
+  }
+  const named = available.filter((agent) => message.includes(agent.name))
+  return (named.length ? named : available)
+    .slice(0, 2)
+    .map((agent) => ({ id: agent.id, name: agent.name }))
+}
+
+export function withReplySpeakers(
+  parts: ReplyPart[],
+  speakers: ReplySpeaker[],
+): ReplyPart[] {
+  if (!speakers.length) return parts
+  return parts.map((part, index) => {
+    const speaker = speakers[index % speakers.length]
+    return {
+      ...part,
+      agentId: speaker.id,
+      agentName: speaker.name,
+    }
+  })
 }
 
 function wait(ms: number) {
@@ -351,6 +395,12 @@ export async function handleChatWebSocket(
         const agents = [...pending].reverse().find((message) =>
           message.agents?.length,
         )?.agents
+        const replySpeakers = selectReplySpeakers(agents, content)
+        const replyAgents = replySpeakers.length
+          ? agents?.filter((agent) =>
+              replySpeakers.some((speaker) => speaker.id === agent.id),
+            )
+          : agents
         const currentReplyGeneration = replyGeneration
 
         if (!gentle) {
@@ -368,12 +418,17 @@ export async function handleChatWebSocket(
           message: content,
           conversationId,
           userMessageId: syntheticUserMessageId,
-          agents,
+          agents: replyAgents,
           shortMessageBurst,
         })
-        const replyParts = buildReplyParts(
-          result.reply,
-          shortMessageBurst && !gentle && result.emotionState !== "crisis",
+        const replyParts = withReplySpeakers(
+          buildReplyParts(
+            result.reply,
+            (shortMessageBurst || (agents?.length ?? 0) > 1) &&
+              !gentle &&
+              result.emotionState !== "crisis",
+          ),
+          replySpeakers,
         )
 
         await waitForMinimumReplyingTime(replyingStartedAt)
@@ -382,6 +437,8 @@ export async function handleChatWebSocket(
           trySend(server, {
             type: "gentle",
             content: result.reply,
+            agent_id: replyParts[0]?.agentId,
+            agent_name: replyParts[0]?.agentName,
           })
           trySend(server, {
             type: "all_done",
@@ -441,6 +498,8 @@ export async function handleChatWebSocket(
                   topic_id: "default",
                   delta,
                   message_id: part.id,
+                  agent_id: part.agentId,
+                  agent_name: part.agentName,
                   expression_group_id: expressionGroupId,
                   expression_part_index: part.index,
                   expression_part_total: part.total,

@@ -62,8 +62,18 @@ describe("chat websocket schemas", () => {
       serverWsMessageSchema.parse({ type: "nudge", content: "嗯，我在听" }),
     ).toEqual({ type: "nudge", content: "嗯，我在听" })
     expect(
-      serverWsMessageSchema.parse({ type: "gentle", content: "慢慢说" }),
-    ).toEqual({ type: "gentle", content: "慢慢说" })
+      serverWsMessageSchema.parse({
+        type: "gentle",
+        content: "慢慢说",
+        agent_id: "agent-1",
+        agent_name: "小海",
+      }),
+    ).toEqual({
+      type: "gentle",
+      content: "慢慢说",
+      agent_id: "agent-1",
+      agent_name: "小海",
+    })
   })
 
   it("accepts reply part metadata on token messages", () => {
@@ -73,6 +83,8 @@ describe("chat websocket schemas", () => {
         topic_id: "default",
         delta: "嘿嘿，我也想你了～",
         message_id: "agent-part-1",
+        agent_id: "agent-1",
+        agent_name: "小海",
         expression_group_id: "group-1",
         expression_part_index: 0,
         expression_part_total: 2,
@@ -82,6 +94,8 @@ describe("chat websocket schemas", () => {
       topic_id: "default",
       delta: "嘿嘿，我也想你了～",
       message_id: "agent-part-1",
+      agent_id: "agent-1",
+      agent_name: "小海",
       expression_group_id: "group-1",
       expression_part_index: 0,
       expression_part_total: 2,
