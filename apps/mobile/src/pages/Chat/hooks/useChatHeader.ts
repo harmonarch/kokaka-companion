@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { useChatStore } from "@/stores/chatStore"
 import { useConversationStore } from "@/stores/conversationStore"
 
@@ -14,11 +15,22 @@ export function useChatHeader() {
   const activeConversationId = useConversationStore(
     (state) => state.activeConversationId,
   )
-  const conversation = useConversationStore((state) =>
-    state.conversations.find((item) => item.id === activeConversationId),
+  const conversations = useConversationStore((state) => state.conversations)
+  const agents = useConversationStore((state) => state.agents)
+  const conversation = useMemo(
+    () => conversations.find((item) => item.id === activeConversationId),
+    [activeConversationId, conversations],
   )
-  const conversationAgents = useConversationStore((state) =>
-    activeConversationId ? state.getConversationAgents(activeConversationId) : [],
+  const conversationAgents = useMemo(
+    () =>
+      conversation
+        ? conversation.agent_ids
+            .flatMap((id) => {
+              const agent = agents.find((agent) => agent.id === id)
+              return agent ? [agent] : []
+            })
+        : [],
+    [agents, conversation],
   )
   const agentPresence = useChatStore((state) => state.agentPresence)
   const relationshipState = useChatStore((state) => state.relationshipState)
