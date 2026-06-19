@@ -24,11 +24,20 @@ export function useChatMessages() {
     const agent = state.getConversationAgents(conversationId)[0]
     return agent?.avatar_url?.trim() || null
   })
+  const conversationAgents = useConversationStore((state) => {
+    const conversationId = state.activeConversationId
+    return conversationId ? state.getConversationAgents(conversationId) : []
+  })
+  const activeConversation = useConversationStore((state) =>
+    state.conversations.find((item) => item.id === state.activeConversationId),
+  )
 
   return {
     messages,
     profiles,
     agentAvatarUrl,
+    conversationAgents,
+    showAgentNames: activeConversation?.type === "group",
     error,
     historyLoading,
     historyLoaded,

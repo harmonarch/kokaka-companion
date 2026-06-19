@@ -1,12 +1,15 @@
 import type { ChatMessage, ChatProfiles } from "@ai-companion/shared"
 import { Image, Pressable, StyleSheet, Text, View } from "react-native"
 import type { AppTheme } from "@/theme"
+import type { AgentProfile } from "@/stores/conversationStore"
 import type { ProfileRole } from "../profile/types"
 
 export function MessageBubble({
   message,
   profiles,
   agentAvatarUrl,
+  conversationAgents,
+  showAgentNames,
   failed,
   theme,
   onAvatarPress,
@@ -15,19 +18,28 @@ export function MessageBubble({
   message: ChatMessage
   profiles: ChatProfiles
   agentAvatarUrl: string | null
+  conversationAgents: AgentProfile[]
+  showAgentNames: boolean
   failed?: boolean
   theme: AppTheme
   onAvatarPress: (role: ProfileRole) => void
   onRetry?: () => void
 }) {
   const isUser = message.role === "user"
+  const messageAgent = !isUser
+    ? conversationAgents.find((agent) => agent.id === message.agent_id)
+    : null
   const profile = isUser ? profiles.user : profiles.agent
   const avatar =
-    (isUser ? profile.avatar_url?.trim() : agentAvatarUrl?.trim()) ||
+    (isUser
+      ? profile.avatar_url?.trim()
+      : messageAgent?.avatar_url?.trim() || agentAvatarUrl?.trim()) ||
     profile.avatar_url?.trim() ||
     ""
   const hasAvatar = Boolean(avatar)
-  const fallbackInitial = isUser ? "我" : "K"
+  const agentName = message.agent_name?.trim() || messageAgent?.name.trim() || ""
+  const fallbackInitial = isUser ? "我" : (agentName || "K").slice(0, 1)
+  const showSpeakerName = !isUser && showAgentNames && agentName
 
   return (
     <View style={[styles.row, isUser && styles.rowRight]}>
@@ -64,6 +76,11 @@ export function MessageBubble({
               </Pressable>
             ) : null}
             <View style={[styles.bubbleWrap, isUser && styles.bubbleWrapRight]}>
+              {showSpeakerName ? (
+                <Text style={[styles.speakerName, { color: theme.subtle }]}>
+                  {agentName}
+                </Text>
+              ) : null}
               <View
                 style={[
                   styles.tail,
@@ -154,6 +171,11 @@ const styles = StyleSheet.create({
   },
   bubbleWrapRight: {
     alignItems: "flex-end",
+  },
+  speakerName: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 3,
   },
   bubbleRow: {
     flexDirection: "row",

@@ -17,12 +17,21 @@ export function useChatHeader() {
   const conversation = useConversationStore((state) =>
     state.conversations.find((item) => item.id === activeConversationId),
   )
+  const conversationAgents = useConversationStore((state) =>
+    activeConversationId ? state.getConversationAgents(activeConversationId) : [],
+  )
   const agentPresence = useChatStore((state) => state.agentPresence)
   const relationshipState = useChatStore((state) => state.relationshipState)
+  const memberText =
+    conversation?.type === "group"
+      ? conversationAgents.map((agent) => agent.name).join("、")
+      : null
 
   const agentStatusText =
     agentPresence === "replying"
       ? "正在输入..."
+      : memberText
+        ? memberText
       : relationshipState
         ? `${moodLabels[relationshipState.mood]} · 亲密度 ${relationshipState.intimacy}`
         : null

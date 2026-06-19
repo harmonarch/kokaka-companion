@@ -14,6 +14,7 @@ import { ChatInput } from "./components/ChatInput"
 import { MessageBubble } from "./components/MessageBubble"
 import { ProfileEditorModal } from "./components/ProfileEditorModal"
 import type { ProfileRole } from "./profile/types"
+import type { AgentProfile } from "@/stores/conversationStore"
 
 type ChatListItem =
   | {
@@ -37,6 +38,8 @@ type ChatBodyProps = {
   messages: ChatMessage[]
   profiles: ChatProfiles
   agentAvatarUrl: string | null
+  conversationAgents: AgentProfile[]
+  showAgentNames: boolean
   error: string | null
   historyLoading: boolean
   historyLoaded: boolean
@@ -55,6 +58,8 @@ type ChatMessageListProps = {
   isEmpty: boolean
   profiles: ChatProfiles
   agentAvatarUrl: string | null
+  conversationAgents: AgentProfile[]
+  showAgentNames: boolean
   historyLoading: boolean
   historyLoaded: boolean
   theme: AppTheme
@@ -73,6 +78,8 @@ type ChatListRowProps = {
   item: ChatListItem
   profiles: ChatProfiles
   agentAvatarUrl: string | null
+  conversationAgents: AgentProfile[]
+  showAgentNames: boolean
   theme: AppTheme
   failedMessageIds: Set<string>
   onAvatarPress: (role: ProfileRole) => void
@@ -123,6 +130,8 @@ export default function Chat() {
           messages={chat.messages}
           profiles={chat.profiles}
           agentAvatarUrl={chat.agentAvatarUrl}
+          conversationAgents={chat.conversationAgents}
+          showAgentNames={chat.showAgentNames}
           error={chat.error}
           historyLoading={chat.historyLoading}
           historyLoaded={chat.historyLoaded}
@@ -164,6 +173,8 @@ function ChatBody({
   messages,
   profiles,
   agentAvatarUrl,
+  conversationAgents,
+  showAgentNames,
   error,
   historyLoading,
   historyLoaded,
@@ -185,6 +196,8 @@ function ChatBody({
         isEmpty={messages.length === 0}
         profiles={profiles}
         agentAvatarUrl={agentAvatarUrl}
+        conversationAgents={conversationAgents}
+        showAgentNames={showAgentNames}
         historyLoading={historyLoading}
         historyLoaded={historyLoaded}
         failedMessageIds={failedMessageIds}
@@ -209,6 +222,8 @@ function ChatMessageList({
   isEmpty,
   profiles,
   agentAvatarUrl,
+  conversationAgents,
+  showAgentNames,
   historyLoading,
   historyLoaded,
   failedMessageIds,
@@ -235,6 +250,8 @@ function ChatMessageList({
           item={item}
           profiles={profiles}
           agentAvatarUrl={agentAvatarUrl}
+          conversationAgents={conversationAgents}
+          showAgentNames={showAgentNames}
           failedMessageIds={failedMessageIds}
           theme={theme}
           onAvatarPress={onAvatarPress}
@@ -255,6 +272,8 @@ function ChatListRow({
   item,
   profiles,
   agentAvatarUrl,
+  conversationAgents,
+  showAgentNames,
   failedMessageIds,
   theme,
   onAvatarPress,
@@ -269,6 +288,8 @@ function ChatListRow({
       message={item.message}
       profiles={profiles}
       agentAvatarUrl={agentAvatarUrl}
+      conversationAgents={conversationAgents}
+      showAgentNames={showAgentNames}
       failed={failedMessageIds.has(item.message.id)}
       theme={theme}
       onAvatarPress={onAvatarPress}
