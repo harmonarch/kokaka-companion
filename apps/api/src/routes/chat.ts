@@ -93,6 +93,8 @@ export function createChatHistoryPageQuery(input: {
         sql: `SELECT
            id,
            role,
+           agent_id,
+           agent_name,
            content,
            created_at,
            expression_group_id,
@@ -117,6 +119,8 @@ export function createChatHistoryPageQuery(input: {
       sql: `SELECT
            id,
            role,
+           agent_id,
+           agent_name,
            content,
            created_at,
            expression_group_id,
@@ -141,6 +145,8 @@ export function createChatHistoryPageQuery(input: {
       sql: `SELECT
            id,
            role,
+           agent_id,
+           agent_name,
            content,
            created_at,
            expression_group_id,
@@ -157,6 +163,8 @@ export function createChatHistoryPageQuery(input: {
     sql: `SELECT
            id,
            role,
+           agent_id,
+           agent_name,
            content,
            created_at,
            expression_group_id,
@@ -184,6 +192,8 @@ chatRoutes.get("/history", async (c) => {
   let rows: Array<{
     id: string
     role: "user" | "agent"
+    agent_id: string | null
+    agent_name: string | null
     content: string
     created_at: number
     expression_group_id: string | null

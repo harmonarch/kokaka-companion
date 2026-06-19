@@ -122,6 +122,8 @@ function toCollectedMessages(input: {
     content: string
     index: number
     total: number
+    agentId?: string | null
+    agentName?: string | null
   }>
   context: ChatMessage[] | undefined
 }) {
@@ -133,6 +135,8 @@ function toCollectedMessages(input: {
     (part): ChatMessage => ({
       id: part.id,
       role: "agent",
+      agent_id: part.agentId ?? null,
+      agent_name: part.agentName ?? null,
       content: part.content,
       created_at: agentCreatedAt + part.index,
       expression_group_id: input.expressionGroupId,
@@ -166,6 +170,8 @@ export async function updateCollectedHistory(
       content: string
       index: number
       total: number
+      agentId?: string | null
+      agentName?: string | null
     }>
     context: ChatMessage[] | undefined
   },
@@ -226,6 +232,8 @@ export async function appendCollectedHistory(
       content: string
       index: number
       total: number
+      agentId?: string | null
+      agentName?: string | null
     }>
     context: ChatMessage[] | undefined
   },
@@ -281,6 +289,8 @@ export async function persistVisibleReplyParts(
       content: string
       index: number
       total: number
+      agentId?: string | null
+      agentName?: string | null
     }>
     context: ChatMessage[] | undefined
     replaceSynthetic: boolean

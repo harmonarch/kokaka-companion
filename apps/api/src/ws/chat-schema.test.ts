@@ -145,6 +145,8 @@ describe("chat websocket schemas", () => {
       chatMessageSchema.parse({
         id: "m1",
         role: "user",
+        agent_id: null,
+        agent_name: null,
         content: "我今天有点烦",
         created_at: 1,
         expression_group_id: "group-1",

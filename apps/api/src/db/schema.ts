@@ -164,6 +164,8 @@ export const chatMessages = sqliteTable(
     userId: text("user_id").notNull(),
     conversationId: text("conversation_id").notNull(),
     role: text("role").notNull(),
+    agentId: text("agent_id"),
+    agentName: text("agent_name"),
     content: text("content").notNull(),
     createdAt: integer("created_at").notNull(),
     expressionGroupId: text("expression_group_id"),

@@ -19,6 +19,8 @@ type DbRow = {
   user_id: string
   conversation_id: string
   role: "user" | "agent"
+  agent_id: string | null
+  agent_name: string | null
   content: string
   created_at: number
   expression_group_id: string | null
@@ -101,6 +103,8 @@ function createMemoryEnv() {
             { name: "user_id" },
             { name: "conversation_id" },
             { name: "role" },
+            { name: "agent_id" },
+            { name: "agent_name" },
             { name: "content" },
             { name: "created_at" },
             { name: "expression_group_id" },
@@ -119,6 +123,8 @@ function createMemoryEnv() {
               userId,
               conversationId,
               role,
+              agentId,
+              agentName,
               content,
               createdAt,
               expressionGroupId,
@@ -130,6 +136,8 @@ function createMemoryEnv() {
                 user_id: String(userId),
                 conversation_id: String(conversationId),
                 role: role as "user" | "agent",
+                agent_id: agentId == null ? null : String(agentId),
+                agent_name: agentName == null ? null : String(agentName),
                 content: String(content),
                 created_at: Number(createdAt),
                 expression_group_id:
@@ -241,12 +249,15 @@ describe("reply parts", () => {
               { name: "user_id" },
               { name: "conversation_id" },
               { name: "role" },
+              { name: "agent_id" },
+              { name: "agent_name" },
               { name: "content" },
               { name: "created_at" },
               { name: "expression_group_id" },
               { name: "expression_part_index" },
             ],
           }),
+          run: async () => ({ success: true }),
         }),
         batch: async (queries: unknown[]) => queries,
       },
@@ -467,6 +478,8 @@ describe("reply parts", () => {
       context: rows.map((row) => ({
         id: row.id,
         role: row.role,
+        agent_id: row.agent_id,
+        agent_name: row.agent_name,
         content: row.content,
         created_at: row.created_at,
         expression_group_id: row.expression_group_id,
@@ -560,6 +573,8 @@ describe("reply parts", () => {
       user_id: "u1",
       conversation_id: "c1",
       role: "user",
+      agent_id: null,
+      agent_name: null,
       content: "已经收到过",
       created_at: 1,
       expression_group_id: null,

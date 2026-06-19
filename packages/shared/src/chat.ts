@@ -9,6 +9,8 @@ export type ChatRole = z.infer<typeof chatRoleSchema>
 export const chatMessageSchema = z.object({
   id: z.string(),
   role: chatRoleSchema,
+  agent_id: z.string().optional().nullable(),
+  agent_name: z.string().optional().nullable(),
   content: z.string(),
   created_at: z.number(),
   expression_group_id: z.string().optional().nullable(),

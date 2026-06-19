@@ -9,6 +9,8 @@ export async function ensureChatMessagesTable(env: Env) {
         user_id TEXT NOT NULL,
         conversation_id TEXT NOT NULL,
         role TEXT NOT NULL,
+        agent_id TEXT,
+        agent_name TEXT,
         content TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         expression_group_id TEXT,
@@ -24,6 +26,8 @@ export async function ensureChatMessagesTable(env: Env) {
         ON chat_messages(user_id, conversation_id, created_at)`,
     ),
   ])
+  await addColumnIfMissing(env, "chat_messages", "agent_id", "TEXT")
+  await addColumnIfMissing(env, "chat_messages", "agent_name", "TEXT")
   await addColumnIfMissing(env, "chat_messages", "expression_group_id", "TEXT")
   await addColumnIfMissing(
     env,
@@ -116,17 +120,21 @@ function createInsertChatMessageStatement(
         user_id,
         conversation_id,
         role,
+        agent_id,
+        agent_name,
         content,
         created_at,
         expression_group_id,
         expression_part_index
       )
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(
     message.id,
     input.userId,
     input.conversationId,
     message.role,
+    message.agent_id ?? null,
+    message.agent_name ?? null,
     message.content,
     message.created_at,
     message.expression_group_id ?? null,
