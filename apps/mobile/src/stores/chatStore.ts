@@ -139,7 +139,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (get().controller) return
     async function sendPendingMessages() {
       const controller = get().controller
-      if (!controller) return
+      if (!controller) return false
       const pending = await get().loadPendingOutgoing()
       for (const message of pending) {
         controller.send(
@@ -149,12 +149,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
           message.agents,
         )
       }
+      return pending.length > 0
     }
     const controller = new ChatController({
       wsUrl: chatWsUrl,
       getTokens: () => useAuthStore.getState().tokens,
       createClient: (options) => new ChatWebSocketClient(options),
       onStatus: (connection) => {
+        const forceHistoryRefresh = get().connection === "reconnecting"
         set({
           connection,
           agentPresence:
@@ -162,7 +164,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         })
         if (connection === "connected") {
           void sendPendingMessages()
-            .then(() => get().loadHistory(true))
+            .then((sentPendingMessages) =>
+              get().loadHistory(forceHistoryRefresh || sentPendingMessages),
+            )
             .catch((error) => {
               showNetworkErrorToast(error)
               set({

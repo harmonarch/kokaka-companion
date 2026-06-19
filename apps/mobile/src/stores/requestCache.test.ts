@@ -54,6 +54,22 @@ describe("request cache guards", () => {
     )
   })
 
+  it("does not start duplicate chat history while the same session is loading", () => {
+    assert.equal(
+      shouldLoadForSession(
+        {
+          loaded: false,
+          loading: true,
+          userId: "user:1",
+          sessionId: "chat:1",
+        },
+        "user:1",
+        "chat:1",
+      ),
+      false,
+    )
+  })
+
   it("loads again when the active chat session changes", () => {
     assert.equal(
       shouldLoadForSession(
