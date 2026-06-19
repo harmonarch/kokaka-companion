@@ -33,6 +33,8 @@ export function applyTokenMessage(
     messages.unshift({
       id: message.message_id,
       role: "agent",
+      agent_id: message.agent_id,
+      agent_name: message.agent_name,
       content: message.delta,
       created_at: input.now() + (message.expression_part_index ?? 0),
       expression_group_id: message.expression_group_id,
@@ -46,6 +48,8 @@ export function applyTokenMessage(
       messages.unshift({
         id: input.id(),
         role: "agent",
+        agent_id: message.agent_id,
+        agent_name: message.agent_name,
         content: message.delta,
         created_at: input.now(),
       })

@@ -239,6 +239,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
               {
                 id: crypto.randomUUID(),
                 role: "agent",
+                agent_id: message.agent_id,
+                agent_name: message.agent_name,
                 content: message.content,
                 created_at: Date.now(),
               },
