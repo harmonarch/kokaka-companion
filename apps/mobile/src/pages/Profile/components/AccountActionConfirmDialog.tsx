@@ -128,7 +128,7 @@ export function AccountActionConfirmDialog({
                 webNoFocusOutline,
               ]}
             >
-              <Text style={[styles.confirmText, { color: theme.primaryText }]}>
+              <Text style={[styles.confirmText]}>
                 {loading ? copy?.loadingText : copy?.confirmText}
               </Text>
             </Pressable>
@@ -205,6 +205,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
     fontWeight: "800",
+    color: "#e8e8e8",
   },
   disabled: {
     opacity: 0.55,
