@@ -25,6 +25,11 @@ export type PendingMessage = PendingMessageInput & {
   receivedAt: number
 }
 
+export type TypingInput = {
+  sessionId: string
+  receivedAt?: number
+}
+
 export type TimingConfig = {
   responseTimeoutMs: number
   nudgeTimeoutMs: number

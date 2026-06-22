@@ -9,6 +9,13 @@ const config = {
   evalIntervalMs: 1000,
 }
 
+const typingDelayTestAgent = {
+  id: "agent:typing-delay-test",
+  name: "Typing Delay Test Agent",
+  persona_prompt: "Only used by automated typing-delay tests.",
+}
+const typingDelayTestSessionId = "typing-delay-test-session"
+
 function createHarness(evaluator: Partial<MessageEvaluator> = {}) {
   let now = 0
   const submissions: Array<{
@@ -122,6 +129,71 @@ describe("MessageCollector", () => {
     expect(harness.submissions[0].pending.map((message) => message.id)).toEqual(
       ["m1", "m2"],
     )
+  })
+
+  it("starts the dedicated test Agent 5 seconds after typing stops", async () => {
+    vi.useFakeTimers()
+    const harness = createHarness()
+    harness.collector.addMessage({
+      id: "m1",
+      sessionId: typingDelayTestSessionId,
+      content: "我先说一句",
+      agents: [typingDelayTestAgent],
+    })
+
+    await harness.advance(4000)
+    harness.collector.noteTyping({ sessionId: typingDelayTestSessionId })
+    await harness.advance(4999)
+
+    expect(harness.evaluator.evaluate).not.toHaveBeenCalled()
+    expect(harness.submissions).toHaveLength(0)
+
+    await harness.advance(1)
+
+    expect(harness.evaluator.evaluate).toHaveBeenCalledWith(["我先说一句"])
+    expect(harness.submissions).toHaveLength(1)
+    expect(harness.submissions[0].pending[0].sessionId).toBe(
+      typingDelayTestSessionId,
+    )
+    expect(harness.submissions[0].pending[0].agents).toEqual([
+      typingDelayTestAgent,
+    ])
+  })
+
+  it("does not submit a stale evaluation after typing resumes", async () => {
+    vi.useFakeTimers()
+    let resolveEval: (value: EvalResult) => void = () => {}
+    const harness = createHarness({
+      evaluate: vi.fn(
+        () =>
+          new Promise<EvalResult>((resolve) => {
+            resolveEval = resolve
+          }),
+      ),
+    })
+    harness.collector.addMessage({
+      id: "m1",
+      sessionId: "s1",
+      content: "第一句",
+    })
+
+    await harness.advance(5000)
+    harness.collector.noteTyping({ sessionId: "s1" })
+    resolveEval({ status: "complete", emotionIntensity: 0.5 })
+    await Promise.resolve()
+
+    expect(harness.submissions).toHaveLength(0)
+  })
+
+  it("ignores typing before any pending message", async () => {
+    vi.useFakeTimers()
+    const harness = createHarness()
+
+    harness.collector.noteTyping({ sessionId: "s1" })
+    await harness.advance(6000)
+
+    expect(harness.evaluator.evaluate).not.toHaveBeenCalled()
+    expect(harness.submissions).toHaveLength(0)
   })
 
   it("sends one nudge at 10 seconds without clearing pending", async () => {

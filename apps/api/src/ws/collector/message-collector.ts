@@ -6,6 +6,7 @@ import type {
   PendingMessageInput,
   PendingMessage,
   TimingConfig,
+  TypingInput,
 } from "./types"
 
 const defaultConfig: TimingConfig = {
@@ -22,6 +23,7 @@ export class MessageCollector {
   private evalTimer: ReturnType<typeof setInterval> | null = null
   private nudgeSent = false
   private evaluating = false
+  private lastActivityAt: number | null = null
 
   constructor(
     config: Partial<TimingConfig>,
@@ -37,15 +39,25 @@ export class MessageCollector {
       this.expressionGroupId = crypto.randomUUID()
       this.nudgeSent = false
     }
+    const receivedAt = input.receivedAt ?? this.now()
     this.pending.push({
       id: input.id,
       sessionId: input.sessionId,
       content: input.content,
       agents: input.agents,
-      receivedAt: input.receivedAt ?? this.now(),
+      receivedAt,
     })
+    this.lastActivityAt = Math.max(this.lastActivityAt ?? 0, receivedAt)
     this.callbacks.onStatus?.("listening")
     this.startEvalLoop()
+  }
+
+  noteTyping(input: TypingInput) {
+    if (this.pending.length === 0) return
+    if (this.pending.at(-1)?.sessionId !== input.sessionId) return
+
+    const receivedAt = input.receivedAt ?? this.now()
+    this.lastActivityAt = Math.max(this.lastActivityAt ?? 0, receivedAt)
   }
 
   async forceDone() {
@@ -58,6 +70,7 @@ export class MessageCollector {
     this.pending = []
     this.expressionGroupId = null
     this.nudgeSent = false
+    this.lastActivityAt = null
   }
 
   private startEvalLoop() {
@@ -87,18 +100,27 @@ export class MessageCollector {
     }
 
     const evaluatedCount = this.pending.length
+    const evaluatedActivityAt = this.lastActivityAt
     this.evaluating = true
     try {
       const result = await this.evaluator.evaluate(
         this.pending.map((message) => message.content),
       )
-      if (this.pending.length !== evaluatedCount) return
+      if (
+        this.pending.length !== evaluatedCount ||
+        this.lastActivityAt !== evaluatedActivityAt
+      ) {
+        return
+      }
 
       const action = this.decide(result.status, silence)
       await this.executeAction(action)
     } catch (error) {
       this.callbacks.onError(error)
-      if (this.pending.length === evaluatedCount) {
+      if (
+        this.pending.length === evaluatedCount &&
+        this.lastActivityAt === evaluatedActivityAt
+      ) {
         await this.executeAction("respond")
       }
     } finally {
@@ -156,6 +178,7 @@ export class MessageCollector {
     this.pending = []
     this.expressionGroupId = null
     this.nudgeSent = false
+    this.lastActivityAt = null
 
     const replyingStartedAt = this.now()
     this.callbacks.onStatus?.("replying")
@@ -168,7 +191,7 @@ export class MessageCollector {
   }
 
   private getSilence() {
-    const last = this.pending.at(-1)
-    return last ? this.now() - last.receivedAt : 0
+    if (this.lastActivityAt === null) return 0
+    return Math.max(0, this.now() - this.lastActivityAt)
   }
 }
