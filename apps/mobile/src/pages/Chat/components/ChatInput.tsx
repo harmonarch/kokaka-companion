@@ -18,15 +18,17 @@ import { useChatInputDraft } from "./useChatInputDraft"
 export function ChatInput({
   disabled,
   disabledReason,
+  onTyping,
   onSend,
   theme,
 }: {
   disabled?: boolean
   disabledReason?: string
+  onTyping?: () => void
   onSend: (content: string) => Promise<void>
   theme: AppTheme
 }) {
-  const draft = useChatInputDraft({ disabled, onSend })
+  const draft = useChatInputDraft({ disabled, onTyping, onSend })
   const autoHeight = useAutoGrowingChatInputHeight(draft.value)
 
   function handleKeyPress(
