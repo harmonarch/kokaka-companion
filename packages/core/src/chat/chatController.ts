@@ -107,6 +107,17 @@ export class ChatController {
     }
   }
 
+  sendTyping(sessionId: string) {
+    try {
+      this.client?.send({
+        type: "typing",
+        session_id: sessionId,
+      })
+    } catch {
+      // ponytail: typing is best-effort; send failures should not interrupt input.
+    }
+  }
+
   ping() {
     try {
       this.client?.send({ type: "ping" })

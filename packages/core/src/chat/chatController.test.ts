@@ -228,4 +228,17 @@ describe("ChatController send", () => {
       ],
     })
   })
+
+  it("sends typing state for the active session", () => {
+    const { clients, controller } = createHarness()
+
+    controller.connect()
+    clients[0].options.onOpen?.()
+    controller.sendTyping("chat:agent-1")
+
+    assert.deepEqual(clients[0].sent[0], {
+      type: "typing",
+      session_id: "chat:agent-1",
+    })
+  })
 })
