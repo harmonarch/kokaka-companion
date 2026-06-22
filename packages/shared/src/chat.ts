@@ -102,10 +102,16 @@ export const clientDoneMessageSchema = z.object({
   type: z.literal("done"),
 })
 
+export const clientTypingMessageSchema = z.object({
+  type: z.literal("typing"),
+  session_id: z.string().min(1),
+})
+
 export const clientWsMessageSchema = z.discriminatedUnion("type", [
   clientChatMessageSchema,
   clientPingMessageSchema,
   clientDoneMessageSchema,
+  clientTypingMessageSchema,
 ])
 
 export type ClientWsMessage = z.infer<typeof clientWsMessageSchema>

@@ -22,6 +22,15 @@ describe("chat websocket schemas", () => {
     })
   })
 
+  it("accepts typing client messages", () => {
+    expect(
+      clientWsMessageSchema.parse({ type: "typing", session_id: "s1" }),
+    ).toEqual({
+      type: "typing",
+      session_id: "s1",
+    })
+  })
+
   it("accepts agent persona context on client chat messages", () => {
     expect(
       clientWsMessageSchema.parse({

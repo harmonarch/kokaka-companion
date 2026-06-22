@@ -664,6 +664,14 @@ export async function handleChatWebSocket(
         return
       }
 
+      if (message.type === "typing") {
+        collector.noteTyping({
+          sessionId: message.session_id,
+          receivedAt: Date.now(),
+        })
+        return
+      }
+
       replyGeneration += 1
       const alreadyReceived = await acknowledgeChatMessage(env, {
         userId: user.id,
