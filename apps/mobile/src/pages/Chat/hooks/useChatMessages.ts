@@ -9,6 +9,7 @@ export function useChatMessages() {
   const historyLoading = useChatStore((state) => state.historyLoading)
   const error = useChatStore((state) => state.error)
   const loadOlderHistory = useChatStore((state) => state.loadOlderHistory)
+  const sendTyping = useChatStore((state) => state.sendTyping)
   const send = useChatStore((state) => state.send)
   const retrySend = useChatStore((state) => state.retrySend)
   const connection = useChatStore((state) => state.connection)
@@ -51,6 +52,7 @@ export function useChatMessages() {
     historyLoading,
     historyLoaded,
     loadOlderHistory,
+    sendTyping,
     send,
     retrySend,
     failedMessageIds,

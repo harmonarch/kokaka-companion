@@ -39,6 +39,7 @@ import {
 
 type ChatStatus = "idle" | "sending" | "agent_replying" | "error"
 type AgentPresence = "listening" | "replying" | null
+const typingThrottleMs = 1000
 
 type ChatState = {
   messages: ChatMessage[]
@@ -57,6 +58,7 @@ type ChatState = {
   relationshipLoading: boolean
   error: string | null
   controller: ChatController | null
+  lastTypingSentAt: number
   pendingOutgoing: PendingOutgoingMessage<ChatAgentContext>[]
   pendingOutgoingLoaded: boolean
   loadPendingOutgoing: () => Promise<
@@ -66,6 +68,7 @@ type ChatState = {
   loadHistory: (force?: boolean) => Promise<void>
   loadRelationship: () => Promise<void>
   loadOlderHistory: () => Promise<void>
+  sendTyping: () => void
   send: (content: string) => Promise<void>
   retrySend: (messageId: string) => Promise<void>
   disconnect: () => void
@@ -114,6 +117,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   relationshipLoading: false,
   error: null,
   controller: null,
+  lastTypingSentAt: 0,
   pendingOutgoing: [],
   pendingOutgoingLoaded: false,
   loadPendingOutgoing: async () => {
@@ -437,6 +441,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         error: getReadableErrorMessage(error, "历史聊天记录载入失败"),
       })
     }
+  },
+  sendTyping: () => {
+    if (get().connection !== "connected") return
+    const now = Date.now()
+    if (now - get().lastTypingSentAt < typingThrottleMs) return
+    const conversationId =
+      useConversationStore.getState().activeConversationId ?? "default"
+    get().controller?.sendTyping(conversationId)
+    set({ lastTypingSentAt: now })
   },
   send: async (content) => {
     const trimmed = content.trim()

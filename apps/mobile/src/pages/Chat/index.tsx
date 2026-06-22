@@ -42,6 +42,7 @@ export default function Chat() {
           theme={theme}
           onAvatarPress={chat.profileEditor.openProfileEditor}
           onLoadOlderHistory={chat.loadOlderHistory}
+          onTyping={chat.sendTyping}
           onSend={chat.send}
           onRetrySend={chat.retrySend}
         />

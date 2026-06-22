@@ -23,6 +23,7 @@ export function ChatBody({
   theme,
   onAvatarPress,
   onLoadOlderHistory,
+  onTyping,
   onSend,
   onRetrySend,
 }: {
@@ -40,6 +41,7 @@ export function ChatBody({
   theme: AppTheme
   onAvatarPress: (role: ProfileRole) => void
   onLoadOlderHistory: () => Promise<void>
+  onTyping: () => void
   onSend: (content: string) => Promise<void>
   onRetrySend: (messageId: string) => Promise<void>
 }) {
@@ -63,6 +65,7 @@ export function ChatBody({
       <ChatInput
         disabled={inputDisabled}
         disabledReason={disabledReason}
+        onTyping={onTyping}
         onSend={onSend}
         theme={theme}
       />
