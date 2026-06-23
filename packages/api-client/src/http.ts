@@ -23,6 +23,7 @@ import type {
 import {
   authResponseSchema,
   chatConversationsResponseSchema,
+  deleteChatMessageResponseSchema,
   createChatConversationResponseSchema,
   chatHistoryResponseSchema,
   chatProfilesSchema,
@@ -217,6 +218,15 @@ export function createHttpClient(options: HttpClientOptions) {
     return chatHistoryResponseSchema.parse(data)
   }
 
+  async function deleteChatMessage(id: string) {
+    const data = await request<unknown>(
+      `/chat/history/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+      { auth: true },
+    )
+    return deleteChatMessageResponseSchema.parse(data)
+  }
+
   async function chatConversations(): Promise<ChatConversationsResponse> {
     const data = await request<unknown>("/chat/conversations", undefined, {
       auth: true,
@@ -309,6 +319,7 @@ export function createHttpClient(options: HttpClientOptions) {
     chatProfiles,
     updateChatProfiles,
     chatHistory,
+    deleteChatMessage,
     chatConversations,
     createSingleChat,
     createGroupChat,

@@ -45,6 +45,7 @@ export default function Chat() {
           onTyping={chat.sendTyping}
           onSend={chat.send}
           onRetrySend={chat.retrySend}
+          onDeleteMessage={chat.deleteMessage}
         />
         <ChatOverlays profileEditor={chat.profileEditor} theme={theme} />
       </View>

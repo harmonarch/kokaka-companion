@@ -207,6 +207,14 @@ export const chatHistoryResponseSchema = z.object({
 
 export type ChatHistoryResponse = z.infer<typeof chatHistoryResponseSchema>
 
+export const deleteChatMessageResponseSchema = z.object({
+  ok: z.literal(true),
+})
+
+export type DeleteChatMessageResponse = z.infer<
+  typeof deleteChatMessageResponseSchema
+>
+
 export const chatHistoryRequestSchema = z.object({
   before_id: z.string().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),

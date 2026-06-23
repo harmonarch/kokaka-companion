@@ -57,8 +57,12 @@ type ChatMessageRow = {
   user_id: string
   conversation_id: string
   role: "user" | "agent"
+  agent_id?: string | null
+  agent_name?: string | null
   content: string
   created_at: number
+  expression_group_id?: string | null
+  expression_part_index?: number | null
 }
 
 function createEnvFixture() {
@@ -102,6 +106,19 @@ function createEnvFixture() {
             return (agents.find(
               (agent) => agent.user_id === userId && agent.id === agentId,
             ) ?? null) as T | null
+          }
+          if (sql.includes("FROM chat_messages")) {
+            const args = this.args as unknown[]
+            const userId = args[0] as string
+            const messageId = args.at(-1) as string
+            const message = chatMessages.find(
+              (item) => item.user_id === userId && item.id === messageId,
+            )
+            if (!message) return null
+            return {
+              createdAt: message.created_at,
+              rowId: chatMessages.indexOf(message) + 1,
+            } as T
           }
           return null
         },
@@ -154,7 +171,7 @@ function createEnvFixture() {
                 .sort((a, b) => a.position - b.position),
             } as { results: T[] }
           }
-          if (sql.includes("FROM chat_messages")) {
+          if (sql.includes("ROW_NUMBER() OVER")) {
             const [userId] = this.args as [string]
             const latestByConversation = new Map<string, ChatMessageRow>()
             for (const message of chatMessages.filter(
@@ -173,9 +190,74 @@ function createEnvFixture() {
               })),
             } as { results: T[] }
           }
+          if (sql.includes("FROM chat_messages")) {
+            const [userId, second, third, fourth, fifth, sixth] = this
+              .args as [string, string | number | undefined, ...number[]]
+            const hasConversationFilter = sql.includes("conversation_id = ?")
+            const conversationId =
+              hasConversationFilter && typeof second === "string"
+                ? second
+                : null
+            const limit = Number(
+              hasConversationFilter
+                ? fourth === undefined
+                  ? third
+                  : sixth
+                : third === undefined
+                  ? second
+                  : fifth,
+            )
+            const cursorCreatedAt = hasConversationFilter ? third : second
+            const cursorRowId = hasConversationFilter ? fourth : third
+            const rows = chatMessages
+              .map((message, index) => ({ message, rowId: index + 1 }))
+              .filter(({ message, rowId }) => {
+                if (message.user_id !== userId) return false
+                if (conversationId && message.conversation_id !== conversationId) {
+                  return false
+                }
+                if (
+                  typeof cursorCreatedAt === "number" &&
+                  typeof cursorRowId === "number"
+                ) {
+                  return (
+                    message.created_at < cursorCreatedAt ||
+                    (message.created_at === cursorCreatedAt &&
+                      rowId < cursorRowId)
+                  )
+                }
+                return true
+              })
+              .sort((a, b) => {
+                if (a.message.created_at !== b.message.created_at) {
+                  return b.message.created_at - a.message.created_at
+                }
+                return b.rowId - a.rowId
+              })
+              .slice(0, limit)
+              .map(({ message }) => ({
+                id: message.id,
+                role: message.role,
+                agent_id: message.agent_id ?? null,
+                agent_name: message.agent_name ?? null,
+                content: message.content,
+                created_at: message.created_at,
+                expression_group_id: message.expression_group_id ?? null,
+                expression_part_index: message.expression_part_index ?? null,
+              }))
+            return { results: rows } as { results: T[] }
+          }
           return { results: [] as T[] }
         },
         async run() {
+          if (sql.includes("DELETE FROM chat_messages")) {
+            const [userId, messageId] = this.args as [string, string]
+            const index = chatMessages.findIndex(
+              (message) =>
+                message.user_id === userId && message.id === messageId,
+            )
+            if (index >= 0) chatMessages.splice(index, 1)
+          }
           if (sql.includes("INSERT OR IGNORE INTO chat_agents")) {
             const [
               id,
@@ -398,6 +480,157 @@ describe("chat history route queries", () => {
     expect(cursor.values).toEqual(["u1", "group-1", "m2"])
     expect(page.sql).toContain("conversation_id = ?")
     expect(page.values).toEqual(["u1", "group-1", 10, 10, 3, 21])
+  })
+})
+
+describe("chat history delete route", () => {
+  it("deletes the current user's user messages", async () => {
+    const { env, chatMessages } = createEnvFixture()
+    chatMessages.push(
+      {
+        id: "u-message",
+        user_id: "u1",
+        conversation_id: "default",
+        role: "user",
+        content: "要删除的用户消息",
+        created_at: 10,
+      },
+      {
+        id: "keep-agent",
+        user_id: "u1",
+        conversation_id: "default",
+        role: "agent",
+        content: "保留的回复",
+        created_at: 11,
+      },
+    )
+
+    const response = await chatRoutes.request(
+      new Request("http://localhost/history/u-message", {
+        method: "DELETE",
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true })
+    expect(chatMessages.map((message) => message.id)).toEqual(["keep-agent"])
+  })
+
+  it("deletes the current user's agent messages", async () => {
+    const { env, chatMessages } = createEnvFixture()
+    chatMessages.push({
+      id: "agent-message",
+      user_id: "u1",
+      conversation_id: "default",
+      role: "agent",
+      agent_id: "agent:xiaolian",
+      agent_name: "小练",
+      content: "要删除的 Agent 消息",
+      created_at: 10,
+    })
+
+    const response = await chatRoutes.request(
+      new Request("http://localhost/history/agent-message", {
+        method: "DELETE",
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+
+    expect(response.status).toBe(200)
+    expect(chatMessages).toHaveLength(0)
+  })
+
+  it("treats missing messages as deleted", async () => {
+    const { env, chatMessages } = createEnvFixture()
+
+    const response = await chatRoutes.request(
+      new Request("http://localhost/history/missing", {
+        method: "DELETE",
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true })
+    expect(chatMessages).toEqual([])
+  })
+
+  it("does not delete another user's messages", async () => {
+    const { env, chatMessages } = createEnvFixture()
+    chatMessages.push({
+      id: "other-message",
+      user_id: "u2",
+      conversation_id: "default",
+      role: "agent",
+      content: "其他用户的消息",
+      created_at: 10,
+    })
+
+    const response = await chatRoutes.request(
+      new Request("http://localhost/history/other-message", {
+        method: "DELETE",
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+
+    expect(response.status).toBe(200)
+    expect(chatMessages.map((message) => message.id)).toEqual([
+      "other-message",
+    ])
+  })
+
+  it("keeps deleted messages out of history", async () => {
+    const { env, chatMessages } = createEnvFixture()
+    chatMessages.push(
+      {
+        id: "deleted-message",
+        user_id: "u1",
+        conversation_id: "default",
+        role: "user",
+        content: "删除后不应返回",
+        created_at: 10,
+      },
+      {
+        id: "visible-message",
+        user_id: "u1",
+        conversation_id: "default",
+        role: "agent",
+        content: "还在",
+        created_at: 11,
+      },
+    )
+
+    await chatRoutes.request(
+      new Request("http://localhost/history/deleted-message", {
+        method: "DELETE",
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+    const historyResponse = await chatRoutes.request(
+      new Request("http://localhost/history?session_id=default", {
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+    const history = (await historyResponse.json()) as {
+      messages: Array<{ id: string }>
+    }
+
+    expect(history.messages.map((message: { id: string }) => message.id)).toEqual(
+      ["visible-message"],
+    )
   })
 })
 

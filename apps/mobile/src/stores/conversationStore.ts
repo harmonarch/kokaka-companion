@@ -27,7 +27,7 @@ type ConversationState = {
   loading: boolean
   userId: string | null
   error: string | null
-  hydrate: () => Promise<void>
+  hydrate: (force?: boolean) => Promise<void>
   createAgent: (input: {
     name: string
     personaPrompt: string
@@ -177,7 +177,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
   loading: false,
   userId: null,
   error: null,
-  hydrate: async () => {
+  hydrate: async (force = false) => {
     const user = useAuthStore.getState().user
     if (!user) {
       const state = withDefaults()
@@ -197,6 +197,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       set({ ready: false, loading: false, userId })
     }
     if (
+      !force &&
       current.userId === userId &&
       !shouldLoadForUser(
         { loaded: current.ready, loading: current.loading, userId },

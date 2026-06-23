@@ -26,6 +26,7 @@ export function ChatBody({
   onTyping,
   onSend,
   onRetrySend,
+  onDeleteMessage,
 }: {
   messages: ChatMessage[]
   profiles: ChatProfiles
@@ -44,6 +45,7 @@ export function ChatBody({
   onTyping: () => void
   onSend: (content: string) => Promise<void>
   onRetrySend: (messageId: string) => Promise<void>
+  onDeleteMessage: (messageId: string) => Promise<void>
 }) {
   return (
     <View style={styles.chatBody}>
@@ -59,6 +61,7 @@ export function ChatBody({
         theme={theme}
         onAvatarPress={onAvatarPress}
         onRetrySend={onRetrySend}
+        onDeleteMessage={onDeleteMessage}
         onLoadOlderHistory={onLoadOlderHistory}
       />
       <ChatErrorMessage error={error} theme={theme} />

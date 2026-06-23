@@ -1,4 +1,5 @@
 import {
+  deleteChatMessageResponseSchema,
   chatHistoryResponseSchema,
   chatHistoryRequestSchema,
   chatConversationsResponseSchema,
@@ -248,6 +249,15 @@ chatRoutes.get("/history", async (c) => {
       has_more: rows.length > limit,
     }),
   )
+})
+
+chatRoutes.delete("/history/:id", async (c) => {
+  const user = c.get("user")
+  await ensureChatMessagesTable(c.env)
+  await c.env.DB.prepare("DELETE FROM chat_messages WHERE user_id = ? AND id = ?")
+    .bind(user.id, c.req.param("id"))
+    .run()
+  return c.json(deleteChatMessageResponseSchema.parse({ ok: true }))
 })
 
 chatRoutes.get("/relationship", async (c) => {

@@ -6,8 +6,6 @@ import { AddAgentModal } from "./components/AddAgentModal"
 import { BottomTabs } from "./components/BottomTabs"
 import { ChatListHeader } from "./components/ChatListHeader"
 import { ConversationList } from "./components/ConversationList"
-import { CreateGroupModal } from "./components/CreateGroupModal"
-import { CreateMenuModal } from "./components/CreateMenuModal"
 import { getChatListPalette, styles } from "./styles"
 import { useChatListPage } from "./useChatListPage"
 
@@ -34,7 +32,7 @@ export default function ChatList() {
         <ChatListHeader
           theme={theme}
           palette={palette}
-          onOpenCreateMenu={chatList.openCreateMenu}
+          onOpenCreateMenu={chatList.openAgentCreator}
         />
         <ConversationList
           conversations={chatList.conversations}
@@ -47,25 +45,11 @@ export default function ChatList() {
         />
         <BottomTabs active="chats" theme={theme} />
       </View>
-      <CreateMenuModal
-        visible={chatList.createMenuVisible}
-        theme={theme}
-        onClose={chatList.closeCreateMenu}
-        onCreateSingle={chatList.openAgentCreator}
-        onCreateGroup={chatList.openGroupCreator}
-      />
       <AddAgentModal
         visible={chatList.agentModalVisible}
         theme={theme}
         onClose={chatList.closeAgentModal}
         onSave={chatList.saveAgent}
-      />
-      <CreateGroupModal
-        visible={chatList.groupModalVisible}
-        agents={chatList.agents}
-        theme={theme}
-        onClose={chatList.closeGroupModal}
-        onSave={chatList.saveGroup}
       />
     </View>
   )

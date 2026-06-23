@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from "react-native"
-import type { TextStyle } from "react-native"
+import type { GestureResponderEvent, TextStyle } from "react-native"
 import type { AppTheme } from "@/theme"
 import type { AgentProfile } from "@/stores/conversationStore"
 import type { ProfileRole } from "../profile/types"
@@ -21,6 +21,7 @@ export function MessageBubble({
   failed,
   theme,
   onAvatarPress,
+  onLongPress,
   onRetry,
 }: {
   message: ChatMessage
@@ -31,6 +32,7 @@ export function MessageBubble({
   failed?: boolean
   theme: AppTheme
   onAvatarPress: (role: ProfileRole) => void
+  onLongPress: (event: GestureResponderEvent) => void
   onRetry?: () => void
 }) {
   const isUser = message.role === "user"
@@ -100,7 +102,9 @@ export function MessageBubble({
                   },
                 ]}
               />
-              <View
+              <Pressable
+                delayLongPress={280}
+                onLongPress={onLongPress}
                 style={[
                   styles.bubble,
                   isUser
@@ -113,7 +117,7 @@ export function MessageBubble({
                         backgroundColor: theme.surface,
                         borderColor: theme.bubbleBorder,
                         borderWidth: 1,
-                      },
+                  },
                 ]}
               >
                 <Text
@@ -125,7 +129,7 @@ export function MessageBubble({
                 >
                   {message.content}
                 </Text>
-              </View>
+              </Pressable>
             </View>
           </View>
           <Text

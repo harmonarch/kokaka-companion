@@ -71,6 +71,7 @@ type ChatState = {
   sendTyping: () => void
   send: (content: string) => Promise<void>
   retrySend: (messageId: string) => Promise<void>
+  deleteMessage: (messageId: string) => Promise<void>
   disconnect: () => void
 }
 
@@ -539,6 +540,44 @@ export const useChatStore = create<ChatState>((set, get) => ({
         agentPresence: null,
       })
     }
+  },
+  deleteMessage: async (messageId) => {
+    const pendingBeforeDelete = await get().loadPendingOutgoing()
+    const messagesBeforeDelete = get().messages
+    const pendingOutgoing = removeConfirmedOutgoing(
+      pendingBeforeDelete,
+      messageId,
+    )
+    set({
+      messages: messagesBeforeDelete.filter(
+        (message) => message.id !== messageId,
+      ),
+      pendingOutgoing,
+      pendingOutgoingLoaded: true,
+      error: null,
+    })
+    try {
+      await savePendingOutgoing({ loadJson, saveJson }, pendingOutgoing)
+      await useAuthStore.getState().client.deleteChatMessage(messageId)
+    } catch (error) {
+      showNetworkErrorToast(error)
+      set({
+        messages: messagesBeforeDelete,
+        pendingOutgoing: pendingBeforeDelete,
+        pendingOutgoingLoaded: true,
+        error: getReadableErrorMessage(error, "消息删除失败"),
+      })
+      await savePendingOutgoing({
+        loadJson,
+        saveJson,
+      }, pendingBeforeDelete).catch(showNetworkErrorToast)
+      return
+    }
+    set({ error: null })
+    void useConversationStore
+      .getState()
+      .hydrate(true)
+      .catch(showNetworkErrorToast)
   },
   disconnect: () => {
     get().controller?.close()

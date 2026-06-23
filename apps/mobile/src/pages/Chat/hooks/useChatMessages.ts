@@ -12,6 +12,7 @@ export function useChatMessages() {
   const sendTyping = useChatStore((state) => state.sendTyping)
   const send = useChatStore((state) => state.send)
   const retrySend = useChatStore((state) => state.retrySend)
+  const deleteMessage = useChatStore((state) => state.deleteMessage)
   const connection = useChatStore((state) => state.connection)
   const pendingOutgoing = useChatStore((state) => state.pendingOutgoing)
   const failedMessageIds = new Set(
@@ -55,6 +56,7 @@ export function useChatMessages() {
     sendTyping,
     send,
     retrySend,
+    deleteMessage,
     failedMessageIds,
   }
 }
