@@ -370,7 +370,7 @@ export async function handleChatWebSocket(
 
   const collector = new MessageCollector(
     {
-      responseTimeoutMs: 5000,
+      responseTimeoutMs: 3000,
       nudgeTimeoutMs: 10000,
       gentleTimeoutMs: 20000,
       evalIntervalMs: 1000,

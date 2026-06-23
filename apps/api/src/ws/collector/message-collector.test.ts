@@ -3,7 +3,7 @@ import { MessageCollector } from "./message-collector"
 import type { EvalResult, MessageEvaluator, PendingMessage } from "./types"
 
 const config = {
-  responseTimeoutMs: 5000,
+  responseTimeoutMs: 3000,
   nudgeTimeoutMs: 10000,
   gentleTimeoutMs: 20000,
   evalIntervalMs: 1000,
@@ -74,7 +74,7 @@ describe("MessageCollector", () => {
     vi.restoreAllMocks()
   })
 
-  it("waits until 5 seconds of silence before evaluating", async () => {
+  it("waits until 3 seconds of silence before evaluating", async () => {
     vi.useFakeTimers()
     const harness = createHarness()
     harness.collector.addMessage({
@@ -83,7 +83,7 @@ describe("MessageCollector", () => {
       content: "我今天有点烦",
     })
 
-    await harness.advance(4999)
+    await harness.advance(2999)
 
     expect(harness.evaluator.evaluate).not.toHaveBeenCalled()
     expect(harness.submissions).toHaveLength(0)
@@ -116,7 +116,7 @@ describe("MessageCollector", () => {
       content: "其实也不是烦",
     })
 
-    await harness.advance(5000)
+    await harness.advance(3000)
 
     expect(harness.evaluator.evaluate).toHaveBeenCalledWith([
       "我今天有点烦",
@@ -125,13 +125,13 @@ describe("MessageCollector", () => {
     expect(harness.statuses.at(-1)).toBe("replying")
     expect(harness.submissions).toHaveLength(1)
     expect(harness.submissions[0].gentle).toBe(false)
-    expect(harness.submissions[0].replyingStartedAt).toBe(6000)
+    expect(harness.submissions[0].replyingStartedAt).toBe(4000)
     expect(harness.submissions[0].pending.map((message) => message.id)).toEqual(
       ["m1", "m2"],
     )
   })
 
-  it("starts the dedicated test Agent 5 seconds after typing stops", async () => {
+  it("starts the dedicated test Agent 3 seconds after typing stops", async () => {
     vi.useFakeTimers()
     const harness = createHarness()
     harness.collector.addMessage({
@@ -141,9 +141,9 @@ describe("MessageCollector", () => {
       agents: [typingDelayTestAgent],
     })
 
-    await harness.advance(4000)
+    await harness.advance(2000)
     harness.collector.noteTyping({ sessionId: typingDelayTestSessionId })
-    await harness.advance(4999)
+    await harness.advance(2999)
 
     expect(harness.evaluator.evaluate).not.toHaveBeenCalled()
     expect(harness.submissions).toHaveLength(0)
@@ -177,7 +177,7 @@ describe("MessageCollector", () => {
       content: "第一句",
     })
 
-    await harness.advance(5000)
+    await harness.advance(3000)
     harness.collector.noteTyping({ sessionId: "s1" })
     resolveEval({ status: "complete", emotionIntensity: 0.5 })
     await Promise.resolve()
@@ -215,7 +215,7 @@ describe("MessageCollector", () => {
     })
 
     await harness.advance(10000)
-    await harness.advance(5000)
+    await harness.advance(3000)
 
     expect(harness.nudges).toEqual(["嗯，我在听"])
     expect(harness.submissions).toHaveLength(0)
@@ -284,7 +284,7 @@ describe("MessageCollector", () => {
       content: "第一句",
     })
 
-    await harness.advance(5000)
+    await harness.advance(3000)
     harness.collector.addMessage({
       id: "m2",
       sessionId: "s1",
