@@ -111,6 +111,8 @@ describe("P0 agent", () => {
               content: "生日：09-17",
               score: 1,
               createdAt: 1,
+              validFrom: 1,
+              validTo: null,
             },
           ],
         },

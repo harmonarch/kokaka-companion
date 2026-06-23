@@ -148,6 +148,8 @@ describe("hybrid memory retrieval", () => {
         content: "生日：09-17",
         score: 0.9,
         createdAt: Date.now(),
+        validFrom: Date.now(),
+        validTo: null,
       },
       {
         id: "structured",
@@ -155,6 +157,8 @@ describe("hybrid memory retrieval", () => {
         content: "生日：09-17",
         score: 0.9,
         createdAt: Date.now(),
+        validFrom: Date.now(),
+        validTo: null,
       },
     ])
 

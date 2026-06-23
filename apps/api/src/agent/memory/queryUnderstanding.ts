@@ -15,10 +15,10 @@ function heuristicUnderstandMemoryQuery(query: string): MemoryQueryIntent {
       query
         .match(/《[^》]{1,40}》|[\u4e00-\u9fa5A-Za-z0-9]{2,}/g)
         ?.slice(0, 8) ?? [],
-    wantsStructured: /(生日|姓名|名字|职业|工作|公司|在哪|所在地|住哪)/.test(
+    wantsStructured: /(生日|姓名|名字|职业|工作|公司|在哪|所在地|住哪|住在|住)/.test(
       query,
     ),
-    wantsTimeRange: /(昨天|上周|最近一周|最近|这段时间|去年|上个月)/.test(
+    wantsTimeRange: /(昨天|上周|最近一周|最近|这段时间|去年|上个月|半年前)/.test(
       query,
     ),
     wantsSemantic: true,

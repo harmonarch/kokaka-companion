@@ -119,11 +119,18 @@ export const memories = sqliteTable(
     type: text("type").notNull(),
     content: text("content").notNull(),
     createdAt: integer("created_at").notNull(),
+    validFrom: integer("valid_from"),
+    validTo: integer("valid_to"),
   },
   (table) => ({
     userIdx: index("idx_memories_user").on(table.userId),
     typeIdx: index("idx_memories_type").on(table.userId, table.type),
     timeIdx: index("idx_memories_time").on(table.userId, table.createdAt),
+    validityIdx: index("idx_memories_validity").on(
+      table.userId,
+      table.validFrom,
+      table.validTo,
+    ),
   }),
 )
 

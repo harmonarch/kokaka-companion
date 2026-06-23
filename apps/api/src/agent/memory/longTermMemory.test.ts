@@ -77,6 +77,8 @@ type MemoryRow = {
   type: string
   content: string
   created_at: number
+  valid_from?: number | null
+  valid_to?: number | null
 }
 
 type SummaryRow = {
@@ -160,6 +162,15 @@ function createEnvFixture(input?: {
           if (sql.includes("FROM user_profiles")) {
             const profile = profiles.get(String(this.values[0]))
             if (!profile) return null
+            if (sql.includes("SELECT name, birthday, occupation, company, location")) {
+              return {
+                name: profile.name,
+                birthday: profile.birthday,
+                occupation: profile.occupation,
+                company: profile.company,
+                location: profile.location,
+              } as T
+            }
             return {
               userId: profile.user_id,
               name: profile.name,
@@ -187,25 +198,60 @@ function createEnvFixture(input?: {
           return null
         },
         async all<T>() {
-          if (sql.includes("SELECT id, type, content, created_at AS createdAt")) {
+          if (
+            sql.includes("FROM memories") &&
+            sql.includes("conversation_id AS conversationId") &&
+            sql.includes("type") &&
+            sql.includes("valid_from AS validFrom")
+          ) {
             const userId = String(this.values[0])
             const results = memories
               .filter((memory) => memory.user_id === userId)
               .sort((a, b) => b.created_at - a.created_at)
               .map((memory) => ({
                 id: memory.id,
+                conversationId: memory.conversation_id,
                 type: memory.type,
                 content: memory.content,
+                createdAt: memory.created_at,
+                validFrom: memory.valid_from ?? null,
+                validTo: memory.valid_to ?? null,
+              })) as T[]
+            return { results }
+          }
+          if (
+            sql.includes("SELECT id, conversation_id AS conversationId, created_at AS createdAt")
+          ) {
+            const userId = String(this.values[0])
+            const content = String(this.values[1])
+            const results = memories
+              .filter(
+                (memory) =>
+                  memory.user_id === userId &&
+                  memory.type === "event" &&
+                  memory.content === content &&
+                  (memory.valid_to ?? null) === null,
+              )
+              .sort((a, b) => b.created_at - a.created_at)
+              .slice(0, 1)
+              .map((memory) => ({
+                id: memory.id,
+                conversationId: memory.conversation_id,
                 createdAt: memory.created_at,
               })) as T[]
             return { results }
           }
           if (sql.includes("SELECT id FROM memories")) {
             const userId = String(this.values[0])
-            const type = String(this.values[1])
+            const typeOrContent = String(this.values[1])
             const results = memories
               .filter(
-                (memory) => memory.user_id === userId && memory.type === type,
+                (memory) =>
+                  memory.user_id === userId &&
+                  (memory.type === typeOrContent ||
+                    memory.content === typeOrContent) &&
+                  (!sql.includes("valid_to IS NULL") ||
+                    (memory.valid_to ?? null) === null),
               )
               .map((memory) => ({ id: memory.id })) as T[]
             return { results }
@@ -213,13 +259,20 @@ function createEnvFixture(input?: {
           if (sql.includes("FROM memories")) {
             const userId = String(this.values[0])
             const results = memories
-              .filter((memory) => memory.user_id === userId)
+              .filter(
+                (memory) =>
+                  memory.user_id === userId &&
+                  (!sql.includes("valid_to IS NULL") ||
+                    (memory.valid_to ?? null) === null),
+              )
               .sort((a, b) => b.created_at - a.created_at)
               .slice(0, 20)
               .map((memory) => ({
                 type: memory.type,
                 content: memory.content,
                 createdAt: memory.created_at,
+                validFrom: memory.valid_from ?? null,
+                validTo: memory.valid_to ?? null,
               })) as T[]
             return { results }
           }
@@ -272,19 +325,51 @@ function createEnvFixture(input?: {
               type: String(this.values[3]),
               content: String(this.values[4]),
               created_at: Number(this.values[5]),
+              valid_from:
+                this.values[6] === null || this.values[6] === undefined
+                  ? null
+                  : Number(this.values[6]),
+              valid_to:
+                this.values[7] === null || this.values[7] === undefined
+                  ? null
+                  : Number(this.values[7]),
             })
           }
-          if (sql.includes("UPDATE memories")) {
+          if (
+            sql.includes("UPDATE memories") &&
+            !sql.includes("SET content = ?") &&
+            sql.includes("valid_to = ?")
+          ) {
+            const validTo = Number(this.values[0])
+            const userId = String(this.values[1])
+            const id = String(this.values[2])
+            const memory = memories.find(
+              (item) => item.user_id === userId && item.id === id,
+            )
+            if (memory) {
+              memory.valid_to = validTo
+            }
+          } else if (sql.includes("UPDATE memories")) {
             const content = String(this.values[0])
             const createdAt = Number(this.values[1])
-            const userId = String(this.values[2])
-            const id = String(this.values[3])
+            const validFrom =
+              this.values[2] === null || this.values[2] === undefined
+                ? null
+                : Number(this.values[2])
+            const validTo =
+              this.values[3] === null || this.values[3] === undefined
+                ? null
+                : Number(this.values[3])
+            const userId = String(this.values[4])
+            const id = String(this.values[5])
             const memory = memories.find(
               (item) => item.user_id === userId && item.id === id,
             )
             if (memory) {
               memory.content = content
               memory.created_at = createdAt
+              memory.valid_from = validFrom
+              memory.valid_to = validTo
             }
           }
           if (sql.includes("DELETE FROM memories WHERE user_id = ? AND id = ?")) {
@@ -536,6 +621,59 @@ describe("long-term memory behavior", () => {
         (vector) => vector.metadata?.content === memories[0].content,
       ),
     ).toBe(true)
+  })
+
+  it("expires old mutable profile facts instead of deleting them", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-06-23T00:00:00.000Z"))
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ data: [{ embedding: [0.1, 0.2] }] }), {
+            status: 200,
+          }),
+        ),
+      ),
+    )
+    const { env, profiles, memories } = createEnvFixture({
+      profile: {
+        location: "北京",
+      },
+      memories: [
+        {
+          id: "old-location",
+          user_id: "u1",
+          conversation_id: "c1",
+          type: "event",
+          content: "用户所在地是北京",
+          created_at: Date.UTC(2025, 0, 1),
+          valid_from: Date.UTC(2025, 0, 1),
+          valid_to: null,
+        },
+      ],
+    })
+
+    await saveLongTermMemory(env, {
+      userId: "u1",
+      conversationId: "c2",
+      memory: heuristicExtractLongTermMemory("我现在在上海"),
+    })
+
+    const oldLocation = memories.find(
+      (memory) => memory.content === "用户所在地是北京",
+    )
+    const newLocation = memories.find(
+      (memory) => memory.content === "用户所在地是上海",
+    )
+
+    expect(profiles.get("u1")?.location).toBe("上海")
+    expect(oldLocation?.valid_to).toBe(
+      Date.UTC(2025, 11, 31, 23, 59, 59, 999),
+    )
+    expect(newLocation?.valid_to).toBeNull()
+
+    vi.useRealTimers()
   })
 
   it("stores preferences by semantic relation instead of replacing the whole type", async () => {

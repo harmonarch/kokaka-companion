@@ -15,6 +15,8 @@ export type MemorySearchResult = {
   content: string
   score: number
   createdAt: number
+  validFrom: number | null
+  validTo: number | null
 }
 
 export type MemorySearchContext = {
@@ -59,6 +61,43 @@ function recencyBoost(createdAt: number, now = Date.now()) {
   if (age <= 1000 * 60 * 60 * 24) return 1.1
   if (age <= 1000 * 60 * 60 * 24 * 7) return 1.05
   return 1
+}
+
+function rangeForQuery(query: string, now = Date.now()) {
+  const day = 1000 * 60 * 60 * 24
+  const end = now
+  if (query.includes("半年前")) {
+    const center = now - day * 182
+    return { start: center - day * 31, end: center + day * 31 }
+  }
+  if (query.includes("去年")) {
+    const date = new Date(now)
+    const year = date.getUTCFullYear() - 1
+    return {
+      start: Date.UTC(year, 0, 1),
+      end: Date.UTC(year, 11, 31, 23, 59, 59, 999),
+    }
+  }
+  if (query.includes("昨天")) {
+    return { start: end - day * 2, end: end - day }
+  }
+  if (query.includes("上周") || query.includes("最近一周")) {
+    return { start: end - day * 7, end }
+  }
+  if (query.includes("最近") || query.includes("这段时间")) {
+    return { start: end - day * 30, end }
+  }
+  return null
+}
+
+function validDuring(
+  result: { validFrom: number | null; validTo: number | null },
+  range: { start: number; end: number } | null,
+) {
+  const validFrom = result.validFrom ?? Number.NEGATIVE_INFINITY
+  const validTo = result.validTo ?? Number.POSITIVE_INFINITY
+  if (range) return validFrom <= range.end && validTo >= range.start
+  return validTo === Number.POSITIVE_INFINITY
 }
 
 function scoreResult(result: MemorySearchResult) {
@@ -115,18 +154,11 @@ function extractKeywords(query: string) {
 }
 
 function detectTimeRange(query: string) {
-  const end = Date.now()
-  if (query.includes("昨天")) {
-    const day = 1000 * 60 * 60 * 24
-    return { start: end - day * 2, end: end - day }
-  }
-  if (query.includes("上周") || query.includes("最近一周")) {
-    return { start: end - 1000 * 60 * 60 * 24 * 7, end }
-  }
-  if (query.includes("最近") || query.includes("这段时间")) {
-    return { start: end - 1000 * 60 * 60 * 24 * 30, end }
-  }
-  return null
+  return rangeForQuery(query)
+}
+
+function hasMutableProfileTopic(query: string) {
+  return /(职业|工作|公司|在哪|所在地|住哪|住在|住)/.test(query)
 }
 
 function formatProfileResults(
@@ -149,6 +181,8 @@ function formatProfileResults(
         content: `${profileLabels[field]}：${profile[field]}`,
         score: 1,
         createdAt: profile.updatedAt,
+        validFrom: profile.updatedAt,
+        validTo: null,
       }),
     )
 }
@@ -158,6 +192,7 @@ export async function searchStructuredMemory(
   userId: string,
   query: string,
 ) {
+  if (rangeForQuery(query) && hasMutableProfileTopic(query)) return []
   const profile = await env.DB.prepare(
     `SELECT
       user_id AS userId,
@@ -182,22 +217,59 @@ export async function searchKeywordMemory(
 ) {
   const keywords = extractKeywords(query)
   if (keywords.length === 0) return []
+  const range = rangeForQuery(query)
   const results: MemorySearchResult[] = []
   for (const keyword of keywords) {
-    const rows = await env.DB.prepare(
-      `SELECT id, type, content, created_at AS createdAt
-       FROM memories
-       WHERE user_id = ? AND content LIKE ?
-       ORDER BY created_at DESC
-       LIMIT 5`,
-    )
-      .bind(userId, `%${keyword}%`)
-      .all<{
-        id: string
-        type: string
-        content: string
-        createdAt: number
-      }>()
+    const rows = range
+      ? await env.DB.prepare(
+          `SELECT
+             id,
+             type,
+             content,
+             created_at AS createdAt,
+             valid_from AS validFrom,
+             valid_to AS validTo
+           FROM memories
+           WHERE user_id = ?
+             AND content LIKE ?
+             AND COALESCE(valid_from, -9223372036854775808) <= ?
+             AND COALESCE(valid_to, 9223372036854775807) >= ?
+           ORDER BY created_at DESC
+           LIMIT 5`,
+        )
+          .bind(userId, `%${keyword}%`, range.end, range.start)
+          .all<{
+            id: string
+            type: string
+            content: string
+            createdAt: number
+            validFrom: number | null
+            validTo: number | null
+          }>()
+      : await env.DB.prepare(
+          `SELECT
+             id,
+             type,
+             content,
+             created_at AS createdAt,
+             valid_from AS validFrom,
+             valid_to AS validTo
+           FROM memories
+           WHERE user_id = ?
+             AND content LIKE ?
+             AND valid_to IS NULL
+           ORDER BY created_at DESC
+           LIMIT 5`,
+        )
+          .bind(userId, `%${keyword}%`)
+          .all<{
+            id: string
+            type: string
+            content: string
+            createdAt: number
+            validFrom: number | null
+            validTo: number | null
+          }>()
     results.push(
       ...(rows.results ?? []).map((row) => ({
         id: row.id,
@@ -205,6 +277,8 @@ export async function searchKeywordMemory(
         content: `[${row.type}] ${row.content}`,
         score: 0.85,
         createdAt: row.createdAt,
+        validFrom: row.validFrom,
+        validTo: row.validTo,
       })),
     )
   }
@@ -238,6 +312,8 @@ export async function searchTimeRangeSummaries(
       content: `[summary] ${row.summary}`,
       score: 0.8,
       createdAt: row.endTime,
+      validFrom: null,
+      validTo: null,
     }),
   )
 }
@@ -252,8 +328,10 @@ export async function searchSemanticMemory(
     query,
     topK: 8,
   })
+  const range = rangeForQuery(query)
   return matches
     .filter((match) => match.content)
+    .filter((match) => validDuring(match, range))
     .map(
       (match): MemorySearchResult => ({
         id: match.id,
@@ -261,6 +339,8 @@ export async function searchSemanticMemory(
         content: `[${match.type}] ${match.content}`,
         score: match.score,
         createdAt: match.createdAt,
+        validFrom: match.validFrom,
+        validTo: match.validTo,
       }),
     )
 }

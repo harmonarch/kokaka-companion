@@ -31,6 +31,28 @@ async function createEmbedding(env: Env, input: string) {
   return data.data?.[0]?.embedding ?? null
 }
 
+function memoryVectorMetadata(input: {
+  userId: string
+  conversationId: string
+  type: string
+  content: string
+  createdAt: number
+  validFrom?: number | null
+  validTo?: number | null
+}) {
+  return {
+    userId: input.userId,
+    conversationId: input.conversationId,
+    type: input.type,
+    content: input.content,
+    createdAt: input.createdAt,
+    ...(typeof input.validFrom === "number"
+      ? { validFrom: input.validFrom }
+      : {}),
+    ...(typeof input.validTo === "number" ? { validTo: input.validTo } : {}),
+  }
+}
+
 export async function upsertMemoryVector(
   env: Env,
   input: {
@@ -40,6 +62,8 @@ export async function upsertMemoryVector(
     type: string
     content: string
     createdAt: number
+    validFrom?: number | null
+    validTo?: number | null
   },
 ) {
   const embedding = await createEmbedding(env, input.content)
@@ -49,13 +73,7 @@ export async function upsertMemoryVector(
       id: input.id,
       values: embedding,
       namespace: VECTOR_NAMESPACE,
-      metadata: {
-        userId: input.userId,
-        conversationId: input.conversationId,
-        type: input.type,
-        content: input.content,
-        createdAt: input.createdAt,
-      },
+      metadata: memoryVectorMetadata(input),
     },
   ])
   return true
@@ -94,6 +112,8 @@ export async function queryMemoryVectors(
           type?: string
           content?: string
           createdAt?: number
+          validFrom?: number | null
+          validTo?: number | null
         }
       | undefined
     return {
@@ -101,6 +121,9 @@ export async function queryMemoryVectors(
       type: metadata?.type ?? "memory",
       content: metadata?.content ?? "",
       createdAt: Number(metadata?.createdAt ?? Date.now()),
+      validFrom:
+        typeof metadata?.validFrom === "number" ? metadata.validFrom : null,
+      validTo: typeof metadata?.validTo === "number" ? metadata.validTo : null,
       score: match.score,
     }
   })

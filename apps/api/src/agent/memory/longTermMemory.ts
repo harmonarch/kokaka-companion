@@ -19,6 +19,8 @@ export type LongTermMemoryItem = {
   type: string
   content: string
   createdAt: number
+  validFrom: number | null
+  validTo: number | null
 }
 
 export type ConversationSummary = {
@@ -52,14 +54,30 @@ type MemoryType = "event" | "preference" | "emotion_snapshot"
 
 type MemoryRow = {
   id: string
+  conversationId: string | null
   type: string
   content: string
   createdAt: number
+  validFrom: number | null
+  validTo: number | null
+}
+
+type StoredProfileRow = {
+  name: string | null
+  birthday: string | null
+  occupation: string | null
+  company: string | null
+  location: string | null
 }
 
 const profileFields = new Set<ExtractedFact["field"]>([
   "name",
   "birthday",
+  "occupation",
+  "company",
+  "location",
+])
+const timelineProfileFields = new Set<ExtractedFact["field"]>([
   "occupation",
   "company",
   "location",
@@ -92,6 +110,11 @@ function now() {
   return Date.now()
 }
 
+function endOfPreviousYear(timestamp: number) {
+  const date = new Date(timestamp)
+  return Date.UTC(date.getUTCFullYear() - 1, 11, 31, 23, 59, 59, 999)
+}
+
 function uniq(values: string[]) {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))]
 }
@@ -105,6 +128,17 @@ function cleanMemoryContent(value: string) {
     .trim()
     .replace(/^用户(?:明确)?(?:提到|表示|说到|说|告诉我)?[:：\s]*/g, "")
     .replace(/[了啦呢啊呀。！？!?，,]+$/g, "")
+}
+
+function profileFactContent(field: ExtractedFact["field"], value: string) {
+  const labels: Record<ExtractedFact["field"], string> = {
+    name: "姓名",
+    birthday: "生日",
+    occupation: "职业",
+    company: "公司",
+    location: "所在地",
+  }
+  return `用户${labels[field]}是${value}`
 }
 
 function withUserPrefix(value: string) {
@@ -629,7 +663,14 @@ function memoryMatchesForgetTarget(memory: MemoryRow, target: string) {
 
 async function loadStoredMemories(env: Env, userId: string) {
   const result = await env.DB.prepare(
-    `SELECT id, type, content, created_at AS createdAt
+    `SELECT
+       id,
+       conversation_id AS conversationId,
+       type,
+       content,
+       created_at AS createdAt,
+       valid_from AS validFrom,
+       valid_to AS validTo
      FROM memories
      WHERE user_id = ?
      ORDER BY created_at DESC`,
@@ -654,12 +695,23 @@ async function insertStoredMemory(
     type: MemoryType
     content: string
     createdAt: number
+    validFrom?: number | null
+    validTo?: number | null
   },
 ) {
   const id = crypto.randomUUID()
   await env.DB.prepare(
-    `INSERT INTO memories (id, user_id, conversation_id, type, content, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO memories (
+       id,
+       user_id,
+       conversation_id,
+       type,
+       content,
+       created_at,
+       valid_from,
+       valid_to
+     )
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       id,
@@ -668,6 +720,8 @@ async function insertStoredMemory(
       input.type,
       input.content,
       input.createdAt,
+      input.validFrom === undefined ? input.createdAt : input.validFrom,
+      input.validTo ?? null,
     )
     .run()
   await upsertMemoryVector(env, {
@@ -677,6 +731,8 @@ async function insertStoredMemory(
     type: input.type,
     content: input.content,
     createdAt: input.createdAt,
+    validFrom: input.validFrom === undefined ? input.createdAt : input.validFrom,
+    validTo: input.validTo ?? null,
   })
   return id
 }
@@ -690,14 +746,23 @@ async function updateStoredMemory(
     type: string
     content: string
     createdAt: number
+    validFrom?: number | null
+    validTo?: number | null
   },
 ) {
   await env.DB.prepare(
     `UPDATE memories
-     SET content = ?, created_at = ?
+     SET content = ?, created_at = ?, valid_from = ?, valid_to = ?
      WHERE user_id = ? AND id = ?`,
   )
-    .bind(input.content, input.createdAt, input.userId, input.id)
+    .bind(
+      input.content,
+      input.createdAt,
+      input.validFrom === undefined ? input.createdAt : input.validFrom,
+      input.validTo ?? null,
+      input.userId,
+      input.id,
+    )
     .run()
   await upsertMemoryVector(env, {
     id: input.id,
@@ -706,7 +771,102 @@ async function updateStoredMemory(
     type: input.type,
     content: input.content,
     createdAt: input.createdAt,
+    validFrom: input.validFrom === undefined ? input.createdAt : input.validFrom,
+    validTo: input.validTo ?? null,
   })
+}
+
+async function expireCurrentProfileFactMemory(
+  env: Env,
+  input: {
+    userId: string
+    field: ExtractedFact["field"]
+    value: string
+    validTo: number
+  },
+) {
+  const content = profileFactContent(input.field, input.value)
+  const rows = await env.DB.prepare(
+    `SELECT id, conversation_id AS conversationId, created_at AS createdAt
+     FROM memories
+     WHERE user_id = ?
+       AND type = 'event'
+       AND content = ?
+       AND valid_to IS NULL
+     ORDER BY created_at DESC
+     LIMIT 1`,
+  )
+    .bind(input.userId, content)
+    .all<{
+      id: string
+      conversationId: string
+      createdAt: number
+    }>()
+  const row = rows.results?.[0]
+  if (!row) return false
+  await env.DB.prepare(
+    `UPDATE memories
+     SET valid_to = ?
+     WHERE user_id = ? AND id = ?`,
+  )
+    .bind(input.validTo, input.userId, row.id)
+    .run()
+  await upsertMemoryVector(env, {
+    id: row.id,
+    userId: input.userId,
+    conversationId: row.conversationId ?? "",
+    type: "event",
+    content,
+    createdAt: row.createdAt,
+    validFrom: null,
+    validTo: input.validTo,
+  })
+  return true
+}
+
+async function insertCurrentProfileFactMemory(
+  env: Env,
+  input: {
+    userId: string
+    conversationId: string
+    field: ExtractedFact["field"]
+    value: string
+    timestamp: number
+  },
+) {
+  const content = profileFactContent(input.field, input.value)
+  const existing = await env.DB.prepare(
+    `SELECT id
+     FROM memories
+     WHERE user_id = ?
+       AND type = 'event'
+       AND content = ?
+       AND valid_to IS NULL
+     LIMIT 1`,
+  )
+    .bind(input.userId, content)
+    .first<{ id: string }>()
+  if (existing) return false
+  await insertStoredMemory(env, {
+    userId: input.userId,
+    conversationId: input.conversationId,
+    type: "event",
+    content,
+    createdAt: input.timestamp,
+    validFrom: input.timestamp,
+    validTo: null,
+  })
+  return true
+}
+
+async function loadStoredProfile(env: Env, userId: string) {
+  return env.DB.prepare(
+    `SELECT name, birthday, occupation, company, location
+     FROM user_profiles
+     WHERE user_id = ?`,
+  )
+    .bind(userId)
+    .first<StoredProfileRow>()
 }
 
 async function storeMemoryBySemanticRelation(
@@ -743,6 +903,8 @@ async function storeMemoryBySemanticRelation(
       })
       memory.content = input.content
       memory.createdAt = input.createdAt
+      memory.validFrom = input.createdAt
+      memory.validTo = null
       return true
     }
     if (relation === "conflict") {
@@ -755,9 +917,12 @@ async function storeMemoryBySemanticRelation(
   const id = await insertStoredMemory(env, input)
   input.existing.unshift({
     id,
+    conversationId: input.conversationId,
     type: input.type,
     content: input.content,
     createdAt: input.createdAt,
+    validFrom: input.createdAt,
+    validTo: null,
   })
   return true
 }
@@ -835,9 +1000,15 @@ async function loadLongTermMemoryFromD1(
       .bind(userId)
       .first<LongTermMemoryProfile>(),
     env.DB.prepare(
-      `SELECT type, content, created_at AS createdAt
+      `SELECT
+        type,
+        content,
+        created_at AS createdAt,
+        valid_from AS validFrom,
+        valid_to AS validTo
        FROM memories
        WHERE user_id = ?
+         AND valid_to IS NULL
        ORDER BY created_at DESC
       LIMIT 20`,
     )
@@ -1097,8 +1268,38 @@ export async function saveLongTermMemory(
 
   const memory = prepareMemoryForStorage(input.memory)
   const timestamp = now()
+  const profileBefore = memory.facts.some((fact) =>
+    timelineProfileFields.has(fact.field),
+  )
+    ? await loadStoredProfile(env, input.userId)
+    : null
+  const oldValidTo = endOfPreviousYear(timestamp)
   let changed = false
   for (const fact of memory.facts) {
+    const oldValue = profileBefore?.[fact.field]
+    if (
+      timelineProfileFields.has(fact.field) &&
+      oldValue &&
+      oldValue !== fact.value
+    ) {
+      const expired = await expireCurrentProfileFactMemory(env, {
+        userId: input.userId,
+        field: fact.field,
+        value: oldValue,
+        validTo: oldValidTo,
+      })
+      if (!expired) {
+        await insertStoredMemory(env, {
+          userId: input.userId,
+          conversationId: input.conversationId,
+          type: "event",
+          content: profileFactContent(fact.field, oldValue),
+          createdAt: oldValidTo,
+          validFrom: null,
+          validTo: oldValidTo,
+        })
+      }
+    }
     await env.DB.prepare(
       `INSERT INTO user_profiles (user_id, ${fact.field}, updated_at)
        VALUES (?, ?, ?)
@@ -1108,6 +1309,15 @@ export async function saveLongTermMemory(
     )
       .bind(input.userId, fact.value, timestamp)
       .run()
+    if (timelineProfileFields.has(fact.field)) {
+      await insertCurrentProfileFactMemory(env, {
+        userId: input.userId,
+        conversationId: input.conversationId,
+        field: fact.field,
+        value: fact.value,
+        timestamp,
+      })
+    }
     changed = true
   }
 
