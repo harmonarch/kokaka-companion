@@ -90,6 +90,13 @@ function rangeForQuery(query: string, now = Date.now()) {
   return null
 }
 
+function yearRange(year: number) {
+  return {
+    start: Date.UTC(year, 0, 1),
+    end: Date.UTC(year, 11, 31, 23, 59, 59, 999),
+  }
+}
+
 function validDuring(
   result: { validFrom: number | null; validTo: number | null },
   range: { start: number; end: number } | null,
@@ -161,6 +168,55 @@ function hasMutableProfileTopic(query: string) {
   return /(职业|工作|公司|在哪|所在地|住哪|住在|住)/.test(query)
 }
 
+function hasLocationTimelineTopic(query: string) {
+  return (
+    /(在哪|所在地|住哪|住在|住|居住)/.test(query) &&
+    /(去年|今年)/.test(query)
+  )
+}
+
+function requestedLocationPeriods(query: string, now = Date.now()) {
+  const year = new Date(now).getUTCFullYear()
+  return [
+    query.includes("去年")
+      ? { label: "去年", marker: "去年", range: yearRange(year - 1) }
+      : null,
+    query.includes("今年")
+      ? { label: "今年", marker: "今年", range: yearRange(year) }
+      : null,
+  ].filter(
+    (
+      period,
+    ): period is {
+      label: "去年" | "今年"
+      marker: string
+      range: { start: number; end: number }
+    } => period !== null,
+  )
+}
+
+function cleanLocation(value: string) {
+  return value
+    .trim()
+    .replace(/(?:居住|生活|住着|住|了)+$/g, "")
+    .replace(/[，,。！？!?；;\s].*$/g, "")
+}
+
+function isConcreteLocation(value: string) {
+  return value.length >= 2 && !/(去年|今年|某个|地方|哪里|哪儿)/.test(value)
+}
+
+function locationFromMemoryContent(content: string) {
+  const match =
+    content.match(/所在地是([^，,。！？!?；;\s]+)/) ??
+    content.match(/住在([^，,。！？!?；;\s]+)/) ??
+    content.match(/搬到([^，,。！？!?；;\s]+)/) ??
+    content.match(/居住在([^，,。！？!?；;\s]+)/)
+  if (!match) return null
+  const location = cleanLocation(match[1])
+  return isConcreteLocation(location) ? location : null
+}
+
 function formatProfileResults(
   profile: LongTermMemoryProfile | null,
   query: string,
@@ -208,6 +264,101 @@ export async function searchStructuredMemory(
     .bind(userId)
     .first<LongTermMemoryProfile>()
   return formatProfileResults(profile ?? null, query)
+}
+
+export async function searchTimelineLocationMemory(
+  env: Env,
+  userId: string,
+  query: string,
+) {
+  if (!hasLocationTimelineTopic(query)) return []
+  const periods = requestedLocationPeriods(query)
+  if (periods.length === 0) return []
+
+  const [profile, rows] = await Promise.all([
+    env.DB.prepare(
+      `SELECT
+        user_id AS userId,
+        name,
+        birthday,
+        occupation,
+        company,
+        location,
+        updated_at AS updatedAt
+       FROM user_profiles
+       WHERE user_id = ?`,
+    )
+      .bind(userId)
+      .first<LongTermMemoryProfile>(),
+    env.DB.prepare(
+      `SELECT
+        id,
+        type,
+        content,
+        created_at AS createdAt,
+        valid_from AS validFrom,
+        valid_to AS validTo
+       FROM memories
+       WHERE user_id = ?
+         AND type = 'event'
+         AND (
+           content LIKE '%所在地%'
+           OR content LIKE '%住%'
+           OR content LIKE '%搬到%'
+           OR content LIKE '%居住%'
+         )
+       ORDER BY created_at DESC
+       LIMIT 50`,
+    )
+      .bind(userId)
+      .all<{
+        id: string
+        type: string
+        content: string
+        createdAt: number
+        validFrom: number | null
+        validTo: number | null
+      }>(),
+  ])
+
+  const memories = rows.results ?? []
+  const results: MemorySearchResult[] = []
+
+  for (const period of periods) {
+    if (period.label === "今年" && profile?.location) {
+      results.push({
+        id: "profile:location:this-year",
+        source: "structured",
+        content: "今年所在地：" + profile.location,
+        score: 1.1,
+        createdAt: profile.updatedAt,
+        validFrom: profile.updatedAt,
+        validTo: null,
+      })
+      continue
+    }
+
+    const memory = memories.find((item) => {
+      if (!locationFromMemoryContent(item.content)) return false
+      return (
+        item.content.includes(period.marker) || validDuring(item, period.range)
+      )
+    })
+    if (!memory) continue
+    const location = locationFromMemoryContent(memory.content)
+    if (!location) continue
+    results.push({
+      id: `timeline-location:${period.label}:${memory.id}`,
+      source: "structured",
+      content: `${period.label}所在地：${location}`,
+      score: 1.05,
+      createdAt: memory.createdAt,
+      validFrom: memory.validFrom,
+      validTo: memory.validTo,
+    })
+  }
+
+  return results
 }
 
 export async function searchKeywordMemory(
@@ -354,23 +505,31 @@ export async function searchHybridMemory(
   },
 ): Promise<MemorySearchContext> {
   const intent = await understandMemoryQuery(env, input.query)
-  const [structured, keyword, summaries, semantic] = await Promise.all([
-    intent.wantsStructured
-      ? searchStructuredMemory(env, input.userId, input.query)
-      : Promise.resolve([]),
-    searchKeywordMemory(env, input.userId, input.query),
-    intent.wantsTimeRange
-      ? searchTimeRangeSummaries(env, input.userId, input.query)
-      : Promise.resolve([]),
-    intent.wantsSemantic
-      ? searchSemanticMemory(env, input.userId, input.query)
-      : Promise.resolve([]),
-  ])
+  const [structured, timelineLocation, keyword, summaries, semantic] =
+    await Promise.all([
+      intent.wantsStructured
+        ? searchStructuredMemory(env, input.userId, input.query)
+        : Promise.resolve([]),
+      searchTimelineLocationMemory(env, input.userId, input.query),
+      searchKeywordMemory(env, input.userId, input.query),
+      intent.wantsTimeRange
+        ? searchTimeRangeSummaries(env, input.userId, input.query)
+        : Promise.resolve([]),
+      intent.wantsSemantic
+        ? searchSemanticMemory(env, input.userId, input.query)
+        : Promise.resolve([]),
+    ])
   return {
     query: input.query,
     keywords: intent.keywords,
     results: fuseMemoryResults(
-      [...structured, ...keyword, ...summaries, ...semantic],
+      [
+        ...timelineLocation,
+        ...structured,
+        ...keyword,
+        ...summaries,
+        ...semantic,
+      ],
       input.limit,
     ),
   }

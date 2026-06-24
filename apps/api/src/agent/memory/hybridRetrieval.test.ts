@@ -104,6 +104,7 @@ function createEnvFixture() {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.useRealTimers()
 })
 
 describe("hybrid memory retrieval", () => {
@@ -163,5 +164,84 @@ describe("hybrid memory retrieval", () => {
     ])
 
     expect(result.source).toBe("structured")
+  })
+
+  it("distinguishes last year and this year location facts", async () => {
+    const now = Date.UTC(2026, 5, 24)
+    vi.useFakeTimers()
+    vi.setSystemTime(now)
+    const profile = {
+      userId: "u1",
+      name: null,
+      birthday: null,
+      occupation: null,
+      company: null,
+      location: "上海",
+      updatedAt: now,
+    }
+    const memories = [
+      {
+        id: "m1",
+        type: "event",
+        content: "用户去年住在北京",
+        createdAt: now - 1000,
+        validFrom: now - 1000,
+        validTo: null,
+      },
+      {
+        id: "m2",
+        type: "event",
+        content: "用户今年搬到上海",
+        createdAt: now,
+        validFrom: now,
+        validTo: null,
+      },
+    ]
+    const db = {
+      prepare(sql: string) {
+        return {
+          values: [] as unknown[],
+          bind(...values: unknown[]) {
+            this.values = values
+            return this
+          },
+          async first<T>() {
+            if (sql.includes("FROM user_profiles")) return profile as T
+            return null
+          },
+          async all<T>() {
+            if (sql.includes("FROM memories")) {
+              if (sql.includes("type = 'event'")) {
+                return { results: memories as T[] }
+              }
+              const keyword = String(this.values[1]).replaceAll("%", "")
+              return {
+                results: memories
+                  .filter((memory) => memory.content.includes(keyword))
+                  .map((memory) => ({
+                    id: memory.id,
+                    type: memory.type,
+                    content: memory.content,
+                    createdAt: memory.createdAt,
+                    validFrom: memory.validFrom,
+                    validTo: memory.validTo,
+                  })) as T[],
+              }
+            }
+            return { results: [] as T[] }
+          },
+        }
+      },
+    }
+    const env = { DB: db } as unknown as Env
+
+    const context = await searchHybridMemory(env, {
+      userId: "u1",
+      query: "去年住哪里，今年住哪里",
+    })
+
+    expect(context.results.map((result) => result.content)).toEqual(
+      expect.arrayContaining(["去年所在地：北京", "今年所在地：上海"]),
+    )
   })
 })
