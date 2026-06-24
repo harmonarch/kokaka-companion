@@ -1,7 +1,8 @@
-import type { AuthTokens } from "@ai-companion/shared"
+import type { AuthTokens, User } from "@ai-companion/shared"
 import * as SecureStore from "expo-secure-store"
 
 const key = "kokaka.tokens"
+const userKey = "kokaka.user"
 
 function canUseLocalStorage() {
   return typeof localStorage !== "undefined"
@@ -47,4 +48,12 @@ export async function loadTokens(): Promise<AuthTokens | null> {
 
 export async function saveTokens(tokens: AuthTokens | null) {
   await saveJson(key, tokens)
+}
+
+export async function loadUser(): Promise<User | null> {
+  return loadJson<User>(userKey)
+}
+
+export async function saveUser(user: User | null) {
+  await saveJson(userKey, user)
 }

@@ -1,7 +1,15 @@
 import type { AuthTokens, User } from "@ai-companion/shared"
 import { createHttpClient } from "@ai-companion/api-client"
 import { create } from "zustand"
-import { loadJson, loadTokens, saveJson, saveTokens } from "@/utils/storage"
+import {
+  loadJson,
+  loadTokens,
+  loadUser,
+  saveJson,
+  saveTokens,
+  saveUser,
+} from "@/utils/storage"
+import { getUserAfterRefreshError } from "./authSession"
 import { apiBaseUrl } from "@/config/api"
 import { clearPendingOutgoing } from "./chatReliability"
 
@@ -54,38 +62,51 @@ export const useAuthStore = create<AuthState>((set, get) => {
         await get()
           .refreshUser()
         set({ ready: true })
-      } catch {
+      } catch (error) {
+        const cachedUser = await loadUser()
+        const offlineUser = getUserAfterRefreshError(error, cachedUser, tokens)
+        if (offlineUser) {
+          set({ user: offlineUser, ready: true })
+          return
+        }
         set({ user: null, tokens: null, ready: true })
         await saveTokens(null)
+        await saveUser(null)
         await clearPendingOutgoing({ loadJson, saveJson })
       }
     },
     register: async (email, password, nickname) => {
       const response = await client.register({ email, password, nickname })
       set({ user: response.user, tokens: response.tokens, error: null })
+      await saveUser(response.user)
     },
     login: async (email, password) => {
       const response = await client.login({ email, password })
       set({ user: response.user, tokens: response.tokens, error: null })
+      await saveUser(response.user)
     },
     refreshUser: async () => {
       const user = await client.me()
       set({ user, error: null })
+      await saveUser(user)
     },
     updateNickname: async (nickname) => {
       const user = await client.updateMe({ nickname })
       set({ user, error: null })
+      await saveUser(user)
     },
     logout: async () => {
       await client.logout().catch(() => undefined)
       set({ user: null, tokens: null })
       await saveTokens(null)
+      await saveUser(null)
       await clearPendingOutgoing({ loadJson, saveJson })
     },
     deleteAccount: async () => {
       await client.deleteAccount()
       set({ user: null, tokens: null })
       await saveTokens(null)
+      await saveUser(null)
       await clearPendingOutgoing({ loadJson, saveJson })
     },
   }

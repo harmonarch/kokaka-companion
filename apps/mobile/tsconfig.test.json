@@ -15,6 +15,8 @@
   "include": [
     "src/pages/Login/authValidation.ts",
     "src/pages/Login/authValidation.test.ts",
+    "src/stores/authSession.ts",
+    "src/stores/authStore.test.ts",
     "src/stores/chatReliability.ts",
     "src/stores/chatReliability.test.ts",
     "src/stores/requestCache.ts",
