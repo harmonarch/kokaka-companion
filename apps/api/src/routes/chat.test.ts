@@ -36,6 +36,8 @@ type ConversationRow = {
   last_message: string
   created_at: number
   updated_at: number
+  pinned_at: number | null
+  deleted_at: number | null
 }
 
 type ConversationAgentRow = {
@@ -107,6 +109,17 @@ function createEnvFixture() {
               (agent) => agent.user_id === userId && agent.id === agentId,
             ) ?? null) as T | null
           }
+          if (sql.includes("FROM chat_conversations")) {
+            if (sql.includes("deleted_at IS NOT NULL")) {
+              const [userId, id] = this.args as [string, string]
+              return (conversations.find(
+                (conversation) =>
+                  conversation.user_id === userId &&
+                  conversation.id === id &&
+                  conversation.deleted_at !== null,
+              ) ?? null) as T | null
+            }
+          }
           if (sql.includes("FROM chat_messages")) {
             const args = this.args as unknown[]
             const userId = args[0] as string
@@ -132,6 +145,8 @@ function createEnvFixture() {
                 { name: "role" },
                 { name: "content" },
                 { name: "created_at" },
+                { name: "pinned_at" },
+                { name: "deleted_at" },
                 { name: "expression_group_id" },
                 { name: "expression_part_index" },
               ],
@@ -159,7 +174,11 @@ function createEnvFixture() {
             const [userId] = this.args as [string]
             return {
               results: conversations
-                .filter((conversation) => conversation.user_id === userId)
+                .filter(
+                  (conversation) =>
+                    conversation.user_id === userId &&
+                    conversation.deleted_at === null,
+                )
                 .sort((a, b) => b.updated_at - a.updated_at),
             } as { results: T[] }
           }
@@ -174,8 +193,19 @@ function createEnvFixture() {
           if (sql.includes("ROW_NUMBER() OVER")) {
             const [userId] = this.args as [string]
             const latestByConversation = new Map<string, ChatMessageRow>()
+            const visibleConversationIds = new Set(
+              conversations
+                .filter(
+                  (conversation) =>
+                    conversation.user_id === userId &&
+                    conversation.deleted_at === null,
+                )
+                .map((conversation) => conversation.id),
+            )
             for (const message of chatMessages.filter(
-              (item) => item.user_id === userId,
+              (item) =>
+                item.user_id === userId &&
+                visibleConversationIds.has(item.conversation_id),
             )) {
               const existing = latestByConversation.get(message.conversation_id)
               if (!existing || message.created_at >= existing.created_at) {
@@ -251,12 +281,15 @@ function createEnvFixture() {
         },
         async run() {
           if (sql.includes("DELETE FROM chat_messages")) {
-            const [userId, messageId] = this.args as [string, string]
-            const index = chatMessages.findIndex(
-              (message) =>
-                message.user_id === userId && message.id === messageId,
-            )
-            if (index >= 0) chatMessages.splice(index, 1)
+            const [userId, id] = this.args as [string, string]
+            for (let index = chatMessages.length - 1; index >= 0; index -= 1) {
+              const message = chatMessages[index]
+              if (!message || message.user_id !== userId) continue
+              const matches = sql.includes("conversation_id = ?")
+                ? message.conversation_id === id
+                : message.id === id
+              if (matches) chatMessages.splice(index, 1)
+            }
           }
           if (sql.includes("INSERT OR IGNORE INTO chat_agents")) {
             const [
@@ -329,10 +362,56 @@ function createEnvFixture() {
                 last_message: lastMessage,
                 created_at: createdAt,
                 updated_at: updatedAt,
+                pinned_at: null,
+                deleted_at: null,
               })
             }
           }
           if (sql.includes("UPDATE chat_conversations")) {
+            if (sql.includes("SET pinned_at = ?")) {
+              const [pinnedAt, userId, id] = this.args as [
+                number,
+                string,
+                string,
+              ]
+              const conversation = conversations.find(
+                (item) =>
+                  item.user_id === userId &&
+                  item.id === id &&
+                  item.deleted_at === null,
+              )
+              if (conversation) conversation.pinned_at = pinnedAt
+              return { success: true }
+            }
+            if (sql.includes("SET pinned_at = NULL")) {
+              const [userId, id] = this.args as [string, string]
+              const conversation = conversations.find(
+                (item) =>
+                  item.user_id === userId &&
+                  item.id === id &&
+                  item.deleted_at === null,
+              )
+              if (conversation) conversation.pinned_at = null
+              return { success: true }
+            }
+            if (sql.includes("SET deleted_at = ?")) {
+              const [deletedAt, userId, id] = this.args as [
+                number,
+                string,
+                string,
+              ]
+              const conversation = conversations.find(
+                (item) =>
+                  item.user_id === userId &&
+                  item.id === id &&
+                  item.deleted_at === null,
+              )
+              if (conversation) {
+                conversation.deleted_at = deletedAt
+                conversation.pinned_at = null
+              }
+              return { success: true }
+            }
             const [title, id, userId] = this.args as [string, string, string]
             const conversation = conversations.find(
               (item) =>
@@ -389,6 +468,8 @@ function createEnvFixture() {
               last_message: lastMessage,
               created_at: createdAt,
               updated_at: updatedAt,
+              pinned_at: null,
+              deleted_at: null,
             })
           }
           if (sql.includes("INSERT OR IGNORE INTO chat_conversation_agents")) {
@@ -666,6 +747,7 @@ describe("chat conversation routes", () => {
           type: "single",
           title: "小练",
           agent_ids: ["agent:xiaolian"],
+          pinned_at: null,
         },
       ],
     })
@@ -839,5 +921,270 @@ describe("chat conversation routes", () => {
     )
 
     expect(groupResponse.status).toBe(400)
+  })
+
+  it("sorts pinned conversations before unpinned conversations", async () => {
+    const { env } = createEnvFixture()
+    const firstResponse = await chatRoutes.request(
+      new Request("http://localhost/conversations/single", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ name: "安安" }),
+      }),
+      undefined,
+      env,
+    )
+    const first = (await firstResponse.json()) as CreateChatConversationResponse
+    const secondResponse = await chatRoutes.request(
+      new Request("http://localhost/conversations/single", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ name: "晴晴" }),
+      }),
+      undefined,
+      env,
+    )
+    const second =
+      (await secondResponse.json()) as CreateChatConversationResponse
+
+    const pinResponse = await chatRoutes.request(
+      new Request(`http://localhost/conversations/${first.conversation.id}/pin`, {
+        method: "POST",
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+    expect(pinResponse.status).toBe(200)
+
+    const listResponse = await chatRoutes.request(
+      new Request("http://localhost/conversations", {
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+    const list = (await listResponse.json()) as ChatConversationsResponse
+
+    expect(list.conversations[0]?.id).toBe(first.conversation.id)
+    expect(list.conversations[0]?.pinned_at).toEqual(expect.any(Number))
+    expect(list.conversations[1]?.id).toBe(second.conversation.id)
+  })
+
+  it("restores normal ordering after unpinning a conversation", async () => {
+    const { env } = createEnvFixture()
+    const firstResponse = await chatRoutes.request(
+      new Request("http://localhost/conversations/single", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ name: "安安" }),
+      }),
+      undefined,
+      env,
+    )
+    const first = (await firstResponse.json()) as CreateChatConversationResponse
+    const secondResponse = await chatRoutes.request(
+      new Request("http://localhost/conversations/single", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ name: "晴晴" }),
+      }),
+      undefined,
+      env,
+    )
+    const second =
+      (await secondResponse.json()) as CreateChatConversationResponse
+
+    await chatRoutes.request(
+      new Request(`http://localhost/conversations/${first.conversation.id}/pin`, {
+        method: "POST",
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+    const unpinResponse = await chatRoutes.request(
+      new Request(
+        `http://localhost/conversations/${first.conversation.id}/unpin`,
+        {
+          method: "POST",
+          headers: { authorization: "Bearer token" },
+        },
+      ),
+      undefined,
+      env,
+    )
+    expect(unpinResponse.status).toBe(200)
+
+    const listResponse = await chatRoutes.request(
+      new Request("http://localhost/conversations", {
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+    const list = (await listResponse.json()) as ChatConversationsResponse
+
+    expect(list.conversations.find(
+      (conversation) => conversation.id === second.conversation.id,
+    )).toBeDefined()
+    expect(list.conversations.find(
+      (conversation) => conversation.id === first.conversation.id,
+    )?.pinned_at).toBeNull()
+  })
+
+  it("deletes a conversation and its history", async () => {
+    const { env, chatMessages } = createEnvFixture()
+    const createResponse = await chatRoutes.request(
+      new Request("http://localhost/conversations/single", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ name: "安安" }),
+      }),
+      undefined,
+      env,
+    )
+    const created =
+      (await createResponse.json()) as CreateChatConversationResponse
+    chatMessages.push(
+      {
+        id: "delete-me",
+        user_id: "u1",
+        conversation_id: created.conversation.id,
+        role: "user",
+        content: "要删除",
+        created_at: 10,
+      },
+      {
+        id: "keep-me",
+        user_id: "u1",
+        conversation_id: "default",
+        role: "user",
+        content: "保留",
+        created_at: 11,
+      },
+    )
+
+    const deleteResponse = await chatRoutes.request(
+      new Request(
+        `http://localhost/conversations/${created.conversation.id}`,
+        {
+          method: "DELETE",
+          headers: { authorization: "Bearer token" },
+        },
+      ),
+      undefined,
+      env,
+    )
+    expect(deleteResponse.status).toBe(200)
+    expect(await deleteResponse.json()).toEqual({ ok: true })
+
+    const listResponse = await chatRoutes.request(
+      new Request("http://localhost/conversations", {
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+    const list = (await listResponse.json()) as ChatConversationsResponse
+    expect(list.conversations.some(
+      (conversation) => conversation.id === created.conversation.id,
+    )).toBe(false)
+    expect(chatMessages.map((message) => message.id)).toEqual(["keep-me"])
+  })
+
+  it("keeps a deleted default conversation out of future lists", async () => {
+    const { env } = createEnvFixture()
+
+    const deleteResponse = await chatRoutes.request(
+      new Request("http://localhost/conversations/default", {
+        method: "DELETE",
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+    expect(deleteResponse.status).toBe(200)
+
+    const listResponse = await chatRoutes.request(
+      new Request("http://localhost/conversations", {
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+    const list = (await listResponse.json()) as ChatConversationsResponse
+
+    expect(list.conversations).toEqual([])
+  })
+
+  it("does not delete another user's conversation", async () => {
+    const { env, conversations, chatMessages } = createEnvFixture()
+    conversations.push({
+      id: "other-chat",
+      user_id: "u2",
+      type: "single",
+      title: "其他用户",
+      last_message: "保留",
+      created_at: 10,
+      updated_at: 10,
+      pinned_at: null,
+      deleted_at: null,
+    })
+    chatMessages.push({
+      id: "other-chat-message",
+      user_id: "u2",
+      conversation_id: "other-chat",
+      role: "user",
+      content: "不能删除",
+      created_at: 10,
+    })
+
+    const response = await chatRoutes.request(
+      new Request("http://localhost/conversations/other-chat", {
+        method: "DELETE",
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+
+    expect(response.status).toBe(200)
+    expect(conversations.find(
+      (conversation) => conversation.id === "other-chat",
+    )?.deleted_at).toBeNull()
+    expect(chatMessages.map((message) => message.id)).toEqual([
+      "other-chat-message",
+    ])
+  })
+
+  it("returns 404 when pinning a missing conversation", async () => {
+    const { env } = createEnvFixture()
+
+    const response = await chatRoutes.request(
+      new Request("http://localhost/conversations/missing/pin", {
+        method: "POST",
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+
+    expect(response.status).toBe(404)
   })
 })

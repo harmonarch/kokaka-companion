@@ -37,6 +37,9 @@ type ConversationState = {
   createGroup: (input: { title: string; agentIds: string[] }) => Promise<string>
   setActiveConversation: (conversationId: string) => void
   updateConversationPreview: (conversationId: string, message: string) => void
+  pinConversation: (conversationId: string) => Promise<void>
+  unpinConversation: (conversationId: string) => Promise<void>
+  deleteConversation: (conversationId: string) => Promise<void>
   getConversationAgents: (conversationId: string) => AgentProfile[]
 }
 
@@ -57,6 +60,7 @@ const defaultConversation: ChatConversation = {
   last_message: "可以从一句很小的话开始",
   created_at: 1,
   updated_at: 1,
+  pinned_at: null,
 }
 
 const legacyDefaultConversationIds = new Set(["chat:agent:kogether"])
@@ -105,7 +109,14 @@ function normalizeConversation(
       input.updated_at ||
       input.created_at ||
       (isDefaultConversation ? defaultConversation.updated_at : now()),
+    pinned_at: input.pinned_at ?? null,
   }
+}
+
+function sortConversations(a: ChatConversation, b: ChatConversation) {
+  const pinned = Number(Boolean(b.pinned_at)) - Number(Boolean(a.pinned_at))
+  if (pinned !== 0) return pinned
+  return b.updated_at - a.updated_at
 }
 
 function withDefaults(input?: Partial<ChatConversationsResponse>) {
@@ -135,11 +146,11 @@ function withDefaults(input?: Partial<ChatConversationsResponse>) {
       Boolean(conversation),
     )
 
-  if (!conversations.some((item) => item.id === defaultConversation.id)) {
+  if (!input && !conversations.some((item) => item.id === defaultConversation.id)) {
     conversations.push(defaultConversation)
   }
 
-  const sorted = conversations.sort((a, b) => b.updated_at - a.updated_at)
+  const sorted = conversations.sort(sortConversations)
   return {
     agents,
     conversations: sorted,
@@ -159,7 +170,7 @@ function getNextActiveConversationId(
   ) {
     return normalizedCurrent
   }
-  return conversations[0]?.id || defaultConversation.id
+  return conversations[0]?.id ?? null
 }
 
 function showNetworkErrorToast(error: unknown) {
@@ -180,10 +191,13 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
   hydrate: async (force = false) => {
     const user = useAuthStore.getState().user
     if (!user) {
-      const state = withDefaults()
+      const state = withDefaults({})
       set({
         ...state,
-        activeConversationId: defaultConversation.id,
+        activeConversationId: getNextActiveConversationId(
+          state.conversations,
+          defaultConversation.id,
+        ),
         ready: true,
         loading: false,
         userId: null,
@@ -228,7 +242,10 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       const state = withDefaults()
       set({
         ...state,
-        activeConversationId: defaultConversation.id,
+        activeConversationId: getNextActiveConversationId(
+          state.conversations,
+          get().activeConversationId,
+        ),
         ready: true,
         loading: false,
         userId,
@@ -263,7 +280,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       ...current.conversations.filter(
         (conversation) => conversation.id !== response.conversation.id,
       ),
-    ].sort((a, b) => b.updated_at - a.updated_at)
+    ].sort(sortConversations)
     const next = {
       agents,
       conversations,
@@ -284,7 +301,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       ...current.conversations.filter(
         (conversation) => conversation.id !== response.conversation.id,
       ),
-    ].sort((a, b) => b.updated_at - a.updated_at)
+    ].sort(sortConversations)
     const next = {
       conversations,
       activeConversationId: response.conversation.id,
@@ -311,8 +328,104 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
               }
             : conversation,
         )
-        .sort((a, b) => b.updated_at - a.updated_at),
+        .sort(sortConversations),
     })
+  },
+  pinConversation: async (conversationId) => {
+    const current = get()
+    const existing = current.conversations.find(
+      (conversation) => conversation.id === conversationId,
+    )
+    if (!existing || existing.pinned_at) return
+    const optimistic: ChatConversation = {
+      ...existing,
+      pinned_at: now(),
+    }
+    set({
+      conversations: [
+        optimistic,
+        ...current.conversations.filter(
+          (conversation) => conversation.id !== conversationId,
+        ),
+      ].sort(sortConversations),
+    })
+    try {
+      const response = await useAuthStore
+        .getState()
+        .client.pinChatConversation(conversationId)
+      const state = get()
+      set({
+        conversations: [
+          response.conversation,
+          ...state.conversations.filter(
+            (conversation) => conversation.id !== conversationId,
+          ),
+        ].sort(sortConversations),
+      })
+    } catch (error) {
+      showNetworkErrorToast(error)
+      set({
+        conversations: current.conversations,
+        error: getReadableErrorMessage(error, "聊天置顶失败"),
+      })
+    }
+  },
+  unpinConversation: async (conversationId) => {
+    const current = get()
+    const existing = current.conversations.find(
+      (conversation) => conversation.id === conversationId,
+    )
+    if (!existing || !existing.pinned_at) return
+    set({
+      conversations: current.conversations
+        .map((conversation) =>
+          conversation.id === conversationId
+            ? { ...conversation, pinned_at: null }
+            : conversation,
+        )
+        .sort(sortConversations),
+    })
+    try {
+      const response = await useAuthStore
+        .getState()
+        .client.unpinChatConversation(conversationId)
+      const state = get()
+      set({
+        conversations: [
+          response.conversation,
+          ...state.conversations.filter(
+            (conversation) => conversation.id !== conversationId,
+          ),
+        ].sort(sortConversations),
+      })
+    } catch (error) {
+      showNetworkErrorToast(error)
+      set({
+        conversations: current.conversations,
+        error: getReadableErrorMessage(error, "取消置顶失败"),
+      })
+    }
+  },
+  deleteConversation: async (conversationId) => {
+    const current = get()
+    const conversations = current.conversations.filter(
+      (conversation) => conversation.id !== conversationId,
+    )
+    const activeConversationId =
+      current.activeConversationId === conversationId
+        ? getNextActiveConversationId(conversations, null)
+        : current.activeConversationId
+    set({ conversations, activeConversationId })
+    try {
+      await useAuthStore.getState().client.deleteChatConversation(conversationId)
+    } catch (error) {
+      showNetworkErrorToast(error)
+      set({
+        conversations: current.conversations,
+        activeConversationId: current.activeConversationId,
+        error: getReadableErrorMessage(error, "聊天删除失败"),
+      })
+    }
   },
   getConversationAgents: (conversationId) => {
     const state = get()

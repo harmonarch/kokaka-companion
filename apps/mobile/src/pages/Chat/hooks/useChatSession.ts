@@ -13,6 +13,7 @@ export function useChatSession() {
   const activeConversationId = useConversationStore(
     (state) => state.activeConversationId,
   )
+  const conversations = useConversationStore((state) => state.conversations)
   const loadProfiles = useProfileStore((state) => state.loadProfiles)
   const connect = useChatStore((state) => state.connect)
   const loadHistory = useChatStore((state) => state.loadHistory)
@@ -46,6 +47,10 @@ export function useChatSession() {
 
   return {
     restoringUser: restoringUser || (Boolean(user) && !conversationsReady),
+    hasActiveConversation: Boolean(
+      activeConversationId &&
+        conversations.some((conversation) => conversation.id === activeConversationId),
+    ),
     user,
   }
 }

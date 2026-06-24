@@ -14,6 +14,15 @@ export function useChatListPage() {
   const userAvatarUrl = useConversationStore((state) => state.userAvatarUrl)
   const storedUserName = useConversationStore((state) => state.userName)
   const createAgent = useConversationStore((state) => state.createAgent)
+  const pinConversation = useConversationStore(
+    (state) => state.pinConversation,
+  )
+  const unpinConversation = useConversationStore(
+    (state) => state.unpinConversation,
+  )
+  const deleteConversation = useConversationStore(
+    (state) => state.deleteConversation,
+  )
   const setActiveConversation = useConversationStore(
     (state) => state.setActiveConversation,
   )
@@ -58,7 +67,10 @@ export function useChatListPage() {
     loading,
     openAgentCreator,
     openConversation,
+    pinConversation,
     saveAgent,
+    unpinConversation,
+    deleteConversation,
     user,
     userAvatarUrl,
     userName,

@@ -13,6 +13,7 @@ export const useChat = () => {
 
   return {
     restoringUser: session.restoringUser,
+    hasActiveConversation: session.hasActiveConversation,
     user: session.user,
     chatTitle: header.chatTitle,
     agentStatusText: header.agentStatusText,

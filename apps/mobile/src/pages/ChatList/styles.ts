@@ -126,6 +126,105 @@ export const styles = StyleSheet.create({
     lineHeight: 19,
     marginTop: 4,
   },
+  actionLayer: {
+    flex: 1,
+  },
+  actionScrim: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  actionMenu: {
+    position: "absolute",
+    width: 150,
+    borderRadius: 6,
+    overflow: "hidden",
+  },
+  actionMenuItem: {
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  actionMenuItemPressed: {
+    opacity: 0.72,
+  },
+  actionMenuText: {
+    color: "#ffffff",
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: "700",
+  },
+  actionMenuDestructiveText: {
+    color: "#ff6b6b",
+  },
+  deleteLayer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 24,
+  },
+  deleteScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.42)",
+  },
+  deleteDialog: {
+    width: "100%",
+    maxWidth: 420,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+  },
+  deleteKicker: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "800",
+  },
+  deleteTitle: {
+    marginTop: 5,
+    fontSize: 20,
+    lineHeight: 27,
+    fontWeight: "800",
+  },
+  deleteHint: {
+    marginTop: 12,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  deleteActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+    marginTop: 18,
+  },
+  deleteCancelButton: {
+    minHeight: 38,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  deleteCancelText: {
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: "700",
+  },
+  deleteConfirmButton: {
+    minHeight: 38,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  deleteConfirmText: {
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: "800",
+  },
+  disabled: {
+    opacity: 0.55,
+  },
   emptyState: {
     minHeight: 180,
     alignItems: "center",

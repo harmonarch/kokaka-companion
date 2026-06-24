@@ -1,9 +1,24 @@
-import { memo, useCallback, useMemo } from "react"
-import { FlatList, Image, Pressable, Text, View } from "react-native"
+import { memo, useCallback, useMemo, useState } from "react"
+import {
+  FlatList,
+  Image,
+  Modal,
+  Pressable,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native"
+import type { GestureResponderEvent } from "react-native"
 import type { AgentProfile, ChatConversation } from "@/stores/conversationStore"
 import type { AppTheme } from "@/theme"
 import { styles } from "../styles"
 import type { ChatListPalette } from "../types"
+
+const menuWidth = 150
+const menuItemHeight = 42
+const menuHeight = menuItemHeight * 2
+const menuMargin = 8
+const menuGap = 14
 
 type ConversationListProps = {
   conversations: ChatConversation[]
@@ -13,6 +28,9 @@ type ConversationListProps = {
   theme: AppTheme
   palette: ChatListPalette
   onOpenConversation: (conversationId: string) => void
+  onPinConversation: (conversationId: string) => Promise<void>
+  onUnpinConversation: (conversationId: string) => Promise<void>
+  onDeleteConversation: (conversationId: string) => Promise<void>
 }
 
 type ConversationRowProps = {
@@ -23,12 +41,22 @@ type ConversationRowProps = {
   theme: AppTheme
   palette: ChatListPalette
   onOpenConversation: (conversationId: string) => void
+  onLongPress: (
+    conversation: ChatConversation,
+    event: GestureResponderEvent,
+  ) => void
 }
 
 type GroupAvatarMember = {
   id: string
   name: string
   avatar_url?: string | null
+}
+
+type ActiveMenu = {
+  conversation: ChatConversation
+  x: number
+  y: number
 }
 
 export function ConversationList({
@@ -39,7 +67,15 @@ export function ConversationList({
   theme,
   palette,
   onOpenConversation,
+  onPinConversation,
+  onUnpinConversation,
+  onDeleteConversation,
 }: ConversationListProps) {
+  const { width, height } = useWindowDimensions()
+  const [activeMenu, setActiveMenu] = useState<ActiveMenu | null>(null)
+  const [deleteConversation, setDeleteConversation] =
+    useState<ChatConversation | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const agentById = useMemo(
     () => new Map(agents.map((agent) => [agent.id, agent])),
     [agents],
@@ -47,6 +83,16 @@ export function ConversationList({
   const emptyState = useMemo(
     () => <EmptyConversationState theme={theme} />,
     [theme],
+  )
+  const openConversationMenu = useCallback(
+    (conversation: ChatConversation, event: GestureResponderEvent) => {
+      setActiveMenu({
+        conversation,
+        x: event.nativeEvent.pageX,
+        y: event.nativeEvent.pageY,
+      })
+    },
+    [],
   )
   const renderConversation = useCallback(
     ({ item }: { item: ChatConversation }) => (
@@ -58,21 +104,75 @@ export function ConversationList({
         theme={theme}
         palette={palette}
         onOpenConversation={onOpenConversation}
+        onLongPress={openConversationMenu}
       />
     ),
-    [agentById, onOpenConversation, palette, theme, userAvatarUrl, userName],
+    [
+      agentById,
+      onOpenConversation,
+      openConversationMenu,
+      palette,
+      theme,
+      userAvatarUrl,
+      userName,
+    ],
   )
+  const togglePin = useCallback(async () => {
+    const conversation = activeMenu?.conversation
+    if (!conversation) return
+    setActiveMenu(null)
+    if (conversation.pinned_at) {
+      await onUnpinConversation(conversation.id)
+      return
+    }
+    await onPinConversation(conversation.id)
+  }, [activeMenu, onPinConversation, onUnpinConversation])
+  const requestDelete = useCallback(() => {
+    if (!activeMenu) return
+    setDeleteConversation(activeMenu.conversation)
+    setActiveMenu(null)
+  }, [activeMenu])
+  const confirmDelete = useCallback(async () => {
+    if (!deleteConversation || deleting) return
+    setDeleting(true)
+    try {
+      await onDeleteConversation(deleteConversation.id)
+      setDeleteConversation(null)
+    } finally {
+      setDeleting(false)
+    }
+  }, [deleteConversation, deleting, onDeleteConversation])
 
   return (
-    <FlatList
-      data={conversations}
-      keyExtractor={conversationKey}
-      style={[styles.list, { backgroundColor: palette.rowSurface }]}
-      contentContainerStyle={styles.listContent}
-      showsVerticalScrollIndicator={false}
-      ListEmptyComponent={emptyState}
-      renderItem={renderConversation}
-    />
+    <>
+      <FlatList
+        data={conversations}
+        keyExtractor={conversationKey}
+        style={[styles.list, { backgroundColor: palette.rowSurface }]}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={emptyState}
+        renderItem={renderConversation}
+      />
+      <ConversationActionMenu
+        menu={activeMenu}
+        screenWidth={width}
+        screenHeight={height}
+        theme={theme}
+        onClose={() => setActiveMenu(null)}
+        onTogglePin={togglePin}
+        onDelete={requestDelete}
+      />
+      <DeleteConversationDialog
+        conversation={deleteConversation}
+        loading={deleting}
+        theme={theme}
+        onCancel={() => {
+          if (!deleting) setDeleteConversation(null)
+        }}
+        onConfirm={confirmDelete}
+      />
+    </>
   )
 }
 
@@ -84,6 +184,7 @@ const ConversationRow = memo(function ConversationRow({
   theme,
   palette,
   onOpenConversation,
+  onLongPress,
 }: ConversationRowProps) {
   const members = conversation.agent_ids
     .map((id) => agentById.get(id))
@@ -103,6 +204,7 @@ const ConversationRow = memo(function ConversationRow({
   return (
     <Pressable
       onPress={() => onOpenConversation(conversation.id)}
+      onLongPress={(event) => onLongPress(conversation, event)}
       style={({ pressed }) => [
         styles.row,
         {
@@ -159,6 +261,177 @@ function EmptyConversationState({ theme }: { theme: AppTheme }) {
         还没有聊天
       </Text>
     </View>
+  )
+}
+
+function ConversationActionMenu({
+  menu,
+  screenWidth,
+  screenHeight,
+  theme,
+  onClose,
+  onTogglePin,
+  onDelete,
+}: {
+  menu: ActiveMenu | null
+  screenWidth: number
+  screenHeight: number
+  theme: AppTheme
+  onClose: () => void
+  onTogglePin: () => void
+  onDelete: () => void
+}) {
+  if (!menu) return null
+
+  const left = clamp(
+    menu.x - menuWidth / 2,
+    menuMargin,
+    Math.max(menuMargin, screenWidth - menuWidth - menuMargin),
+  )
+  const top = clamp(
+    menu.y + menuGap,
+    menuMargin,
+    Math.max(menuMargin, screenHeight - menuHeight - menuMargin),
+  )
+  const pinned = Boolean(menu.conversation.pinned_at)
+
+  return (
+    <Modal transparent visible animationType="fade" onRequestClose={onClose}>
+      <View style={styles.actionLayer}>
+        <Pressable style={styles.actionScrim} onPress={onClose} />
+        <View
+          style={[
+            styles.actionMenu,
+            {
+              left,
+              top,
+              backgroundColor: theme.mode === "dark" ? "#2b2b2b" : "#4c4c4c",
+            },
+          ]}
+        >
+          <ActionMenuButton
+            label={pinned ? "取消置顶" : "置顶"}
+            onPress={onTogglePin}
+          />
+          <ActionMenuButton label="删除该聊天" destructive onPress={onDelete} />
+        </View>
+      </View>
+    </Modal>
+  )
+}
+
+function ActionMenuButton({
+  label,
+  destructive,
+  onPress,
+}: {
+  label: string
+  destructive?: boolean
+  onPress: () => void
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.actionMenuItem,
+        pressed && styles.actionMenuItemPressed,
+      ]}
+    >
+      <Text
+        style={[
+          styles.actionMenuText,
+          destructive && styles.actionMenuDestructiveText,
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  )
+}
+
+function DeleteConversationDialog({
+  conversation,
+  loading,
+  theme,
+  onCancel,
+  onConfirm,
+}: {
+  conversation: ChatConversation | null
+  loading: boolean
+  theme: AppTheme
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <Modal
+      visible={conversation !== null}
+      transparent
+      animationType="fade"
+      onRequestClose={onCancel}
+    >
+      <View style={styles.deleteLayer}>
+        <Pressable
+          style={styles.deleteScrim}
+          onPress={onCancel}
+          disabled={loading}
+        />
+        <View
+          style={[
+            styles.deleteDialog,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+        >
+          <Text style={[styles.deleteKicker, { color: theme.subtle }]}>
+            删除聊天
+          </Text>
+          <Text style={[styles.deleteTitle, { color: theme.text }]}>
+            确认删除这个聊天？
+          </Text>
+          <Text
+            numberOfLines={2}
+            style={[styles.deleteHint, { color: theme.subtle }]}
+          >
+            {conversation?.title ?? ""} 的聊天记录也会一起删除
+          </Text>
+          <View style={styles.deleteActions}>
+            <Pressable
+              onPress={onCancel}
+              disabled={loading}
+              style={({ pressed }) => [
+                styles.deleteCancelButton,
+                { borderColor: theme.border },
+                pressed &&
+                  !loading && {
+                    backgroundColor: theme.elevated,
+                  },
+                loading && styles.disabled,
+              ]}
+            >
+              <Text style={[styles.deleteCancelText, { color: theme.text }]}>
+                取消
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={onConfirm}
+              disabled={loading}
+              style={[
+                styles.deleteConfirmButton,
+                { backgroundColor: theme.danger },
+                loading && styles.disabled,
+              ]}
+            >
+              <Text
+                style={[styles.deleteConfirmText, { color: theme.primaryText }]}
+              >
+                {loading ? "删除中" : "确认删除"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
   )
 }
 
@@ -235,6 +508,10 @@ function getGroupAvatarTileStyle(count: number, index: number) {
 
 function conversationKey(conversation: ChatConversation) {
   return conversation.id
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
 }
 
 function formatConversationTime(value: number) {

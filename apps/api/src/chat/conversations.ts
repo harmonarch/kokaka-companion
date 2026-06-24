@@ -29,6 +29,8 @@ type ConversationRow = {
   last_message: string
   created_at: number
   updated_at: number
+  pinned_at: number | null
+  deleted_at: number | null
 }
 
 type ConversationAgentRow = {
@@ -70,6 +72,8 @@ export async function ensureChatConversationsTables(env: Env) {
         last_message TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
+        pinned_at INTEGER,
+        deleted_at INTEGER,
         PRIMARY KEY (user_id, id)
       )`,
     ),
@@ -91,6 +95,8 @@ export async function ensureChatConversationsTables(env: Env) {
         ON chat_conversation_agents(user_id, conversation_id, position)`,
     ),
   ])
+  await addColumnIfMissing(env, "chat_conversations", "pinned_at", "INTEGER")
+  await addColumnIfMissing(env, "chat_conversations", "deleted_at", "INTEGER")
 }
 
 export async function ensureDefaultConversation(env: Env, userId: string) {
@@ -103,6 +109,12 @@ export async function ensureDefaultConversation(env: Env, userId: string) {
     .bind(userId)
     .first<ChatProfile>()
   const defaultName = profile?.nickname?.trim() || "小练"
+  const deletedDefault = await env.DB.prepare(
+    "SELECT deleted_at FROM chat_conversations WHERE user_id = ? AND id = ? AND deleted_at IS NOT NULL",
+  )
+    .bind(userId, defaultConversationId)
+    .first<{ deleted_at: number }>()
+  if (deletedDefault) return
 
   await env.DB.batch([
     env.DB.prepare(
@@ -131,8 +143,18 @@ export async function ensureDefaultConversation(env: Env, userId: string) {
     ),
     env.DB.prepare(
       `INSERT OR IGNORE INTO chat_conversations
-        (id, user_id, type, title, last_message, created_at, updated_at)
-       VALUES (?, ?, 'single', ?, ?, ?, ?)`,
+        (
+          id,
+          user_id,
+          type,
+          title,
+          last_message,
+          created_at,
+          updated_at,
+          pinned_at,
+          deleted_at
+        )
+       VALUES (?, ?, 'single', ?, ?, ?, ?, NULL, NULL)`,
     ).bind(
       defaultConversationId,
       userId,
@@ -174,9 +196,18 @@ export async function getChatConversationList(env: Env, userId: string) {
       .all<AgentRow>()
       .then((result) => result.results ?? []),
     env.DB.prepare(
-      `SELECT id, user_id, type, title, last_message, created_at, updated_at
+      `SELECT
+          id,
+          user_id,
+          type,
+          title,
+          last_message,
+          created_at,
+          updated_at,
+          pinned_at,
+          deleted_at
          FROM chat_conversations
-         WHERE user_id = ?
+         WHERE user_id = ? AND deleted_at IS NULL
          ORDER BY updated_at DESC, created_at DESC`,
     )
       .bind(userId)
@@ -247,12 +278,13 @@ export async function getChatConversationList(env: Env, userId: string) {
           latestMessage && latestMessage.created_at > row.updated_at
             ? latestMessage.created_at
             : row.updated_at,
+        pinned_at: row.pinned_at ?? null,
       }
     })
     .filter((conversation): conversation is ChatConversation =>
       Boolean(conversation),
     )
-    .sort((a, b) => b.updated_at - a.updated_at)
+    .sort(sortConversations)
 
   return {
     user: {
@@ -297,6 +329,7 @@ export async function createSingleChatConversation(
     last_message: personaPrompt || "新的 Agent 已添加",
     created_at: now,
     updated_at: now,
+    pinned_at: null,
   }
 
   await env.DB.batch([
@@ -315,8 +348,18 @@ export async function createSingleChatConversation(
     ),
     env.DB.prepare(
       `INSERT INTO chat_conversations
-        (id, user_id, type, title, last_message, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        (
+          id,
+          user_id,
+          type,
+          title,
+          last_message,
+          created_at,
+          updated_at,
+          pinned_at,
+          deleted_at
+        )
+       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL)`,
     ).bind(
       conversation.id,
       input.userId,
@@ -367,13 +410,24 @@ export async function createGroupChatConversation(
     last_message: "群聊已创建",
     created_at: now,
     updated_at: now,
+    pinned_at: null,
   }
 
   await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO chat_conversations
-        (id, user_id, type, title, last_message, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        (
+          id,
+          user_id,
+          type,
+          title,
+          last_message,
+          created_at,
+          updated_at,
+          pinned_at,
+          deleted_at
+        )
+       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL)`,
     ).bind(
       conversation.id,
       input.userId,
@@ -395,6 +449,59 @@ export async function createGroupChatConversation(
   return {
     conversation,
   }
+}
+
+export async function setChatConversationPinned(
+  env: Env,
+  input: {
+    userId: string
+    conversationId: string
+    pinned: boolean
+  },
+) {
+  await ensureChatConversationsTables(env)
+  await env.DB.prepare(
+    input.pinned
+      ? `UPDATE chat_conversations
+         SET pinned_at = ?
+         WHERE user_id = ? AND id = ? AND deleted_at IS NULL`
+      : `UPDATE chat_conversations
+         SET pinned_at = NULL
+         WHERE user_id = ? AND id = ? AND deleted_at IS NULL`,
+  )
+    .bind(
+      ...(input.pinned
+        ? [Date.now(), input.userId, input.conversationId]
+        : [input.userId, input.conversationId]),
+    )
+    .run()
+  return (await getChatConversationList(env, input.userId)).conversations.find(
+    (conversation) => conversation.id === input.conversationId,
+  )
+}
+
+export async function deleteChatConversation(
+  env: Env,
+  input: {
+    userId: string
+    conversationId: string
+  },
+) {
+  if (input.conversationId === defaultConversationId) {
+    await ensureDefaultConversation(env, input.userId)
+  }
+  await ensureChatConversationsTables(env)
+  await ensureChatMessagesTable(env)
+  await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE chat_conversations
+       SET deleted_at = ?, pinned_at = NULL
+       WHERE user_id = ? AND id = ? AND deleted_at IS NULL`,
+    ).bind(Date.now(), input.userId, input.conversationId),
+    env.DB.prepare(
+      "DELETE FROM chat_messages WHERE user_id = ? AND conversation_id = ?",
+    ).bind(input.userId, input.conversationId),
+  ])
 }
 
 export async function deleteChatConversationData(env: Env, userId: string) {
@@ -450,4 +557,24 @@ function toAgent(row: AgentRow): ChatConversationAgent {
 
 function createId(prefix: string) {
   return `${prefix}:${crypto.randomUUID()}`
+}
+
+async function addColumnIfMissing(
+  env: Env,
+  table: string,
+  column: string,
+  definition: string,
+) {
+  const result = await env.DB.prepare(`PRAGMA table_info(${table})`).all<{
+    name: string
+  }>()
+  const columns = result.results ?? []
+  if (columns.some((entry) => entry.name === column)) return
+  await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run()
+}
+
+function sortConversations(a: ChatConversation, b: ChatConversation) {
+  const pinned = Number(Boolean(b.pinned_at)) - Number(Boolean(a.pinned_at))
+  if (pinned !== 0) return pinned
+  return b.updated_at - a.updated_at
 }

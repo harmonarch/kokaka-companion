@@ -42,6 +42,9 @@ export default function ChatList() {
           theme={theme}
           palette={palette}
           onOpenConversation={chatList.openConversation}
+          onPinConversation={chatList.pinConversation}
+          onUnpinConversation={chatList.unpinConversation}
+          onDeleteConversation={chatList.deleteConversation}
         />
         <BottomTabs active="chats" theme={theme} />
       </View>

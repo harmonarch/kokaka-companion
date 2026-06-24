@@ -1,5 +1,6 @@
 import {
   deleteChatMessageResponseSchema,
+  deleteChatConversationResponseSchema,
   chatHistoryResponseSchema,
   chatHistoryRequestSchema,
   chatConversationsResponseSchema,
@@ -7,6 +8,7 @@ import {
   createGroupChatRequestSchema,
   createSingleChatRequestSchema,
   relationshipResponseSchema,
+  updateChatConversationResponseSchema,
 } from "@ai-companion/shared"
 import { Hono } from "hono"
 import { HTTPException } from "hono/http-exception"
@@ -16,7 +18,9 @@ import { ensureChatMessagesTable } from "@/chat/history"
 import {
   createGroupChatConversation,
   createSingleChatConversation,
+  deleteChatConversation,
   getChatConversationList,
+  setChatConversationPinned,
 } from "@/chat/conversations"
 import { getRelationshipState } from "@/agent/relationship/stateMachine"
 
@@ -56,6 +60,41 @@ chatRoutes.post("/conversations/group", async (c) => {
     agentIds: input.agent_ids,
   })
   return c.json(createChatConversationResponseSchema.parse(response), 201)
+})
+
+chatRoutes.post("/conversations/:id/pin", async (c) => {
+  const user = c.get("user")
+  const conversation = await setChatConversationPinned(c.env, {
+    userId: user.id,
+    conversationId: c.req.param("id"),
+    pinned: true,
+  })
+  if (!conversation) {
+    throw new HTTPException(404, { message: "聊天不存在" })
+  }
+  return c.json(updateChatConversationResponseSchema.parse({ conversation }))
+})
+
+chatRoutes.post("/conversations/:id/unpin", async (c) => {
+  const user = c.get("user")
+  const conversation = await setChatConversationPinned(c.env, {
+    userId: user.id,
+    conversationId: c.req.param("id"),
+    pinned: false,
+  })
+  if (!conversation) {
+    throw new HTTPException(404, { message: "聊天不存在" })
+  }
+  return c.json(updateChatConversationResponseSchema.parse({ conversation }))
+})
+
+chatRoutes.delete("/conversations/:id", async (c) => {
+  const user = c.get("user")
+  await deleteChatConversation(c.env, {
+    userId: user.id,
+    conversationId: c.req.param("id"),
+  })
+  return c.json(deleteChatConversationResponseSchema.parse({ ok: true }))
 })
 
 export function createChatHistoryCursorQuery(input: {

@@ -101,6 +101,10 @@ function showNetworkErrorToast(error: unknown) {
   if (message) useToastStore.getState().showToast(message)
 }
 
+function getActiveConversationId() {
+  return useConversationStore.getState().activeConversationId
+}
+
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   status: "idle",
@@ -132,10 +136,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       pendingOutgoingLoaded: true,
       messages: mergeMessages(
         get().messages,
-        toPendingUserMessages(
-          pending,
-          useConversationStore.getState().activeConversationId ?? "default",
-        ),
+        toPendingUserMessages(pending, getActiveConversationId() ?? ""),
       ),
     })
     return pending
@@ -195,8 +196,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 get().messages,
                 toPendingUserMessages(
                   pendingOutgoing,
-                  useConversationStore.getState().activeConversationId ??
-                    "default",
+                  getActiveConversationId() ?? "",
                 ),
               ),
             })
@@ -282,9 +282,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   loadHistory: async (force = false) => {
     const userId = useAuthStore.getState().user?.id
-    const conversationId =
-      useConversationStore.getState().activeConversationId ?? "default"
-    if (!userId) return
+    const conversationId = getActiveConversationId()
+    if (!userId || !conversationId) return
     let historyState = {
       loaded: get().historyLoaded,
       loading: get().historyLoading,
@@ -405,12 +404,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   loadOlderHistory: async () => {
     const userId = useAuthStore.getState().user?.id
-    const conversationId =
-      useConversationStore.getState().activeConversationId ?? "default"
+    const conversationId = getActiveConversationId()
     const messages = get().messages
     const oldestMessage = messages[messages.length - 1]
     if (
       !userId ||
+      !conversationId ||
       !oldestMessage ||
       get().historyLoading ||
       !get().historyLoaded ||
@@ -447,8 +446,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (get().connection !== "connected") return
     const now = Date.now()
     if (now - get().lastTypingSentAt < typingThrottleMs) return
-    const conversationId =
-      useConversationStore.getState().activeConversationId ?? "default"
+    const conversationId = getActiveConversationId()
+    if (!conversationId) return
     get().controller?.sendTyping(conversationId)
     set({ lastTypingSentAt: now })
   },
@@ -456,7 +455,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const trimmed = content.trim()
     if (!trimmed) return
     const conversationStore = useConversationStore.getState()
-    const conversationId = conversationStore.activeConversationId ?? "default"
+    const conversationId = conversationStore.activeConversationId
+    if (!conversationId) return
     const agents =
       conversationStore
         .getConversationAgents(conversationId)

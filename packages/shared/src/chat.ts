@@ -43,6 +43,7 @@ export const chatConversationSchema = z.object({
   last_message: z.string().max(500),
   created_at: z.number(),
   updated_at: z.number(),
+  pinned_at: z.number().nullable(),
 })
 
 export type ChatConversation = z.infer<typeof chatConversationSchema>
@@ -84,6 +85,22 @@ export const createChatConversationResponseSchema = z.object({
 
 export type CreateChatConversationResponse = z.infer<
   typeof createChatConversationResponseSchema
+>
+
+export const updateChatConversationResponseSchema = z.object({
+  conversation: chatConversationSchema,
+})
+
+export type UpdateChatConversationResponse = z.infer<
+  typeof updateChatConversationResponseSchema
+>
+
+export const deleteChatConversationResponseSchema = z.object({
+  ok: z.literal(true),
+})
+
+export type DeleteChatConversationResponse = z.infer<
+  typeof deleteChatConversationResponseSchema
 >
 
 export const clientChatMessageSchema = z.object({

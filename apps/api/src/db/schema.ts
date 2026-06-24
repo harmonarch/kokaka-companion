@@ -82,6 +82,8 @@ export const chatConversations = sqliteTable(
     lastMessage: text("last_message").notNull(),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
+    pinnedAt: integer("pinned_at"),
+    deletedAt: integer("deleted_at"),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.userId, table.id] }),

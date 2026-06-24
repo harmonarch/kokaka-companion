@@ -17,6 +17,7 @@ export default function Chat() {
   }
 
   if (!chat.user) return <Redirect href="/login" />
+  if (!chat.hasActiveConversation) return <Redirect href="/chats" />
 
   return (
     <View style={[styles.page, { backgroundColor: theme.background }]}>

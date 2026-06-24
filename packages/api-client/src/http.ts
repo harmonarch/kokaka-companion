@@ -6,6 +6,7 @@ import type {
   RegisterRequest,
   CreateGroupChatRequest,
   CreateChatConversationResponse,
+  UpdateChatConversationResponse,
   CreateSingleChatRequest,
   UpdateChatProfilesRequest,
   UpdateMeRequest,
@@ -24,6 +25,7 @@ import {
   authResponseSchema,
   chatConversationsResponseSchema,
   deleteChatMessageResponseSchema,
+  deleteChatConversationResponseSchema,
   createChatConversationResponseSchema,
   chatHistoryResponseSchema,
   chatProfilesSchema,
@@ -31,6 +33,7 @@ import {
   memoriesResponseSchema,
   memorySchema,
   relationshipResponseSchema,
+  updateChatConversationResponseSchema,
   userSchema,
 } from "@ai-companion/shared"
 
@@ -262,6 +265,37 @@ export function createHttpClient(options: HttpClientOptions) {
     return createChatConversationResponseSchema.parse(data)
   }
 
+  async function pinChatConversation(
+    id: string,
+  ): Promise<UpdateChatConversationResponse> {
+    const data = await request<unknown>(
+      `/chat/conversations/${encodeURIComponent(id)}/pin`,
+      { method: "POST" },
+      { auth: true },
+    )
+    return updateChatConversationResponseSchema.parse(data)
+  }
+
+  async function unpinChatConversation(
+    id: string,
+  ): Promise<UpdateChatConversationResponse> {
+    const data = await request<unknown>(
+      `/chat/conversations/${encodeURIComponent(id)}/unpin`,
+      { method: "POST" },
+      { auth: true },
+    )
+    return updateChatConversationResponseSchema.parse(data)
+  }
+
+  async function deleteChatConversation(id: string) {
+    const data = await request<unknown>(
+      `/chat/conversations/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+      { auth: true },
+    )
+    return deleteChatConversationResponseSchema.parse(data)
+  }
+
   async function relationship(): Promise<RelationshipResponse> {
     const data = await request<unknown>("/chat/relationship", undefined, {
       auth: true,
@@ -323,6 +357,9 @@ export function createHttpClient(options: HttpClientOptions) {
     chatConversations,
     createSingleChat,
     createGroupChat,
+    pinChatConversation,
+    unpinChatConversation,
+    deleteChatConversation,
     relationship,
     memories,
     memoryContext,
