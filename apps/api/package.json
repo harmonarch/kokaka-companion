@@ -6,6 +6,7 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev --local --persist-to .wrangler/state",
+    "dev:vectorize": "wrangler dev --local --persist-to .wrangler/state --experimental-vectorize-bind-to-prod",
     "build": "wrangler deploy --dry-run --outdir dist",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit",
