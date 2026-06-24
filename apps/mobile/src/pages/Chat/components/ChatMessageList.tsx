@@ -1,4 +1,5 @@
 import type { ChatMessage, ChatProfiles } from "@ai-companion/shared"
+import * as Clipboard from "expo-clipboard"
 import {
   FlatList,
   Modal,
@@ -13,11 +14,12 @@ import { useState } from "react"
 import type { GestureResponderEvent, ViewStyle } from "react-native"
 import type { AppTheme } from "@/theme"
 import type { AgentProfile } from "@/stores/conversationStore"
+import { useToastStore } from "@/stores/toastStore"
 import type { ProfileRole } from "../profile/types"
 import { styles } from "../styles"
 import { MessageBubble } from "./MessageBubble"
 
-const popoverWidth = 82
+const popoverWidth = 132
 const popoverHeight = 42
 const popoverMargin = 8
 const popoverGap = 18
@@ -74,6 +76,7 @@ export function ChatMessageList({
   const [activeMenu, setActiveMenu] = useState<ActiveMenu | null>(null)
   const [deleteMessage, setDeleteMessage] = useState<ChatMessage | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const showToast = useToastStore((state) => state.showToast)
 
   function openMessageMenu(
     message: ChatMessage,
@@ -90,6 +93,18 @@ export function ChatMessageList({
     if (!activeMenu) return
     setDeleteMessage(activeMenu.message)
     setActiveMenu(null)
+  }
+
+  async function copyMessage() {
+    if (!activeMenu) return
+    const content = activeMenu.message.content
+    setActiveMenu(null)
+    try {
+      await Clipboard.setStringAsync(content)
+      showToast("已复制")
+    } catch {
+      showToast("复制失败")
+    }
   }
 
   async function confirmDeleteMessage() {
@@ -142,6 +157,7 @@ export function ChatMessageList({
         menu={activeMenu}
         screenWidth={width}
         onClose={() => setActiveMenu(null)}
+        onCopy={() => void copyMessage()}
         onDelete={requestDeleteMessage}
       />
       <DeleteMessageDialog
@@ -207,11 +223,13 @@ function MessageActionPopover({
   menu,
   screenWidth,
   onClose,
+  onCopy,
   onDelete,
 }: {
   menu: ActiveMenu | null
   screenWidth: number
   onClose: () => void
+  onCopy: () => void
   onDelete: () => void
 }) {
   if (!menu) return null
@@ -244,6 +262,19 @@ function MessageActionPopover({
             },
           ]}
         >
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="复制消息"
+            onPress={onCopy}
+            style={({ pressed }) => [
+              localStyles.popoverButton,
+              pressed && localStyles.popoverButtonPressed,
+              webNoFocusOutline,
+            ]}
+          >
+            <Text style={localStyles.popoverText}>复制</Text>
+          </Pressable>
+          <View style={localStyles.popoverDivider} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="删除消息"
@@ -472,11 +503,12 @@ const localStyles = StyleSheet.create({
     height: popoverHeight,
     borderRadius: 6,
     backgroundColor: "#191919",
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
   popoverButton: {
-    width: "100%",
+    flex: 1,
     height: "100%",
     alignItems: "center",
     justifyContent: "center",
@@ -489,6 +521,11 @@ const localStyles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
     fontWeight: "700",
+  },
+  popoverDivider: {
+    width: 1,
+    height: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.22)",
   },
   popoverArrow: {
     position: "absolute",
