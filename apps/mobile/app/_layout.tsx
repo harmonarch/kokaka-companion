@@ -12,6 +12,17 @@ export default function Layout() {
     void hydrate()
   }, [hydrate])
 
+  useEffect(() => {
+    if (typeof document === "undefined") return
+
+    const preventContextMenu = (event: MouseEvent) => {
+      event.preventDefault()
+    }
+
+    document.addEventListener("contextmenu", preventContextMenu)
+    return () => document.removeEventListener("contextmenu", preventContextMenu)
+  }, [])
+
   return (
     <View style={{ flex: 1 }}>
       <Stack
