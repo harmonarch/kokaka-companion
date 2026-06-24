@@ -27,6 +27,7 @@ export default function Chat() {
           statusText={chat.agentStatusText}
           theme={theme}
           onBack={() => router.replace("/chats")}
+          onManageMemory={() => router.push("/memory")}
         />
         <ChatBody
           messages={chat.messages}

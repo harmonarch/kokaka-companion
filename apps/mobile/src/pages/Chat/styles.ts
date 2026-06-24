@@ -32,6 +32,7 @@ export const styles = StyleSheet.create({
   iconButton: {
     width: 44,
     height: 44,
+    borderRadius: 4,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -40,6 +41,35 @@ export const styles = StyleSheet.create({
     lineHeight: 36,
     fontWeight: "300",
     marginTop: -2,
+  },
+  moreText: {
+    fontSize: 26,
+    lineHeight: 28,
+    fontWeight: "600",
+    marginTop: -8,
+  },
+  headerMenuBackdrop: {
+    flex: 1,
+    alignItems: "flex-end",
+    paddingTop: 56,
+    paddingRight: 10,
+    backgroundColor: "rgba(0, 0, 0, 0.08)",
+  },
+  headerMenuCard: {
+    width: 132,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  headerMenuItem: {
+    minHeight: 48,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerMenuText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "500",
   },
   list: {
     flex: 1,
