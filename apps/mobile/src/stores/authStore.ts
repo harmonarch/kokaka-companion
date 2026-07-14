@@ -12,6 +12,10 @@ import {
 import { getUserAfterRefreshError } from "./authSession"
 import { apiBaseUrl } from "@/config/api"
 import { clearPendingOutgoing } from "./chatReliability"
+import {
+  createTraceId,
+  recordHttpObservation,
+} from "@/monitoring/sentry"
 
 type AuthState = {
   user: User | null
@@ -35,6 +39,9 @@ type AuthState = {
 export const useAuthStore = create<AuthState>((set, get) => {
   const client = createHttpClient({
     baseUrl: apiBaseUrl,
+    createTraceId,
+    onRequestComplete: recordHttpObservation,
+    onRequestError: recordHttpObservation,
     tokenStore: {
       getTokens: () => get().tokens,
       setTokens: async (tokens) => {
