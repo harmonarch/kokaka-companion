@@ -16,6 +16,7 @@
     "@ai-companion/shared": "workspace:*",
     "@langchain/core": "^0.3.29",
     "@langchain/langgraph": "^0.2.34",
+    "@sentry/cloudflare": "^10.65.0",
     "drizzle-orm": "^0.38.3",
     "hono": "^4.6.16",
     "zod": "^3.24.1"
