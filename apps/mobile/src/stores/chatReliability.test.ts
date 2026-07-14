@@ -114,6 +114,30 @@ describe("chat reliability helpers", () => {
     )
   })
 
+  it("keeps the trace id when restoring a pending message", () => {
+    assert.deepEqual(
+      toPendingUserMessages([
+        {
+          id: "m1",
+          content: "回来",
+          conversationId: "c1",
+          agents: [],
+          createdAt: 123,
+          traceId: "trace-1",
+        },
+      ]),
+      [
+        {
+          id: "m1",
+          role: "user",
+          content: "回来",
+          created_at: 123,
+          trace_id: "trace-1",
+        },
+      ],
+    )
+  })
+
   it("exposes pending message ids as retry targets", () => {
     const pending = upsertPendingOutgoing([], {
       id: "m1",

@@ -4,6 +4,7 @@ export type PendingOutgoingMessage<Agent = unknown> = {
   conversationId: string
   agents: Agent[]
   createdAt: number
+  traceId?: string
 }
 
 export type PendingUserMessage = {
@@ -11,6 +12,7 @@ export type PendingUserMessage = {
   role: "user"
   content: string
   created_at: number
+  trace_id?: string
 }
 
 export type PendingOutgoingStorage = {
@@ -79,5 +81,6 @@ export function toPendingUserMessages<Agent>(
       role: "user",
       content: message.content,
       created_at: message.createdAt,
+      ...(message.traceId ? { trace_id: message.traceId } : {}),
     }))
 }

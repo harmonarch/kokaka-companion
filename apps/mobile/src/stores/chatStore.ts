@@ -29,6 +29,12 @@ import {
   getNetworkErrorMessage,
   getReadableErrorMessage,
 } from "@/utils/errors"
+import {
+  captureAppError,
+  createTraceId,
+  finishChatRound,
+  startChatRound,
+} from "@/monitoring/sentry"
 import { useConversationStore } from "./conversationStore"
 import {
   isSameSession,
@@ -127,10 +133,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
   pendingOutgoingLoaded: false,
   loadPendingOutgoing: async () => {
     if (get().pendingOutgoingLoaded) return get().pendingOutgoing
-    const pending = await loadPendingOutgoing<ChatAgentContext>({
+    const loaded = await loadPendingOutgoing<ChatAgentContext>({
       loadJson,
       saveJson,
     })
+    const hadMissingTraceId = loaded.some((message) => !message.traceId)
+    const pending = loaded.map((message) => ({
+      ...message,
+      traceId: message.traceId ?? createTraceId(),
+    }))
+    if (hadMissingTraceId) {
+      await savePendingOutgoing({ loadJson, saveJson }, pending)
+    }
     set({
       pendingOutgoing: pending,
       pendingOutgoingLoaded: true,
@@ -153,6 +167,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           message.conversationId,
           message.id,
           message.agents,
+          message.traceId,
         )
       }
       return pending.length > 0
@@ -161,6 +176,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       wsUrl: chatWsUrl,
       getTokens: () => useAuthStore.getState().tokens,
       createClient: (options) => new ChatWebSocketClient(options),
+      onProtocolError: (error) => {
+        captureAppError(error, { operation: "chat.protocol" })
+      },
+      onSendError: (error, traceId) => {
+        captureAppError(error, { operation: "chat.send", traceId })
+        finishChatRound(traceId, "error")
+      },
       onStatus: (connection) => {
         const forceHistoryRefresh = get().connection === "reconnecting"
         set({
@@ -261,6 +283,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           })
         }
         if (message.type === "all_done") {
+          finishChatRound(message.trace_id, "ok")
           set({
             status: "idle",
             emotionState: message.metadata.emotion_state,
@@ -269,6 +292,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           })
         }
         if (message.type === "error") {
+          finishChatRound(message.trace_id, "error")
           set({
             status: "error",
             error: message.message,
@@ -466,11 +490,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
           persona_prompt: agent.persona_prompt,
         })) ?? []
     const createdAt = Date.now()
+    const traceId = createTraceId()
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
       content: trimmed,
       created_at: createdAt,
+      trace_id: traceId,
     }
     const currentPending = await get().loadPendingOutgoing()
     const pendingOutgoing = upsertPendingOutgoing(currentPending, {
@@ -479,10 +505,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
       conversationId,
       agents,
       createdAt,
+      traceId,
     })
+    startChatRound(traceId, conversationId)
     try {
       await savePendingOutgoing({ loadJson, saveJson }, pendingOutgoing)
     } catch (error) {
+      captureAppError(error, {
+        operation: "chat.pending.save",
+        traceId,
+        conversationId,
+      })
+      finishChatRound(traceId, "error")
       showNetworkErrorToast(error)
       set({
         status: "error",
@@ -500,7 +534,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     })
     conversationStore.updateConversationPreview(conversationId, trimmed)
     try {
-      get().controller?.send(trimmed, conversationId, userMessage.id, agents)
+      get()
+        .controller?.send(
+          trimmed,
+          conversationId,
+          userMessage.id,
+          agents,
+          traceId,
+        )
     } catch (error) {
       showNetworkErrorToast(error)
       set({
@@ -530,6 +571,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         message.conversationId,
         message.id,
         message.agents,
+        message.traceId,
       )
       set({ status: "sending", error: null, agentPresence: null })
     } catch (error) {
