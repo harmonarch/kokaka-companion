@@ -14,7 +14,8 @@ export async function ensureChatMessagesTable(env: Env) {
         content TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         expression_group_id TEXT,
-        expression_part_index INTEGER
+        expression_part_index INTEGER,
+        trace_id TEXT
       )`,
     ),
     env.DB.prepare(
@@ -35,6 +36,7 @@ export async function ensureChatMessagesTable(env: Env) {
     "expression_part_index",
     "INTEGER",
   )
+  await addColumnIfMissing(env, "chat_messages", "trace_id", "TEXT")
 }
 
 async function addColumnIfMissing(
@@ -125,9 +127,10 @@ function createInsertChatMessageStatement(
         content,
         created_at,
         expression_group_id,
-        expression_part_index
+        expression_part_index,
+        trace_id
       )
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(
     message.id,
     input.userId,
@@ -139,5 +142,6 @@ function createInsertChatMessageStatement(
     message.created_at,
     message.expression_group_id ?? null,
     message.expression_part_index ?? null,
+    message.trace_id ?? null,
   )
 }

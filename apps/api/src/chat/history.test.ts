@@ -1,8 +1,41 @@
 import { describe, expect, it } from "vitest"
-import { chatMessageExists, saveChatMessages } from "@/chat/history"
+import {
+  chatMessageExists,
+  ensureChatMessagesTable,
+  saveChatMessages,
+} from "@/chat/history"
 import type { Env } from "@/env"
 
 describe("chat history", () => {
+  it("adds trace_id to an existing chat_messages table", async () => {
+    const alteredColumns: string[] = []
+    const env = {
+      DB: {
+        prepare: (sql: string) => ({
+          all: async () => ({
+            results: [
+              { name: "id" },
+              { name: "agent_id" },
+              { name: "agent_name" },
+              { name: "expression_group_id" },
+              { name: "expression_part_index" },
+            ],
+          }),
+          run: async () => {
+            alteredColumns.push(sql)
+          },
+        }),
+        batch: async (queries: unknown[]) => queries,
+      },
+    } as unknown as Env
+
+    await ensureChatMessagesTable(env)
+
+    expect(alteredColumns).toEqual([
+      "ALTER TABLE chat_messages ADD COLUMN trace_id TEXT",
+    ])
+  })
+
   it("saves expression group metadata with chat messages", async () => {
     const statements: Array<{
       sql: string
@@ -27,6 +60,7 @@ describe("chat history", () => {
               { name: "created_at" },
               { name: "expression_group_id" },
               { name: "expression_part_index" },
+              { name: "trace_id" },
             ],
           }),
         }),
@@ -65,6 +99,7 @@ describe("chat history", () => {
       1,
       "group-1",
       0,
+      null,
     ])
   })
 
@@ -92,6 +127,7 @@ describe("chat history", () => {
               { name: "created_at" },
               { name: "expression_group_id" },
               { name: "expression_part_index" },
+              { name: "trace_id" },
             ],
           }),
         }),
@@ -157,6 +193,7 @@ describe("chat history", () => {
               { name: "created_at" },
               { name: "expression_group_id" },
               { name: "expression_part_index" },
+              { name: "trace_id" },
             ],
           }),
         }),

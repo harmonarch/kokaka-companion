@@ -138,7 +138,8 @@ export function createChatHistoryPageQuery(input: {
            content,
            created_at,
            expression_group_id,
-           expression_part_index
+           expression_part_index,
+           trace_id
          FROM chat_messages
          WHERE user_id = ?
            AND conversation_id = ?
@@ -164,7 +165,8 @@ export function createChatHistoryPageQuery(input: {
            content,
            created_at,
            expression_group_id,
-           expression_part_index
+           expression_part_index,
+           trace_id
          FROM chat_messages
          WHERE user_id = ?
            AND (created_at < ? OR (created_at = ? AND rowid < ?))
@@ -190,7 +192,8 @@ export function createChatHistoryPageQuery(input: {
            content,
            created_at,
            expression_group_id,
-           expression_part_index
+           expression_part_index,
+           trace_id
          FROM chat_messages
          WHERE user_id = ? AND conversation_id = ?
          ORDER BY created_at DESC, rowid DESC
@@ -208,7 +211,8 @@ export function createChatHistoryPageQuery(input: {
            content,
            created_at,
            expression_group_id,
-           expression_part_index
+           expression_part_index,
+           trace_id
          FROM chat_messages
          WHERE user_id = ?
          ORDER BY created_at DESC, rowid DESC
@@ -238,6 +242,7 @@ chatRoutes.get("/history", async (c) => {
     created_at: number
     expression_group_id: string | null
     expression_part_index: number | null
+    trace_id: string | null
   }>
 
   if (query.before_id) {
