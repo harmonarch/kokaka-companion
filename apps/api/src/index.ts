@@ -2,7 +2,7 @@ import { Hono } from "hono"
 import { cors } from "hono/cors"
 import type { AppBindings } from "@/middleware/auth"
 import { errorMiddleware } from "@/middleware/error"
-import { assertEnv } from "@/env"
+import { assertEnv, type Env } from "@/env"
 import { authRoutes } from "@/routes/auth"
 import { meRoutes } from "@/routes/me"
 import { accountRoutes } from "@/routes/account"
@@ -10,18 +10,29 @@ import { chatRoutes } from "@/routes/chat"
 import { memoryRoutes } from "@/routes/memories"
 import { profileRoutes } from "@/routes/profiles"
 import { handleChatWebSocket } from "@/ws/chat"
+import { withSentry } from "@sentry/cloudflare"
+import { resolveTraceId, sentryOptions } from "@/monitoring/sentry"
 
 const app = new Hono<AppBindings>()
 
-app.use("*", errorMiddleware)
 app.use(
   "*",
   cors({
     origin: "*",
-    allowHeaders: ["authorization", "content-type"],
+    allowHeaders: ["authorization", "content-type", "x-trace-id"],
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    exposeHeaders: ["x-trace-id"],
   }),
 )
+
+app.use("*", async (c, next) => {
+  const traceId = resolveTraceId(c.req.header("x-trace-id"))
+  c.set("traceId", traceId)
+  c.header("x-trace-id", traceId)
+  await next()
+})
+
+app.use("*", errorMiddleware)
 
 app.use("*", async (c, next) => {
   assertEnv(c.env)
@@ -41,7 +52,12 @@ app.route("/memories", memoryRoutes)
 app.route("/profiles", profileRoutes)
 
 app.get("/ws/chat", (c) =>
-  handleChatWebSocket(c.req.raw, c.env, c.executionCtx),
+  handleChatWebSocket(
+    c.req.raw,
+    c.env,
+    c.executionCtx,
+    c.get("traceId"),
+  ),
 )
 
-export default app
+export default withSentry((env) => sentryOptions(env as Env), app)

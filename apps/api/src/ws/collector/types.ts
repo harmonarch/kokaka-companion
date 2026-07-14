@@ -18,6 +18,7 @@ export type PendingMessageInput = {
   sessionId: string
   content: string
   agents?: ChatAgentContext[]
+  traceId?: string
   receivedAt?: number
 }
 
@@ -38,15 +39,15 @@ export type TimingConfig = {
 }
 
 export type MessageCollectorCallbacks = {
-  onStatus?: (status: "listening" | "replying") => void
+  onStatus?: (status: "listening" | "replying", traceId?: string) => void
   onSubmit: (input: {
     pending: PendingMessage[]
     expressionGroupId: string
     gentle: boolean
     replyingStartedAt: number
   }) => Promise<void>
-  onNudge: (text: string) => void
-  onError: (error: unknown) => void
+  onNudge: (text: string, traceId?: string) => void
+  onError: (error: unknown, traceId?: string) => void
 }
 
 export type MessageEvaluator = {

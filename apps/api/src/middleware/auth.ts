@@ -7,6 +7,7 @@ export type AppBindings = {
   Bindings: Env
   Variables: {
     user: AppUser
+    traceId: string
   }
 }
 

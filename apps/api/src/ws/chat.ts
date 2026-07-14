@@ -21,6 +21,11 @@ import {
 import { LLMEvaluator } from "@/ws/collector/llm-evaluator"
 import { MessageCollector } from "@/ws/collector/message-collector"
 import type { PendingMessage } from "@/ws/collector/types"
+import {
+  captureException,
+  monitoredTask,
+  monitorOperation,
+} from "@/monitoring/sentry"
 
 function send(socket: WebSocket, payload: unknown) {
   socket.send(JSON.stringify(payload))
@@ -144,6 +149,7 @@ export async function acknowledgeChatMessage(
     userId: string
     clientMessageId: string
     socket: WebSocket
+    traceId?: string
   },
 ) {
   const alreadyReceived = await chatMessageExists(env, {
@@ -154,6 +160,7 @@ export async function acknowledgeChatMessage(
     type: "agent_status",
     status: "received",
     client_message_id: input.clientMessageId,
+    trace_id: input.traceId,
   })
   return alreadyReceived
 }
@@ -185,6 +192,7 @@ function toCollectedMessages(input: {
       created_at: agentCreatedAt + part.index,
       expression_group_id: input.expressionGroupId,
       expression_part_index: part.index,
+      trace_id: input.pending[0]?.traceId ?? null,
     }),
   )
   const userMessages = input.pending.map(
@@ -195,6 +203,7 @@ function toCollectedMessages(input: {
       created_at: message.receivedAt,
       expression_group_id: input.expressionGroupId,
       expression_part_index: index,
+      trace_id: message.traceId ?? null,
     }),
   )
   return { userMessages, agentMessages }
@@ -350,6 +359,7 @@ export async function handleChatWebSocket(
   request: Request,
   env: Env,
   executionCtx?: ExecutionContext,
+  requestTraceId?: string,
 ) {
   const url = new URL(request.url)
   const token = url.searchParams.get("token")
@@ -376,10 +386,11 @@ export async function handleChatWebSocket(
       evalIntervalMs: 1000,
     },
     {
-      onStatus: (status) => {
+      onStatus: (status, traceId) => {
         trySend(server, {
           type: "agent_status",
           status,
+          trace_id: traceId ?? requestTraceId,
         })
       },
       onSubmit: async ({
@@ -388,6 +399,7 @@ export async function handleChatWebSocket(
         gentle,
         replyingStartedAt,
       }) => {
+        const traceId = pending[0]?.traceId ?? requestTraceId
         const content = pending.map((message) => message.content).join("\n")
         const shortMessageBurst = isShortMessageBurst(pending)
         const syntheticUserMessageId = `${expressionGroupId}:combined`
@@ -410,17 +422,24 @@ export async function handleChatWebSocket(
             label: "当前消息",
             index: 1,
             total: 1,
+            trace_id: traceId,
           })
         }
 
-        const result = await runAgent(env, {
-          userId: user.id,
-          message: content,
-          conversationId,
-          userMessageId: syntheticUserMessageId,
-          agents: replyAgents,
-          shortMessageBurst,
-        })
+        const result = await monitorOperation(
+          env,
+          "chat.generate_reply",
+          { traceId, conversationId, expressionGroupId },
+          () =>
+            runAgent(env, {
+              userId: user.id,
+              message: content,
+              conversationId,
+              userMessageId: syntheticUserMessageId,
+              agents: replyAgents,
+              shortMessageBurst,
+            }),
+        )
         const replyParts = withReplySpeakers(
           buildReplyParts(
             result.reply,
@@ -439,6 +458,7 @@ export async function handleChatWebSocket(
             content: result.reply,
             agent_id: replyParts[0]?.agentId,
             agent_name: replyParts[0]?.agentName,
+            trace_id: traceId,
           })
           trySend(server, {
             type: "all_done",
@@ -447,6 +467,7 @@ export async function handleChatWebSocket(
               relationship_state: result.relationshipState,
               topics_count: 1,
             },
+            trace_id: traceId,
           })
         } else {
           let collectedContext = result.context
@@ -503,6 +524,7 @@ export async function handleChatWebSocket(
                   expression_group_id: expressionGroupId,
                   expression_part_index: part.index,
                   expression_part_total: part.total,
+                  trace_id: traceId,
                 }) && sent
               if (!sent) {
                 connectionOpen = false
@@ -553,6 +575,7 @@ export async function handleChatWebSocket(
             trySend(server, {
               type: "topic_done",
               topic_id: "default",
+              trace_id: traceId,
             })
             trySend(server, {
               type: "all_done",
@@ -561,6 +584,7 @@ export async function handleChatWebSocket(
                 relationship_state: result.relationshipState,
                 topics_count: 1,
               },
+              trace_id: traceId,
             })
           }
 
@@ -588,9 +612,23 @@ export async function handleChatWebSocket(
             })
           }
           if (executionCtx) {
-            executionCtx.waitUntil(persistLongTermMemory())
+            executionCtx.waitUntil(
+              monitoredTask(env, persistLongTermMemory(), {
+                traceId,
+                userId: user.id,
+                conversationId: result.conversationId,
+                expressionGroupId,
+                operation: "chat.persist_long_term_memory",
+              }),
+            )
           } else {
-            await persistLongTermMemory()
+            await monitoredTask(env, persistLongTermMemory(), {
+              traceId,
+              userId: user.id,
+              conversationId: result.conversationId,
+              expressionGroupId,
+              operation: "chat.persist_long_term_memory",
+            })
           }
           return
         }
@@ -626,21 +664,42 @@ export async function handleChatWebSocket(
           })
         }
         if (executionCtx) {
-          executionCtx.waitUntil(persistLongTermMemory())
+          executionCtx.waitUntil(
+            monitoredTask(env, persistLongTermMemory(), {
+              traceId,
+              userId: user.id,
+              conversationId: result.conversationId,
+              expressionGroupId,
+              operation: "chat.persist_long_term_memory",
+            }),
+          )
         } else {
-          await persistLongTermMemory()
+          await monitoredTask(env, persistLongTermMemory(), {
+            traceId,
+            userId: user.id,
+            conversationId: result.conversationId,
+            expressionGroupId,
+            operation: "chat.persist_long_term_memory",
+          })
         }
       },
-      onNudge: (text) => {
+      onNudge: (text, traceId) => {
         trySend(server, {
           type: "nudge",
           content: text,
+          trace_id: traceId ?? requestTraceId,
         })
       },
-      onError: (error) => {
+      onError: (error, traceId) => {
+        captureException(env, error, {
+          traceId: traceId ?? requestTraceId,
+          userId: user.id,
+          operation: "chat.collector",
+        })
         trySend(server, {
           type: "error",
           message: error instanceof Error ? error.message : "Chat failed",
+          trace_id: traceId ?? requestTraceId,
         })
       },
     },
@@ -648,11 +707,15 @@ export async function handleChatWebSocket(
   )
 
   server.addEventListener("message", async (event) => {
+    let messageTraceId = requestTraceId
     try {
       connectionOpen = true
       const message = clientWsMessageSchema.parse(
         JSON.parse(String(event.data)),
       )
+      if (message.type === "message") {
+        messageTraceId = message.trace_id ?? requestTraceId
+      }
       if (message.type === "ping") {
         trySend(server, { type: "pong" })
         return
@@ -677,6 +740,7 @@ export async function handleChatWebSocket(
         userId: user.id,
         clientMessageId: message.client_message_id,
         socket: server,
+        traceId: messageTraceId,
       })
       if (alreadyReceived) return
       collector.addMessage({
@@ -684,24 +748,43 @@ export async function handleChatWebSocket(
         sessionId: message.session_id,
         content: message.content,
         agents: message.agents,
+        traceId: messageTraceId,
         receivedAt: Date.now(),
       })
     } catch (error) {
+      if (!(error instanceof SyntaxError)) {
+        captureException(env, error, {
+          traceId: messageTraceId,
+          userId: user.id,
+          operation: "chat.websocket_message",
+        })
+      }
       trySend(server, {
         type: "error",
         message: error instanceof Error ? error.message : "Chat failed",
+        trace_id: messageTraceId,
       })
     }
   })
   server.addEventListener("close", () => {
     connectionOpen = false
     void collector.forceDone().catch((error) => {
+      captureException(env, error, {
+        traceId: requestTraceId,
+        userId: user.id,
+        operation: "chat.disconnect",
+      })
       console.error("Failed to finish disconnected chat reply", error)
     })
   })
   server.addEventListener("error", () => {
     connectionOpen = false
     void collector.forceDone().catch((error) => {
+      captureException(env, error, {
+        traceId: requestTraceId,
+        userId: user.id,
+        operation: "chat.socket_error",
+      })
       console.error("Failed to finish errored chat reply", error)
     })
   })

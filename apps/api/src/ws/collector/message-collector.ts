@@ -45,10 +45,11 @@ export class MessageCollector {
       sessionId: input.sessionId,
       content: input.content,
       agents: input.agents,
+      traceId: input.traceId,
       receivedAt,
     })
     this.lastActivityAt = Math.max(this.lastActivityAt ?? 0, receivedAt)
-    this.callbacks.onStatus?.("listening")
+    this.callbacks.onStatus?.("listening", input.traceId)
     this.startEvalLoop()
   }
 
@@ -77,7 +78,7 @@ export class MessageCollector {
     if (this.evalTimer) return
     this.evalTimer = setInterval(() => {
       void this.evaluatePending().catch((error) => {
-        this.callbacks.onError(error)
+        this.callbacks.onError(error, this.pending[0]?.traceId)
       })
     }, this.config.evalIntervalMs)
   }
@@ -116,7 +117,7 @@ export class MessageCollector {
       const action = this.decide(result.status, silence)
       await this.executeAction(action)
     } catch (error) {
-      this.callbacks.onError(error)
+      this.callbacks.onError(error, this.pending[0]?.traceId)
       if (
         this.pending.length === evaluatedCount &&
         this.lastActivityAt === evaluatedActivityAt
@@ -155,7 +156,7 @@ export class MessageCollector {
         const nudge = await this.evaluator.generateNudge(
           this.pending.map((message) => message.content),
         )
-        this.callbacks.onNudge(nudge)
+        this.callbacks.onNudge(nudge, this.pending[0]?.traceId)
         this.nudgeSent = true
         return
       }
@@ -181,7 +182,7 @@ export class MessageCollector {
     this.lastActivityAt = null
 
     const replyingStartedAt = this.now()
-    this.callbacks.onStatus?.("replying")
+    this.callbacks.onStatus?.("replying", pending[0]?.traceId)
     await this.callbacks.onSubmit({
       pending,
       expressionGroupId,

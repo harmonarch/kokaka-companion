@@ -13,6 +13,10 @@ export type Env = {
   EMBEDDING_BASE_URL?: string
   EMBEDDING_MODEL?: string
   EMBEDDING_API_KEY?: string
+  SENTRY_DSN?: string
+  SENTRY_ENVIRONMENT?: string
+  SENTRY_RELEASE?: string
+  SENTRY_TRACES_SAMPLE_RATE?: string
 }
 
 const required = [
