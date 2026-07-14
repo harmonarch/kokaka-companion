@@ -15,6 +15,7 @@ export const chatMessageSchema = z.object({
   created_at: z.number(),
   expression_group_id: z.string().optional().nullable(),
   expression_part_index: z.number().int().nonnegative().optional().nullable(),
+  trace_id: z.string().min(1).optional().nullable(),
 })
 
 export type ChatMessage = z.infer<typeof chatMessageSchema>
@@ -108,6 +109,7 @@ export const clientChatMessageSchema = z.object({
   content: z.string().trim().min(1),
   session_id: z.string().min(1),
   client_message_id: z.string().min(1),
+  trace_id: z.string().min(1).optional(),
   agents: z.array(chatAgentContextSchema).max(12).optional(),
 })
 
@@ -139,6 +141,7 @@ export const topicStartMessageSchema = z.object({
   label: z.string(),
   index: z.number(),
   total: z.number(),
+  trace_id: z.string().min(1).optional(),
 })
 
 export const tokenMessageSchema = z.object({
@@ -151,11 +154,13 @@ export const tokenMessageSchema = z.object({
   expression_group_id: z.string().optional().nullable(),
   expression_part_index: z.number().int().nonnegative().optional().nullable(),
   expression_part_total: z.number().int().positive().optional(),
+  trace_id: z.string().min(1).optional(),
 })
 
 export const topicDoneMessageSchema = z.object({
   type: z.literal("topic_done"),
   topic_id: z.literal("default"),
+  trace_id: z.string().min(1).optional(),
 })
 
 export const allDoneMessageSchema = z.object({
@@ -165,6 +170,7 @@ export const allDoneMessageSchema = z.object({
     relationship_state: relationshipStateSchema,
     topics_count: z.number(),
   }),
+  trace_id: z.string().min(1).optional(),
 })
 
 export const agentStatusSchema = z.enum(["received", "listening", "replying"])
@@ -174,6 +180,7 @@ export const agentStatusMessageSchema = z.object({
   type: z.literal("agent_status"),
   status: agentStatusSchema,
   client_message_id: z.string().min(1).optional(),
+  trace_id: z.string().min(1).optional(),
 })
 
 export const pongMessageSchema = z.object({
@@ -183,6 +190,7 @@ export const pongMessageSchema = z.object({
 export const nudgeMessageSchema = z.object({
   type: z.literal("nudge"),
   content: z.string(),
+  trace_id: z.string().min(1).optional(),
 })
 
 export const gentleMessageSchema = z.object({
@@ -190,11 +198,13 @@ export const gentleMessageSchema = z.object({
   content: z.string(),
   agent_id: z.string().optional().nullable(),
   agent_name: z.string().optional().nullable(),
+  trace_id: z.string().min(1).optional(),
 })
 
 export const errorMessageSchema = z.object({
   type: z.literal("error"),
   message: z.string(),
+  trace_id: z.string().min(1).optional(),
 })
 
 export const serverWsMessageSchema = z.discriminatedUnion("type", [
