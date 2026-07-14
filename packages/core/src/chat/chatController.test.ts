@@ -229,6 +229,22 @@ describe("ChatController send", () => {
     })
   })
 
+  it("sends the same trace id with a chat message", () => {
+    const { controller, clients } = createHarness()
+    controller.connect()
+
+    controller.send("hello", "chat-1", "m-trace", undefined, "trace-1")
+
+    assert.deepEqual(clients[0]?.sent.at(-1), {
+      type: "message",
+      content: "hello",
+      session_id: "chat-1",
+      client_message_id: "m-trace",
+      trace_id: "trace-1",
+      agents: undefined,
+    })
+  })
+
   it("sends typing state for the active session", () => {
     const { clients, controller } = createHarness()
 

@@ -8,6 +8,7 @@ export type ChatWebSocketClientOptions = {
   onOpen?: () => void
   onClose?: () => void
   onError?: (error: Event) => void
+  onProtocolError?: (error: unknown) => void
 }
 
 export class ChatWebSocketClient {
@@ -29,7 +30,8 @@ export class ChatWebSocketClient {
       try {
         const parsed = serverWsMessageSchema.parse(JSON.parse(event.data))
         this.options.onMessage(parsed)
-      } catch {
+      } catch (error) {
+        this.options.onProtocolError?.(error)
         this.options.onMessage({
           type: "error",
           message: "收到无法识别的服务端消息。",

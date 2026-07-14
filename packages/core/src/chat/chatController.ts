@@ -19,6 +19,7 @@ export type ChatSocketClientOptions = {
   onOpen?: () => void
   onClose?: () => void
   onError?: (error: Event) => void
+  onProtocolError?: (error: unknown) => void
 }
 
 export type ChatSocketClient = {
@@ -33,6 +34,9 @@ export type ChatControllerOptions = {
   onMessage: (message: ServerWsMessage) => void
   onStatus?: (status: ChatConnectionStatus) => void
   createClient: (options: ChatSocketClientOptions) => ChatSocketClient
+  onSocketError?: (error: Event) => void
+  onProtocolError?: (error: unknown) => void
+  onSendError?: (error: unknown, traceId?: string) => void
 }
 
 export class ChatController {
@@ -79,9 +83,14 @@ export class ChatController {
         if (connectionId !== this.connectionId) return
         this.scheduleReconnect()
       },
-      onError: () => {
+      onError: (error) => {
         if (connectionId !== this.connectionId) return
         this.options.onStatus?.("error")
+        this.options.onSocketError?.(error)
+      },
+      onProtocolError: (error) => {
+        if (connectionId !== this.connectionId) return
+        this.options.onProtocolError?.(error)
       },
     })
     this.client.connect()
@@ -92,6 +101,7 @@ export class ChatController {
     sessionId: string,
     clientMessageId: string,
     agents?: ChatAgentContext[],
+    traceId?: string,
   ) {
     try {
       this.client?.send({
@@ -99,10 +109,12 @@ export class ChatController {
         content,
         session_id: sessionId,
         client_message_id: clientMessageId,
+        ...(traceId ? { trace_id: traceId } : {}),
         agents,
       })
     } catch (error) {
       this.options.onStatus?.("error")
+      this.options.onSendError?.(error, traceId)
       throw error
     }
   }
