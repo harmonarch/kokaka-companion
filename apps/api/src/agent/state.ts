@@ -7,6 +7,7 @@ import type {
 import type { LongTermMemoryContext } from "@/agent/memory/longTermMemory"
 import type { MemorySearchContext } from "@/agent/memory/hybridRetrieval"
 import type { RelationshipEvent } from "@/agent/relationship/stateMachine"
+import type { LlmCallObservation } from "@/monitoring/llm-call"
 
 export type AgentState = {
   userId: string
@@ -25,6 +26,7 @@ export type AgentState = {
   reasoning: string
   strategy: string
   reply: string
+  llmCalls?: LlmCallObservation[]
 }
 
 export type AgentRunResult = {
@@ -34,4 +36,5 @@ export type AgentRunResult = {
   reply: string
   conversationId: string
   context: ChatMessage[]
+  llmCalls: LlmCallObservation[]
 }

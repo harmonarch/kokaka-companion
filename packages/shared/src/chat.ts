@@ -171,6 +171,7 @@ export const allDoneMessageSchema = z.object({
     topics_count: z.number(),
   }),
   trace_id: z.string().min(1).optional(),
+  trace_ids: z.array(z.string().min(1)).optional(),
 })
 
 export const agentStatusSchema = z.enum(["received", "listening", "replying"])
@@ -205,6 +206,7 @@ export const errorMessageSchema = z.object({
   type: z.literal("error"),
   message: z.string(),
   trace_id: z.string().min(1).optional(),
+  trace_ids: z.array(z.string().min(1)).optional(),
 })
 
 export const serverWsMessageSchema = z.discriminatedUnion("type", [

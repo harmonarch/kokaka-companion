@@ -13,6 +13,7 @@ import {
   createPersistContextNode,
 } from "@/agent/nodes/persist"
 import type { AgentRunResult, AgentState } from "@/agent/state"
+import { createLangSmithTracer } from "@/monitoring/langsmith"
 
 export async function runAgent(
   env: Env,
@@ -23,6 +24,7 @@ export async function runAgent(
     userMessageId?: string
     agents?: AgentState["agents"]
     shortMessageBurst?: boolean
+    traceId?: string
   },
 ): Promise<AgentRunResult> {
   const graph = new StateGraph<AgentState>({
@@ -43,6 +45,7 @@ export async function runAgent(
       reasoning: null,
       strategy: null,
       reply: null,
+      llmCalls: null,
     },
   })
     .addNode("loadContext", createLoadContextNode(env))
@@ -67,33 +70,49 @@ export async function runAgent(
     .compile()
 
   const conversationId = input.conversationId ?? crypto.randomUUID()
-  const result = await graph.invoke({
-    userId: input.userId,
-    conversationId,
-    userMessageId: input.userMessageId,
-    agents: input.agents,
-    userMessage: input.message,
-    shortMessageBurst: input.shortMessageBurst ?? false,
-    context: [],
-    longTermMemory: {
-      enabled: true,
-      profile: null,
-      memories: [],
-      summaries: [],
+  const langSmithTracer = createLangSmithTracer(env)
+  const result = await graph.invoke(
+    {
+      userId: input.userId,
+      conversationId,
+      userMessageId: input.userMessageId,
+      agents: input.agents,
+      userMessage: input.message,
+      shortMessageBurst: input.shortMessageBurst ?? false,
+      context: [],
+      longTermMemory: {
+        enabled: true,
+        profile: null,
+        memories: [],
+        summaries: [],
+      },
+      memorySearch: {
+        query: input.message,
+        keywords: [],
+        results: [],
+      },
+      emotionState: "normal",
+      relationshipState: defaultRelationshipState(),
+      relationshipEvent: "neutral",
+      relationshipSnapshot: null,
+      reasoning: "",
+      strategy: "",
+      reply: "",
+      llmCalls: [],
     },
-    memorySearch: {
-      query: input.message,
-      keywords: [],
-      results: [],
+    {
+      runName: "agent_chat",
+      tags: ["agent", env.LLM_PROVIDER, env.DEEPSEEK_MODEL],
+      metadata: {
+        trace_id: input.traceId ?? null,
+        conversation_id: conversationId,
+        user_message_id: input.userMessageId ?? null,
+        provider: env.LLM_PROVIDER,
+        model: env.DEEPSEEK_MODEL,
+      },
+      callbacks: langSmithTracer ? [langSmithTracer] : undefined,
     },
-    emotionState: "normal",
-    relationshipState: defaultRelationshipState(),
-    relationshipEvent: "neutral",
-    relationshipSnapshot: null,
-    reasoning: "",
-    strategy: "",
-    reply: "",
-  })
+  )
 
   return {
     emotionState: result.emotionState,
@@ -102,5 +121,6 @@ export async function runAgent(
     reply: result.reply,
     conversationId,
     context: result.context,
+    llmCalls: result.llmCalls ?? [],
   }
 }

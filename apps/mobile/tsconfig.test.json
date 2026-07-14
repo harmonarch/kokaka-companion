@@ -8,9 +8,7 @@
     "noEmit": false,
     "declaration": false,
     "declarationMap": false,
-    "types": [
-      "node"
-    ]
+    "types": ["node"]
   },
   "include": [
     "src/pages/Login/authValidation.ts",
@@ -19,6 +17,8 @@
     "src/stores/authStore.test.ts",
     "src/stores/chatReliability.ts",
     "src/stores/chatReliability.test.ts",
+    "src/stores/chatTrace.ts",
+    "src/stores/chatTrace.test.ts",
     "src/stores/requestCache.ts",
     "src/stores/requestCache.test.ts",
     "src/utils/errors.ts",

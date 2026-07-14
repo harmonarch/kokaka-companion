@@ -1,5 +1,6 @@
 import type { Env } from "@/env"
 import type { EvalResult, ExpressionStatus, MessageEvaluator } from "./types"
+import { observeLlmCall, type LlmCallObservation } from "@/monitoring/llm-call"
 
 const EVAL_SYSTEM_PROMPT = `你是一个情感对话分析器。分析用户发送的多条消息，判断两件事：
 
@@ -42,11 +43,17 @@ const validStatuses: ExpressionStatus[] = [
 
 export class LLMEvaluator implements MessageEvaluator {
   private lastFallbackIndex = -1
+  private observations: LlmCallObservation[] = []
 
   constructor(private readonly env: Env) {}
 
+  drainObservations() {
+    return this.observations.splice(0)
+  }
+
   async evaluate(pending: string[]): Promise<EvalResult> {
     if (!this.env.DEEPSEEK_API_KEY) {
+      this.observeFallback("expression_evaluation", "provider_not_configured")
       return { status: "complete", emotionIntensity: 0.5 }
     }
 
@@ -75,18 +82,26 @@ export class LLMEvaluator implements MessageEvaluator {
             }),
           },
         )
-        if (!response.ok) throw new Error("Expression evaluation failed")
+        if (!response.ok) throw new LlmCallFailure(`http_${response.status}`)
         const data = (await response.json()) as {
           choices?: Array<{ message?: { content?: string } }>
+          usage?: ProviderUsage
         }
-        return parseEvalResult(data.choices?.[0]?.message?.content ?? "")
+        return {
+          value: parseEvalResult(data.choices?.[0]?.message?.content ?? ""),
+          usage: data.usage,
+        }
       },
       { status: "complete", emotionIntensity: 0.5 },
+      "expression_evaluation",
     )
   }
 
   async generateNudge(pending: string[]): Promise<string> {
-    if (!this.env.DEEPSEEK_API_KEY) return this.getFallbackNudge()
+    if (!this.env.DEEPSEEK_API_KEY) {
+      this.observeFallback("nudge_generation", "provider_not_configured")
+      return this.getFallbackNudge()
+    }
 
     return this.withRetry(
       async () => {
@@ -109,28 +124,59 @@ export class LLMEvaluator implements MessageEvaluator {
             }),
           },
         )
-        if (!response.ok) throw new Error("Nudge generation failed")
+        if (!response.ok) throw new LlmCallFailure(`http_${response.status}`)
         const data = (await response.json()) as {
           choices?: Array<{ message?: { content?: string } }>
+          usage?: ProviderUsage
         }
         const content = data.choices?.[0]?.message?.content?.trim()
-        if (!content) throw new Error("Empty nudge")
-        return content
+        if (!content) throw new LlmCallFailure("empty_response")
+        return { value: content, usage: data.usage }
       },
       this.getFallbackNudge(),
+      "nudge_generation",
     )
   }
 
-  private async withRetry<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+  private async withRetry<T>(
+    fn: () => Promise<{ value: T; usage?: ProviderUsage }>,
+    fallback: T,
+    operation: string,
+  ): Promise<T> {
     const maxRetries = 3
     const baseDelay = 300
     const maxDelay = 2000
+    const startedAt = Date.now()
+    let fallbackReason = "request_error"
 
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
       try {
-        return await fn()
-      } catch {
-        if (attempt === maxRetries) return fallback
+        const result = await fn()
+        this.recordObservation({
+          provider: this.env.LLM_PROVIDER,
+          model: this.env.DEEPSEEK_MODEL,
+          operation,
+          durationMs: Date.now() - startedAt,
+          status: "success",
+          retries: attempt,
+          usage: result.usage,
+        })
+        return result.value
+      } catch (error) {
+        fallbackReason =
+          error instanceof LlmCallFailure ? error.reason : "request_error"
+        if (attempt === maxRetries) {
+          this.recordObservation({
+            provider: this.env.LLM_PROVIDER,
+            model: this.env.DEEPSEEK_MODEL,
+            operation,
+            durationMs: Date.now() - startedAt,
+            status: "fallback",
+            retries: maxRetries,
+            fallbackReason,
+          })
+          return fallback
+        }
         const delay = Math.min(baseDelay * 2 ** attempt, maxDelay)
         await new Promise((resolve) => setTimeout(resolve, delay))
       }
@@ -139,14 +185,42 @@ export class LLMEvaluator implements MessageEvaluator {
     return fallback
   }
 
+  private observeFallback(operation: string, fallbackReason: string) {
+    this.recordObservation({
+      provider: this.env.LLM_PROVIDER ?? "deepseek",
+      model: this.env.DEEPSEEK_MODEL,
+      operation,
+      durationMs: 0,
+      status: "fallback",
+      retries: 0,
+      fallbackReason,
+    })
+  }
+
+  private recordObservation(input: Parameters<typeof observeLlmCall>[0]) {
+    this.observations.push(observeLlmCall(input))
+  }
+
   private getFallbackNudge() {
-    let index = crypto.getRandomValues(new Uint32Array(1))[0] %
-      NUDGE_FALLBACKS.length
+    let index =
+      crypto.getRandomValues(new Uint32Array(1))[0] % NUDGE_FALLBACKS.length
     if (index === this.lastFallbackIndex && NUDGE_FALLBACKS.length > 1) {
       index = (index + 1) % NUDGE_FALLBACKS.length
     }
     this.lastFallbackIndex = index
     return NUDGE_FALLBACKS[index]
+  }
+}
+
+type ProviderUsage = {
+  prompt_tokens?: number
+  completion_tokens?: number
+  total_tokens?: number
+}
+
+class LlmCallFailure extends Error {
+  constructor(readonly reason: string) {
+    super(reason)
   }
 }
 

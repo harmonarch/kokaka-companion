@@ -1,6 +1,7 @@
 import type { Env } from "@/env"
 import type { AgentState } from "@/agent/state"
 import { formatHybridMemorySearch } from "@/agent/memory/hybridRetrieval"
+import { observeLlmCall, type LlmCallObservation } from "@/monitoring/llm-call"
 
 const moodLabels = {
   calm: "平静",
@@ -112,9 +113,41 @@ function buildPrompt(state: AgentState) {
     .join("\n")
 }
 
-export async function generateReplyWithDeepSeek(env: Env, state: AgentState) {
+type GenerateReplyResult = {
+  reply: string
+  observation: LlmCallObservation
+}
+
+export async function generateReplyResult(
+  env: Env,
+  state: AgentState,
+): Promise<GenerateReplyResult> {
+  const startedAt = Date.now()
+  const observe = (
+    status: LlmCallObservation["status"],
+    fallbackReason?: string,
+    usage?: {
+      prompt_tokens?: number
+      completion_tokens?: number
+      total_tokens?: number
+    },
+  ) =>
+    observeLlmCall({
+      provider: env.LLM_PROVIDER ?? "deepseek",
+      model: env.DEEPSEEK_MODEL,
+      operation: "agent_reply",
+      durationMs: Date.now() - startedAt,
+      status,
+      retries: 0,
+      usage,
+      fallbackReason,
+    })
+
   if (!env.DEEPSEEK_API_KEY) {
-    return fallbackReply(state)
+    return {
+      reply: fallbackReply(state),
+      observation: observe("fallback", "provider_not_configured"),
+    }
   }
   try {
     const response = await fetch(
@@ -142,26 +175,58 @@ export async function generateReplyWithDeepSeek(env: Env, state: AgentState) {
         }),
       },
     )
-    if (!response.ok) return fallbackReply(state)
+    if (!response.ok) {
+      return {
+        reply: fallbackReply(state),
+        observation: observe("fallback", `http_${response.status}`),
+      }
+    }
     const data = (await response.json()) as {
       choices?: Array<{ message?: { content?: string } }>
+      usage?: {
+        prompt_tokens?: number
+        completion_tokens?: number
+        total_tokens?: number
+      }
     }
     const content = data.choices?.[0]?.message?.content?.trim()
-    if (!content) return fallbackReply(state)
+    if (!content) {
+      return {
+        reply: fallbackReply(state),
+        observation: observe("fallback", "empty_response", data.usage),
+      }
+    }
     if (
       state.emotionState === "vulnerable" &&
       (content.includes("你应该") || content.includes("建议你"))
     ) {
-      return fallbackReply(state)
+      return {
+        reply: fallbackReply(state),
+        observation: observe("fallback", "safety_policy", data.usage),
+      }
     }
-    return content
+    return {
+      reply: content,
+      observation: observe("success", undefined, data.usage),
+    }
   } catch {
-    return fallbackReply(state)
+    return {
+      reply: fallbackReply(state),
+      observation: observe("fallback", "request_error"),
+    }
   }
 }
 
+export async function generateReplyWithDeepSeek(env: Env, state: AgentState) {
+  return (await generateReplyResult(env, state)).reply
+}
+
 export function createGenerateNode(env: Env) {
-  return async (state: AgentState): Promise<Partial<AgentState>> => ({
-    reply: await generateReplyWithDeepSeek(env, state),
-  })
+  return async (state: AgentState): Promise<Partial<AgentState>> => {
+    const result = await generateReplyResult(env, state)
+    return {
+      reply: result.reply,
+      llmCalls: [...(state.llmCalls ?? []), result.observation],
+    }
+  }
 }

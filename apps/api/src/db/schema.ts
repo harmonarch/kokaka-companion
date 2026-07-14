@@ -203,3 +203,65 @@ export const relationshipStates = sqliteTable("relationship_states", {
   cooldownUntil: integer("cooldown_until").notNull(),
   updatedAt: integer("updated_at").notNull(),
 })
+
+export const conversationObservations = sqliteTable(
+  "conversation_observations",
+  {
+    traceId: text("trace_id").primaryKey(),
+    primaryTraceId: text("primary_trace_id").notNull(),
+    userId: text("user_id").notNull(),
+    conversationId: text("conversation_id"),
+    expressionGroupId: text("expression_group_id"),
+    status: text("status").notNull().default("started"),
+    degradationReason: text("degradation_reason"),
+    startedAt: integer("started_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+    firstResponseMs: integer("first_response_ms"),
+    totalDurationMs: integer("total_duration_ms"),
+    promptTokens: integer("prompt_tokens").notNull().default(0),
+    completionTokens: integer("completion_tokens").notNull().default(0),
+    totalTokens: integer("total_tokens").notNull().default(0),
+    modelCallCount: integer("model_call_count").notNull().default(0),
+    chatStored: integer("chat_stored"),
+    contextStored: integer("context_stored"),
+    memoryStored: integer("memory_stored"),
+    vectorStored: integer("vector_stored"),
+  },
+  (table) => ({
+    userStartedIdx: index("idx_conversation_observations_user_started").on(
+      table.userId,
+      table.startedAt,
+    ),
+    conversationStartedIdx: index(
+      "idx_conversation_observations_conversation_started",
+    ).on(table.conversationId, table.startedAt),
+    primaryTraceIdx: index("idx_conversation_observations_primary_trace").on(
+      table.primaryTraceId,
+    ),
+  }),
+)
+
+export const conversationObservationEvents = sqliteTable(
+  "conversation_observation_events",
+  {
+    id: text("id").primaryKey(),
+    traceId: text("trace_id").notNull(),
+    stage: text("stage").notNull(),
+    status: text("status").notNull(),
+    durationMs: integer("duration_ms"),
+    provider: text("provider"),
+    model: text("model"),
+    promptTokens: integer("prompt_tokens"),
+    completionTokens: integer("completion_tokens"),
+    totalTokens: integer("total_tokens"),
+    errorCode: text("error_code"),
+    externalTraceId: text("external_trace_id"),
+    occurredAt: integer("occurred_at").notNull(),
+  },
+  (table) => ({
+    traceTimeIdx: index("idx_conversation_observation_events_trace_time").on(
+      table.traceId,
+      table.occurredAt,
+    ),
+  }),
+)

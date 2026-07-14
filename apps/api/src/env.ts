@@ -17,6 +17,11 @@ export type Env = {
   SENTRY_ENVIRONMENT?: string
   SENTRY_RELEASE?: string
   SENTRY_TRACES_SAMPLE_RATE?: string
+  LANGSMITH_TRACING?: string
+  LANGSMITH_ENDPOINT?: string
+  LANGSMITH_API_KEY?: string
+  LANGSMITH_PROJECT?: string
+  TOKEN_ALERT_HARD_LIMIT?: string
 }
 
 const required = [

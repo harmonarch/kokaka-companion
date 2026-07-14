@@ -25,10 +25,7 @@ import {
 } from "./chatReliability"
 import { loadJson, saveJson } from "@/utils/storage"
 import { useToastStore } from "@/stores/toastStore"
-import {
-  getNetworkErrorMessage,
-  getReadableErrorMessage,
-} from "@/utils/errors"
+import { getNetworkErrorMessage, getReadableErrorMessage } from "@/utils/errors"
 import {
   captureAppError,
   createTraceId,
@@ -42,6 +39,7 @@ import {
   shouldLoadForUser,
   shouldResetSession,
 } from "./requestCache"
+import { finishServerChatRounds } from "./chatTrace"
 
 type ChatStatus = "idle" | "sending" | "agent_replying" | "error"
 type AgentPresence = "listening" | "replying" | null
@@ -67,9 +65,7 @@ type ChatState = {
   lastTypingSentAt: number
   pendingOutgoing: PendingOutgoingMessage<ChatAgentContext>[]
   pendingOutgoingLoaded: boolean
-  loadPendingOutgoing: () => Promise<
-    PendingOutgoingMessage<ChatAgentContext>[]
-  >
+  loadPendingOutgoing: () => Promise<PendingOutgoingMessage<ChatAgentContext>[]>
   connect: () => void
   loadHistory: (force?: boolean) => Promise<void>
   loadRelationship: () => Promise<void>
@@ -222,15 +218,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 ),
               ),
             })
-            void savePendingOutgoing({ loadJson, saveJson }, pendingOutgoing)
-              .catch((error) => {
-                showNetworkErrorToast(error)
-                set({
-                  status: "error",
-                  error: getReadableErrorMessage(error, "消息确认保存失败"),
-                  agentPresence: null,
-                })
+            void savePendingOutgoing(
+              { loadJson, saveJson },
+              pendingOutgoing,
+            ).catch((error) => {
+              showNetworkErrorToast(error)
+              set({
+                status: "error",
+                error: getReadableErrorMessage(error, "消息确认保存失败"),
+                agentPresence: null,
               })
+            })
           }
           if (message.status === "listening") {
             set({ agentPresence: "listening" })
@@ -283,7 +281,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           })
         }
         if (message.type === "all_done") {
-          finishChatRound(message.trace_id, "ok")
+          finishServerChatRounds(message, "ok", finishChatRound)
           set({
             status: "idle",
             emotionState: message.metadata.emotion_state,
@@ -292,7 +290,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           })
         }
         if (message.type === "error") {
-          finishChatRound(message.trace_id, "error")
+          finishServerChatRounds(message, "error", finishChatRound)
           set({
             status: "error",
             error: message.message,
@@ -444,13 +442,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set({ historyLoading: true, error: null })
     try {
-      const history = await useAuthStore
-        .getState()
-        .client.chatHistory({
-          beforeId: oldestMessage.id,
-          limit: 20,
-          sessionId: conversationId,
-        })
+      const history = await useAuthStore.getState().client.chatHistory({
+        beforeId: oldestMessage.id,
+        limit: 20,
+        sessionId: conversationId,
+      })
       set({
         messages: mergeMessages(get().messages, history.messages),
         historyLoading: false,
@@ -482,13 +478,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const conversationId = conversationStore.activeConversationId
     if (!conversationId) return
     const agents =
-      conversationStore
-        .getConversationAgents(conversationId)
-        .map((agent) => ({
-          id: agent.id,
-          name: agent.name,
-          persona_prompt: agent.persona_prompt,
-        })) ?? []
+      conversationStore.getConversationAgents(conversationId).map((agent) => ({
+        id: agent.id,
+        name: agent.name,
+        persona_prompt: agent.persona_prompt,
+      })) ?? []
     const createdAt = Date.now()
     const traceId = createTraceId()
     const userMessage: ChatMessage = {
@@ -534,14 +528,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     })
     conversationStore.updateConversationPreview(conversationId, trimmed)
     try {
-      get()
-        .controller?.send(
-          trimmed,
-          conversationId,
-          userMessage.id,
-          agents,
-          traceId,
-        )
+      get().controller?.send(
+        trimmed,
+        conversationId,
+        userMessage.id,
+        agents,
+        traceId,
+      )
     } catch (error) {
       showNetworkErrorToast(error)
       set({
@@ -609,10 +602,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         pendingOutgoingLoaded: true,
         error: getReadableErrorMessage(error, "消息删除失败"),
       })
-      await savePendingOutgoing({
-        loadJson,
-        saveJson,
-      }, pendingBeforeDelete).catch(showNetworkErrorToast)
+      await savePendingOutgoing(
+        {
+          loadJson,
+          saveJson,
+        },
+        pendingBeforeDelete,
+      ).catch(showNetworkErrorToast)
       return
     }
     set({ error: null })

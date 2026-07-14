@@ -26,6 +26,60 @@ import {
   monitoredTask,
   monitorOperation,
 } from "@/monitoring/sentry"
+import {
+  recordConversationObservationEvent,
+  isTokenUsageAnomalous,
+  startConversationObservation,
+  updateConversationObservation,
+} from "@/monitoring/conversation-ledger"
+
+async function observeStorageWrite(
+  env: Env,
+  input: {
+    traceId?: string | null
+    stage: "storage.chat_d1" | "storage.context_kv" | "storage.memory"
+    startedAt: number
+    success: boolean
+  },
+) {
+  if (!input.traceId) return
+  await recordConversationObservationEvent(env, {
+    traceId: input.traceId,
+    stage: input.stage,
+    status: input.success ? "ok" : "failed",
+    durationMs: Date.now() - input.startedAt,
+    errorCode: input.success ? undefined : "write_failed",
+  })
+  await updateConversationObservation(env, {
+    traceId: input.traceId,
+    ...(input.success
+      ? {}
+      : {
+          status: "partial" as const,
+          degradationReason: `${input.stage}_failed`,
+        }),
+    ...(input.stage === "storage.chat_d1"
+      ? { chatStored: input.success }
+      : input.stage === "storage.context_kv"
+        ? { contextStored: input.success }
+        : { memoryStored: input.success }),
+  })
+}
+
+async function updateTraceObservations(
+  env: Env,
+  traceIds: string[],
+  input: Omit<
+    Parameters<typeof updateConversationObservation>[1],
+    "traceId"
+  >,
+) {
+  await Promise.all(
+    traceIds.map((traceId) =>
+      updateConversationObservation(env, { traceId, ...input }),
+    ),
+  )
+}
 
 function send(socket: WebSocket, payload: unknown) {
   socket.send(JSON.stringify(payload))
@@ -104,7 +158,8 @@ export function selectReplySpeakers(
   agents: ChatAgentContext[] | undefined,
   message: string,
 ): ReplySpeaker[] {
-  const available = agents?.filter((agent) => agent.id && agent.name.trim()) ?? []
+  const available =
+    agents?.filter((agent) => agent.id && agent.name.trim()) ?? []
   if (available.length <= 1) {
     return available.map((agent) => ({ id: agent.id, name: agent.name }))
   }
@@ -245,14 +300,29 @@ export async function updateCollectedHistory(
       .map((message) => message.id),
   ]
 
-  await replaceChatMessages(env, {
-    userId: input.userId,
-    conversationId: input.conversationId,
-    deleteIds,
-    messages: [...userMessages, ...agentMessages],
-  }).catch((error) => {
+  const chatWriteStartedAt = Date.now()
+  try {
+    await replaceChatMessages(env, {
+      userId: input.userId,
+      conversationId: input.conversationId,
+      deleteIds,
+      messages: [...userMessages, ...agentMessages],
+    })
+    await observeStorageWrite(env, {
+      traceId: input.pending[0]?.traceId,
+      stage: "storage.chat_d1",
+      startedAt: chatWriteStartedAt,
+      success: true,
+    })
+  } catch (error) {
     console.error("Failed to replace collected chat history", error)
-  })
+    await observeStorageWrite(env, {
+      traceId: input.pending[0]?.traceId,
+      stage: "storage.chat_d1",
+      startedAt: chatWriteStartedAt,
+      success: false,
+    })
+  }
 
   const currentContext = (input.context ?? []).filter(
     (message) => !deleteIds.includes(message.id),
@@ -261,15 +331,28 @@ export async function updateCollectedHistory(
     -20,
   )
   const recentContext: RecentContext = { messages }
-  await env.CHAT_CONTEXT.put(
-    `ctx:${input.userId}`,
-    JSON.stringify(recentContext),
-    {
-      expirationTtl: 60 * 60 * 6,
-    },
-  ).catch((error) => {
+  const contextWriteStartedAt = Date.now()
+  try {
+    await env.CHAT_CONTEXT.put(
+      `ctx:${input.userId}`,
+      JSON.stringify(recentContext),
+      { expirationTtl: 60 * 60 * 6 },
+    )
+    await observeStorageWrite(env, {
+      traceId: input.pending[0]?.traceId,
+      stage: "storage.context_kv",
+      startedAt: contextWriteStartedAt,
+      success: true,
+    })
+  } catch (error) {
     console.error("Failed to replace collected recent context", error)
-  })
+    await observeStorageWrite(env, {
+      traceId: input.pending[0]?.traceId,
+      stage: "storage.context_kv",
+      startedAt: contextWriteStartedAt,
+      success: false,
+    })
+  }
   return messages
 }
 
@@ -292,13 +375,28 @@ export async function appendCollectedHistory(
   },
 ): Promise<ChatMessage[]> {
   const { userMessages, agentMessages } = toCollectedMessages(input)
-  await saveChatMessages(env, {
-    userId: input.userId,
-    conversationId: input.conversationId,
-    messages: [...userMessages, ...agentMessages],
-  }).catch((error) => {
+  const chatWriteStartedAt = Date.now()
+  try {
+    await saveChatMessages(env, {
+      userId: input.userId,
+      conversationId: input.conversationId,
+      messages: [...userMessages, ...agentMessages],
+    })
+    await observeStorageWrite(env, {
+      traceId: input.pending[0]?.traceId,
+      stage: "storage.chat_d1",
+      startedAt: chatWriteStartedAt,
+      success: true,
+    })
+  } catch (error) {
     console.error("Failed to append collected chat history", error)
-  })
+    await observeStorageWrite(env, {
+      traceId: input.pending[0]?.traceId,
+      stage: "storage.chat_d1",
+      startedAt: chatWriteStartedAt,
+      success: false,
+    })
+  }
 
   const currentContext = (input.context ?? []).filter(
     (message) =>
@@ -316,15 +414,28 @@ export async function appendCollectedHistory(
     ...agentMessages.filter((message) => !existingIds.has(message.id)),
   ].slice(-20)
   const recentContext: RecentContext = { messages }
-  await env.CHAT_CONTEXT.put(
-    `ctx:${input.userId}`,
-    JSON.stringify(recentContext),
-    {
-      expirationTtl: 60 * 60 * 6,
-    },
-  ).catch((error) => {
+  const contextWriteStartedAt = Date.now()
+  try {
+    await env.CHAT_CONTEXT.put(
+      `ctx:${input.userId}`,
+      JSON.stringify(recentContext),
+      { expirationTtl: 60 * 60 * 6 },
+    )
+    await observeStorageWrite(env, {
+      traceId: input.pending[0]?.traceId,
+      stage: "storage.context_kv",
+      startedAt: contextWriteStartedAt,
+      success: true,
+    })
+  } catch (error) {
     console.error("Failed to append collected recent context", error)
-  })
+    await observeStorageWrite(env, {
+      traceId: input.pending[0]?.traceId,
+      stage: "storage.context_kv",
+      startedAt: contextWriteStartedAt,
+      success: false,
+    })
+  }
   return messages
 }
 
@@ -377,7 +488,9 @@ export async function handleChatWebSocket(
   server.accept()
   let connectionOpen = true
   let replyGeneration = 0
+  const activeTraceIds = new Set<string>()
 
+  const evaluator = new LLMEvaluator(env)
   const collector = new MessageCollector(
     {
       responseTimeoutMs: 3000,
@@ -399,14 +512,38 @@ export async function handleChatWebSocket(
         gentle,
         replyingStartedAt,
       }) => {
-        const traceId = pending[0]?.traceId ?? requestTraceId
+        const traceId =
+          pending[0]?.traceId ?? requestTraceId ?? crypto.randomUUID()
+        const traceIds = [
+          ...new Set(
+            pending
+              .map((message) => message.traceId)
+              .filter((value): value is string => Boolean(value)),
+          ),
+        ]
+        if (traceId && !traceIds.includes(traceId)) traceIds.unshift(traceId)
         const content = pending.map((message) => message.content).join("\n")
         const shortMessageBurst = isShortMessageBurst(pending)
         const syntheticUserMessageId = `${expressionGroupId}:combined`
         const conversationId = pending[0]?.sessionId ?? "default"
-        const agents = [...pending].reverse().find((message) =>
-          message.agents?.length,
-        )?.agents
+        const observationStartedAt = Math.min(
+          ...pending.map((message) => message.receivedAt),
+        )
+        await Promise.all(
+          traceIds.map((id) =>
+            startConversationObservation(env, {
+              traceId: id,
+              primaryTraceId: traceId,
+              userId: user.id,
+              conversationId,
+              expressionGroupId,
+              startedAt: observationStartedAt,
+            }),
+          ),
+        )
+        const agents = [...pending]
+          .reverse()
+          .find((message) => message.agents?.length)?.agents
         const replySpeakers = selectReplySpeakers(agents, content)
         const replyAgents = replySpeakers.length
           ? agents?.filter((agent) =>
@@ -438,8 +575,51 @@ export async function handleChatWebSocket(
               userMessageId: syntheticUserMessageId,
               agents: replyAgents,
               shortMessageBurst,
+              traceId,
             }),
         )
+        const llmCalls = [...evaluator.drainObservations(), ...result.llmCalls]
+        for (const call of llmCalls) {
+          await recordConversationObservationEvent(env, {
+            traceId,
+            stage: `llm.${call.operation}`,
+            status: call.status === "success" ? "ok" : "degraded",
+            durationMs: call.durationMs,
+            provider: call.provider,
+            model: call.model,
+            promptTokens: call.usage?.promptTokens,
+            completionTokens: call.usage?.completionTokens,
+            totalTokens: call.usage?.totalTokens,
+            errorCode: call.fallbackReason,
+          })
+        }
+        const tokenUsage = llmCalls.reduce(
+          (total, call) => ({
+            prompt: total.prompt + (call.usage?.promptTokens ?? 0),
+            completion: total.completion + (call.usage?.completionTokens ?? 0),
+            total: total.total + (call.usage?.totalTokens ?? 0),
+          }),
+          { prompt: 0, completion: 0, total: 0 },
+        )
+        const degradationReason = llmCalls.find(
+          (call) => call.status !== "success",
+        )?.fallbackReason
+        const tokenAnomaly = await isTokenUsageAnomalous(env, {
+          userId: user.id,
+          totalTokens: tokenUsage.total,
+        })
+        if (tokenAnomaly) {
+          await recordConversationObservationEvent(env, {
+            traceId,
+            stage: "tokens.anomaly",
+            status: "degraded",
+            totalTokens: tokenUsage.total,
+            errorCode: "token_anomaly",
+          })
+        }
+        const finalDegradationReason = tokenAnomaly
+          ? "token_anomaly"
+          : degradationReason
         const replyParts = withReplySpeakers(
           buildReplyParts(
             result.reply,
@@ -451,6 +631,7 @@ export async function handleChatWebSocket(
         )
 
         await waitForMinimumReplyingTime(replyingStartedAt)
+        const firstResponseMs = Date.now() - observationStartedAt
 
         if (gentle) {
           trySend(server, {
@@ -460,6 +641,17 @@ export async function handleChatWebSocket(
             agent_name: replyParts[0]?.agentName,
             trace_id: traceId,
           })
+          await updateTraceObservations(env, traceIds, {
+            status: finalDegradationReason ? "degraded" : "ok",
+            degradationReason: finalDegradationReason,
+            firstResponseMs,
+            totalDurationMs: Date.now() - observationStartedAt,
+            promptTokens: tokenUsage.prompt,
+            completionTokens: tokenUsage.completion,
+            totalTokens: tokenUsage.total,
+            modelCallCount: llmCalls.length,
+          })
+          traceIds.forEach((id) => activeTraceIds.delete(id))
           trySend(server, {
             type: "all_done",
             metadata: {
@@ -468,6 +660,7 @@ export async function handleChatWebSocket(
               topics_count: 1,
             },
             trace_id: traceId,
+            trace_ids: traceIds,
           })
         } else {
           let collectedContext = result.context
@@ -577,6 +770,17 @@ export async function handleChatWebSocket(
               topic_id: "default",
               trace_id: traceId,
             })
+            await updateTraceObservations(env, traceIds, {
+              status: finalDegradationReason ? "degraded" : "ok",
+              degradationReason: finalDegradationReason,
+              firstResponseMs,
+              totalDurationMs: Date.now() - observationStartedAt,
+              promptTokens: tokenUsage.prompt,
+              completionTokens: tokenUsage.completion,
+              totalTokens: tokenUsage.total,
+              modelCallCount: llmCalls.length,
+            })
+            traceIds.forEach((id) => activeTraceIds.delete(id))
             trySend(server, {
               type: "all_done",
               metadata: {
@@ -585,31 +789,63 @@ export async function handleChatWebSocket(
                 topics_count: 1,
               },
               trace_id: traceId,
+              trace_ids: traceIds,
             })
+          } else {
+            await updateTraceObservations(env, traceIds, {
+              status: "partial",
+              degradationReason: interrupted
+                ? "reply_interrupted"
+                : "reply_delivery_failed",
+              firstResponseMs,
+              totalDurationMs: Date.now() - observationStartedAt,
+              promptTokens: tokenUsage.prompt,
+              completionTokens: tokenUsage.completion,
+              totalTokens: tokenUsage.total,
+              modelCallCount: llmCalls.length,
+            })
+            traceIds.forEach((id) => activeTraceIds.delete(id))
           }
 
           const persistLongTermMemory = async () => {
-            const visibleReply = interrupted
-              ? deliveredReplyParts.map((part) => part.content).join("")
-              : result.reply
-            if (!visibleReply) return
-            const memory = await extractLongTermMemory(env, {
-              userMessage: content,
-              reply: visibleReply,
-              emotionState: result.emotionState,
-              relationshipSnapshot: result.relationshipSnapshot,
-              context: collectedContext,
-            })
-            await saveLongTermMemory(env, {
-              userId: user.id,
-              conversationId: result.conversationId,
-              memory,
-            })
-            await maybeSaveConversationSummary(env, {
-              userId: user.id,
-              conversationId: result.conversationId,
-              messages: collectedContext,
-            })
+            const startedAt = Date.now()
+            try {
+              const visibleReply = interrupted
+                ? deliveredReplyParts.map((part) => part.content).join("")
+                : result.reply
+              if (!visibleReply) return
+              const memory = await extractLongTermMemory(env, {
+                userMessage: content,
+                reply: visibleReply,
+                emotionState: result.emotionState,
+                relationshipSnapshot: result.relationshipSnapshot,
+                context: collectedContext,
+              })
+              await saveLongTermMemory(env, {
+                userId: user.id,
+                conversationId: result.conversationId,
+                memory,
+              })
+              await maybeSaveConversationSummary(env, {
+                userId: user.id,
+                conversationId: result.conversationId,
+                messages: collectedContext,
+              })
+              await observeStorageWrite(env, {
+                traceId,
+                stage: "storage.memory",
+                startedAt,
+                success: true,
+              })
+            } catch (error) {
+              await observeStorageWrite(env, {
+                traceId,
+                stage: "storage.memory",
+                startedAt,
+                success: false,
+              })
+              throw error
+            }
           }
           if (executionCtx) {
             executionCtx.waitUntil(
@@ -645,23 +881,40 @@ export async function handleChatWebSocket(
         })
 
         const persistLongTermMemory = async () => {
-          const memory = await extractLongTermMemory(env, {
-            userMessage: content,
-            reply: result.reply,
-            emotionState: result.emotionState,
-            relationshipSnapshot: result.relationshipSnapshot,
-            context: collectedContext,
-          })
-          await saveLongTermMemory(env, {
-            userId: user.id,
-            conversationId: result.conversationId,
-            memory,
-          })
-          await maybeSaveConversationSummary(env, {
-            userId: user.id,
-            conversationId: result.conversationId,
-            messages: collectedContext,
-          })
+          const startedAt = Date.now()
+          try {
+            const memory = await extractLongTermMemory(env, {
+              userMessage: content,
+              reply: result.reply,
+              emotionState: result.emotionState,
+              relationshipSnapshot: result.relationshipSnapshot,
+              context: collectedContext,
+            })
+            await saveLongTermMemory(env, {
+              userId: user.id,
+              conversationId: result.conversationId,
+              memory,
+            })
+            await maybeSaveConversationSummary(env, {
+              userId: user.id,
+              conversationId: result.conversationId,
+              messages: collectedContext,
+            })
+            await observeStorageWrite(env, {
+              traceId,
+              stage: "storage.memory",
+              startedAt,
+              success: true,
+            })
+          } catch (error) {
+            await observeStorageWrite(env, {
+              traceId,
+              stage: "storage.memory",
+              startedAt,
+              success: false,
+            })
+            throw error
+          }
         }
         if (executionCtx) {
           executionCtx.waitUntil(
@@ -700,10 +953,18 @@ export async function handleChatWebSocket(
           type: "error",
           message: error instanceof Error ? error.message : "Chat failed",
           trace_id: traceId ?? requestTraceId,
+          trace_ids: [...activeTraceIds],
         })
+        if (activeTraceIds.size > 0) {
+          void updateTraceObservations(env, [...activeTraceIds], {
+            status: "failed",
+            degradationReason: "chat_failed",
+          })
+        }
+        activeTraceIds.clear()
       },
     },
-    new LLMEvaluator(env),
+    evaluator,
   )
 
   server.addEventListener("message", async (event) => {
@@ -715,6 +976,7 @@ export async function handleChatWebSocket(
       )
       if (message.type === "message") {
         messageTraceId = message.trace_id ?? requestTraceId
+        if (messageTraceId) activeTraceIds.add(messageTraceId)
       }
       if (message.type === "ping") {
         trySend(server, { type: "pong" })
@@ -742,7 +1004,10 @@ export async function handleChatWebSocket(
         socket: server,
         traceId: messageTraceId,
       })
-      if (alreadyReceived) return
+      if (alreadyReceived) {
+        if (messageTraceId) activeTraceIds.delete(messageTraceId)
+        return
+      }
       collector.addMessage({
         id: message.client_message_id,
         sessionId: message.session_id,
@@ -763,7 +1028,9 @@ export async function handleChatWebSocket(
         type: "error",
         message: error instanceof Error ? error.message : "Chat failed",
         trace_id: messageTraceId,
+        trace_ids: [...activeTraceIds],
       })
+      activeTraceIds.clear()
     }
   })
   server.addEventListener("close", () => {

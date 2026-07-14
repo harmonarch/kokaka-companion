@@ -102,6 +102,7 @@ export class MessageCollector {
 
     const evaluatedCount = this.pending.length
     const evaluatedActivityAt = this.lastActivityAt
+    const evaluatedTraceId = this.pending[0]?.traceId
     this.evaluating = true
     try {
       const result = await this.evaluator.evaluate(
@@ -117,7 +118,7 @@ export class MessageCollector {
       const action = this.decide(result.status, silence)
       await this.executeAction(action)
     } catch (error) {
-      this.callbacks.onError(error, this.pending[0]?.traceId)
+      this.callbacks.onError(error, evaluatedTraceId)
       if (
         this.pending.length === evaluatedCount &&
         this.lastActivityAt === evaluatedActivityAt

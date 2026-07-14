@@ -74,6 +74,38 @@ describe("MessageCollector", () => {
     vi.restoreAllMocks()
   })
 
+  it("keeps the trace id when reply submission fails", async () => {
+    vi.useFakeTimers()
+    const errors: Array<{ error: unknown; traceId?: string }> = []
+    const collector = new MessageCollector(
+      config,
+      {
+        onSubmit: async () => {
+          throw new Error("agent failed")
+        },
+        onNudge: () => undefined,
+        onError: (error, traceId) => errors.push({ error, traceId }),
+      },
+      {
+        evaluate: async () => ({
+          status: "complete",
+          emotionIntensity: 0.5,
+        }),
+        generateNudge: async () => "嗯",
+      },
+    )
+    collector.addMessage({
+      id: "m1",
+      sessionId: "s1",
+      content: "消息",
+      traceId: "trace-1",
+    })
+
+    await vi.advanceTimersByTimeAsync(3000)
+
+    expect(errors.at(-1)?.traceId).toBe("trace-1")
+  })
+
   it("waits until 3 seconds of silence before evaluating", async () => {
     vi.useFakeTimers()
     const harness = createHarness()
