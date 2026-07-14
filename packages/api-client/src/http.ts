@@ -45,17 +45,33 @@ export type TokenStore = {
 export type HttpClientOptions = {
   baseUrl: string
   tokenStore?: TokenStore
+  createTraceId?: () => string
+  onRequestComplete?: (observation: HttpRequestObservation) => void
+  onRequestError?: (
+    observation: HttpRequestObservation,
+    error: unknown,
+  ) => void
+}
+
+export type HttpRequestObservation = {
+  method: string
+  path: string
+  status?: number
+  durationMs: number
+  traceId: string
 }
 
 export type HttpClient = ReturnType<typeof createHttpClient>
 
 export class ApiError extends Error {
   status: number
+  traceId?: string
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, traceId?: string) {
     super(message)
     this.name = "ApiError"
     this.status = status
+    this.traceId = traceId
   }
 }
 
@@ -67,22 +83,45 @@ type RequestOptions = {
 export function createHttpClient(options: HttpClientOptions) {
   const baseUrl = options.baseUrl.replace(/\/$/, "")
 
+  function createTraceId() {
+    return options.createTraceId?.() ?? crypto.randomUUID()
+  }
+
   async function request<T>(
     path: string,
     init: RequestInit = {},
     requestOptions: RequestOptions = {},
+    traceId = createTraceId(),
+    startedAt = Date.now(),
   ): Promise<T> {
     const tokens = await options.tokenStore?.getTokens()
     const headers = new Headers(init.headers)
     headers.set("content-type", "application/json")
+    headers.set("x-trace-id", traceId)
     if (requestOptions.auth && tokens?.access_token) {
       headers.set("authorization", `Bearer ${tokens.access_token}`)
     }
 
-    const response = await fetch(`${baseUrl}${path}`, {
-      ...init,
-      headers,
-    })
+    const method = init.method ?? "GET"
+    let response: Response
+    try {
+      response = await fetch(`${baseUrl}${path}`, {
+        ...init,
+        headers,
+      })
+    } catch (error) {
+      options.onRequestError?.(
+        {
+          method,
+          path: path.split("?")[0] ?? path,
+          durationMs: Date.now() - startedAt,
+          traceId,
+        },
+        error,
+      )
+      throw error
+    }
+    const responseTraceId = response.headers.get("x-trace-id") ?? traceId
 
     if (
       response.status === 401 &&
@@ -95,13 +134,42 @@ export function createHttpClient(options: HttpClientOptions) {
       return request<T>(path, init, {
         ...requestOptions,
         retryOnUnauthorized: false,
-      })
+      }, traceId, startedAt)
     }
 
-    const data = await response.json().catch(() => ({}))
+    const data: unknown = await response.json().catch(() => ({}))
     if (!response.ok) {
-      throw new ApiError(response.status, data.error ?? "Request failed")
+      const message =
+        data &&
+        typeof data === "object" &&
+        "error" in data &&
+        typeof data.error === "string"
+          ? data.error
+          : "Request failed"
+      const error = new ApiError(
+        response.status,
+        message,
+        responseTraceId,
+      )
+      options.onRequestError?.(
+        {
+          method,
+          path: path.split("?")[0] ?? path,
+          status: response.status,
+          durationMs: Date.now() - startedAt,
+          traceId: responseTraceId,
+        },
+        error,
+      )
+      throw error
     }
+    options.onRequestComplete?.({
+      method,
+      path: path.split("?")[0] ?? path,
+      status: response.status,
+      durationMs: Date.now() - startedAt,
+      traceId: responseTraceId,
+    })
     return data as T
   }
 
