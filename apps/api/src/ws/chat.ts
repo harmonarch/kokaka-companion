@@ -21,12 +21,14 @@ import {
 import { LLMEvaluator } from "@/ws/collector/llm-evaluator"
 import { MessageCollector } from "@/ws/collector/message-collector"
 import type { PendingMessage } from "@/ws/collector/types"
+import type { LlmCallObservation } from "@/monitoring/llm-call"
 import {
   captureException,
   monitoredTask,
   monitorOperation,
 } from "@/monitoring/sentry"
 import {
+  appendConversationLlmCall,
   recordConversationObservationEvent,
   isTokenUsageAnomalous,
   startConversationObservation,
@@ -66,13 +68,43 @@ async function observeStorageWrite(
   })
 }
 
+async function appendBackgroundLlmCalls(
+  env: Env,
+  input: {
+    userId: string
+    traceId: string
+    traceIds: string[]
+    calls: LlmCallObservation[]
+  },
+) {
+  for (const call of input.calls) {
+    await Promise.all(
+      input.traceIds.map((traceId) =>
+        appendConversationLlmCall(env, { traceId, call }),
+      ),
+    )
+    const totalTokens = call.usage?.totalTokens ?? 0
+    if (
+      totalTokens > 0 &&
+      (await isTokenUsageAnomalous(env, {
+        userId: input.userId,
+        traceId: input.traceId,
+        operation: call.operation,
+        totalTokens,
+      }))
+    ) {
+      await updateTraceObservations(env, input.traceIds, {
+        status: "degraded",
+        degradationReason: `${call.operation}_token_anomaly`,
+      })
+    }
+  }
+}
+
 async function updateTraceObservations(
   env: Env,
   traceIds: string[],
-  input: Omit<
-    Parameters<typeof updateConversationObservation>[1],
-    "traceId"
-  >,
+  input: Omit<Parameters<typeof updateConversationObservation>[1], "traceId">,
 ) {
   await Promise.all(
     traceIds.map((traceId) =>
@@ -809,6 +841,9 @@ export async function handleChatWebSocket(
 
           const persistLongTermMemory = async () => {
             const startedAt = Date.now()
+            const memoryLlmCalls: LlmCallObservation[] = []
+            const vectorResults: Array<{ success: boolean; reason?: string }> =
+              []
             try {
               const visibleReply = interrupted
                 ? deliveredReplyParts.map((part) => part.content).join("")
@@ -820,16 +855,66 @@ export async function handleChatWebSocket(
                 emotionState: result.emotionState,
                 relationshipSnapshot: result.relationshipSnapshot,
                 context: collectedContext,
+                onLlmCall: (call) => memoryLlmCalls.push(call),
+              })
+              await recordConversationObservationEvent(env, {
+                traceId,
+                stage: "memory.extract",
+                status: memoryLlmCalls.some((call) => call.status !== "success")
+                  ? "degraded"
+                  : "ok",
+                errorCode: memoryLlmCalls.find(
+                  (call) => call.status !== "success",
+                )?.fallbackReason,
               })
               await saveLongTermMemory(env, {
                 userId: user.id,
                 conversationId: result.conversationId,
                 memory,
+                onLlmCall: (call) => memoryLlmCalls.push(call),
+                onVectorResult: (result) => vectorResults.push(result),
               })
+              await appendBackgroundLlmCalls(env, {
+                userId: user.id,
+                traceId,
+                traceIds,
+                calls: memoryLlmCalls,
+              })
+              await recordConversationObservationEvent(env, {
+                traceId,
+                stage: "memory.d1_write",
+                status: "ok",
+              })
+              for (const vectorResult of vectorResults) {
+                await recordConversationObservationEvent(env, {
+                  traceId,
+                  stage: "memory.vector_upsert",
+                  status: vectorResult.success ? "ok" : "degraded",
+                  errorCode: vectorResult.reason,
+                })
+              }
+              if (vectorResults.some((result) => !result.success)) {
+                await updateTraceObservations(env, traceIds, {
+                  status: "partial",
+                  degradationReason:
+                    vectorResults.find((result) => !result.success)?.reason ??
+                    "vector_upsert_failed",
+                  vectorStored: false,
+                })
+              } else if (vectorResults.length > 0) {
+                await updateTraceObservations(env, traceIds, {
+                  vectorStored: true,
+                })
+              }
               await maybeSaveConversationSummary(env, {
                 userId: user.id,
                 conversationId: result.conversationId,
                 messages: collectedContext,
+              })
+              await recordConversationObservationEvent(env, {
+                traceId,
+                stage: "memory.summary_write",
+                status: "ok",
               })
               await observeStorageWrite(env, {
                 traceId,
@@ -882,6 +967,8 @@ export async function handleChatWebSocket(
 
         const persistLongTermMemory = async () => {
           const startedAt = Date.now()
+          const memoryLlmCalls: LlmCallObservation[] = []
+          const vectorResults: Array<{ success: boolean; reason?: string }> = []
           try {
             const memory = await extractLongTermMemory(env, {
               userMessage: content,
@@ -889,16 +976,66 @@ export async function handleChatWebSocket(
               emotionState: result.emotionState,
               relationshipSnapshot: result.relationshipSnapshot,
               context: collectedContext,
+              onLlmCall: (call) => memoryLlmCalls.push(call),
+            })
+            await recordConversationObservationEvent(env, {
+              traceId,
+              stage: "memory.extract",
+              status: memoryLlmCalls.some((call) => call.status !== "success")
+                ? "degraded"
+                : "ok",
+              errorCode: memoryLlmCalls.find(
+                (call) => call.status !== "success",
+              )?.fallbackReason,
             })
             await saveLongTermMemory(env, {
               userId: user.id,
               conversationId: result.conversationId,
               memory,
+              onLlmCall: (call) => memoryLlmCalls.push(call),
+              onVectorResult: (result) => vectorResults.push(result),
             })
+            await appendBackgroundLlmCalls(env, {
+              userId: user.id,
+              traceId,
+              traceIds,
+              calls: memoryLlmCalls,
+            })
+            await recordConversationObservationEvent(env, {
+              traceId,
+              stage: "memory.d1_write",
+              status: "ok",
+            })
+            for (const vectorResult of vectorResults) {
+              await recordConversationObservationEvent(env, {
+                traceId,
+                stage: "memory.vector_upsert",
+                status: vectorResult.success ? "ok" : "degraded",
+                errorCode: vectorResult.reason,
+              })
+            }
+            if (vectorResults.some((result) => !result.success)) {
+              await updateTraceObservations(env, traceIds, {
+                status: "partial",
+                degradationReason:
+                  vectorResults.find((result) => !result.success)?.reason ??
+                  "vector_upsert_failed",
+                vectorStored: false,
+              })
+            } else if (vectorResults.length > 0) {
+              await updateTraceObservations(env, traceIds, {
+                vectorStored: true,
+              })
+            }
             await maybeSaveConversationSummary(env, {
               userId: user.id,
               conversationId: result.conversationId,
               messages: collectedContext,
+            })
+            await recordConversationObservationEvent(env, {
+              traceId,
+              stage: "memory.summary_write",
+              status: "ok",
             })
             await observeStorageWrite(env, {
               traceId,
