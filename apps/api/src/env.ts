@@ -22,6 +22,7 @@ export type Env = {
   LANGSMITH_API_KEY?: string
   LANGSMITH_PROJECT?: string
   TOKEN_ALERT_HARD_LIMIT?: string
+  MONITORING_API_KEY?: string
 }
 
 const required = [

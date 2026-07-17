@@ -9,6 +9,7 @@ import { accountRoutes } from "@/routes/account"
 import { chatRoutes } from "@/routes/chat"
 import { memoryRoutes } from "@/routes/memories"
 import { profileRoutes } from "@/routes/profiles"
+import { monitoringRoutes } from "@/routes/monitoring"
 import { handleChatWebSocket } from "@/ws/chat"
 import { withSentry } from "@sentry/cloudflare"
 import { resolveTraceId, sentryOptions } from "@/monitoring/sentry"
@@ -50,14 +51,10 @@ app.route("/account", accountRoutes)
 app.route("/chat", chatRoutes)
 app.route("/memories", memoryRoutes)
 app.route("/profiles", profileRoutes)
+app.route("/monitoring", monitoringRoutes)
 
 app.get("/ws/chat", (c) =>
-  handleChatWebSocket(
-    c.req.raw,
-    c.env,
-    c.executionCtx,
-    c.get("traceId"),
-  ),
+  handleChatWebSocket(c.req.raw, c.env, c.executionCtx, c.get("traceId")),
 )
 
 export default withSentry((env) => sentryOptions(env as Env), app)
