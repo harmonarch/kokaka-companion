@@ -1,4 +1,5 @@
 import type { Env } from "@/env"
+import { observeLlmCall, type LlmCallObservation } from "@/monitoring/llm-call"
 
 const VECTOR_NAMESPACE = "long_term_memory"
 
@@ -11,24 +12,75 @@ function hasVectorize(env: Env) {
   )
 }
 
-async function createEmbedding(env: Env, input: string) {
-  if (!hasVectorize(env)) return null
-  const response = await fetch(`${env.EMBEDDING_BASE_URL}/v1/embeddings`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${env.EMBEDDING_API_KEY}`,
-      "content-type": "application/json",
+async function createEmbedding(
+  env: Env,
+  input: string,
+  options: {
+    operation: string
+    onLlmCall?: (call: LlmCallObservation) => void
+  },
+) {
+  const startedAt = Date.now()
+  const report = (
+    status: LlmCallObservation["status"],
+    fallbackReason?: string,
+    usage?: {
+      prompt_tokens?: number
+      completion_tokens?: number
+      total_tokens?: number
     },
-    body: JSON.stringify({
-      model: env.EMBEDDING_MODEL,
-      input,
-    }),
-  })
-  if (!response.ok) return null
-  const data = (await response.json()) as {
-    data?: Array<{ embedding?: number[] }>
+  ) => {
+    const call = observeLlmCall({
+      provider: "embedding",
+      model: env.EMBEDDING_MODEL ?? "unknown",
+      operation: options.operation,
+      durationMs: Date.now() - startedAt,
+      status,
+      retries: 0,
+      usage,
+      fallbackReason,
+    })
+    options.onLlmCall?.(call)
   }
-  return data.data?.[0]?.embedding ?? null
+  if (!hasVectorize(env)) {
+    report("fallback", "provider_not_configured")
+    return null
+  }
+  try {
+    const response = await fetch(`${env.EMBEDDING_BASE_URL}/v1/embeddings`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${env.EMBEDDING_API_KEY}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: env.EMBEDDING_MODEL,
+        input,
+      }),
+    })
+    if (!response.ok) {
+      report("fallback", `http_${response.status}`)
+      return null
+    }
+    const data = (await response.json()) as {
+      data?: Array<{ embedding?: number[] }>
+      usage?: {
+        prompt_tokens?: number
+        completion_tokens?: number
+        total_tokens?: number
+      }
+    }
+    const embedding = data.data?.[0]?.embedding
+    if (!embedding?.length) {
+      report("fallback", "empty_response", data.usage)
+      return null
+    }
+    report("success", undefined, data.usage)
+    return embedding
+  } catch {
+    report("fallback", "request_error")
+    return null
+  }
 }
 
 function memoryVectorMetadata(input: {
@@ -64,19 +116,36 @@ export async function upsertMemoryVector(
     createdAt: number
     validFrom?: number | null
     validTo?: number | null
+    onLlmCall?: (call: LlmCallObservation) => void
+    onVectorResult?: (result: { success: boolean; reason?: string }) => void
   },
 ) {
-  const embedding = await createEmbedding(env, input.content)
-  if (!embedding || !env.MEMORY_VECTORIZE) return false
-  await env.MEMORY_VECTORIZE.upsert([
-    {
-      id: input.id,
-      values: embedding,
-      namespace: VECTOR_NAMESPACE,
-      metadata: memoryVectorMetadata(input),
-    },
-  ])
-  return true
+  const embedding = await createEmbedding(env, input.content, {
+    operation: "memory_embedding_upsert",
+    onLlmCall: input.onLlmCall,
+  })
+  if (!embedding || !env.MEMORY_VECTORIZE) {
+    input.onVectorResult?.({
+      success: false,
+      reason: embedding ? "vectorize_unavailable" : "embedding_unavailable",
+    })
+    return false
+  }
+  try {
+    await env.MEMORY_VECTORIZE.upsert([
+      {
+        id: input.id,
+        values: embedding,
+        namespace: VECTOR_NAMESPACE,
+        metadata: memoryVectorMetadata(input),
+      },
+    ])
+    input.onVectorResult?.({ success: true })
+    return true
+  } catch {
+    input.onVectorResult?.({ success: false, reason: "vector_upsert_failed" })
+    return false
+  }
 }
 
 export async function deleteMemoryVector(env: Env, id: string) {
@@ -96,9 +165,13 @@ export async function queryMemoryVectors(
     userId: string
     query: string
     topK?: number
+    onLlmCall?: (call: LlmCallObservation) => void
   },
 ) {
-  const embedding = await createEmbedding(env, input.query)
+  const embedding = await createEmbedding(env, input.query, {
+    operation: "memory_embedding_query",
+    onLlmCall: input.onLlmCall,
+  })
   if (!embedding || !env.MEMORY_VECTORIZE) return []
   const result = await env.MEMORY_VECTORIZE.query(embedding, {
     topK: input.topK ?? 8,
