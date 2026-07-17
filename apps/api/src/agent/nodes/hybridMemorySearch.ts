@@ -13,11 +13,14 @@ export function createHybridMemorySearchNode(env: Env) {
         },
       }
     }
+    const llmCalls = [...(state.llmCalls ?? [])]
     return {
       memorySearch: await searchHybridMemory(env, {
         userId: state.userId,
         query: state.userMessage,
+        onLlmCall: (call) => llmCalls.push(call),
       }),
+      llmCalls,
     }
   }
 }

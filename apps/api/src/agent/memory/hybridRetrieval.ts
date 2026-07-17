@@ -1,6 +1,7 @@
 import type { Env } from "@/env"
 import type { LongTermMemoryProfile } from "@/agent/memory/longTermMemory"
 import { understandMemoryQuery } from "@/agent/memory/queryUnderstanding"
+import type { LlmCallObservation } from "@/monitoring/llm-call"
 import { queryMemoryVectors } from "@/agent/memory/vectorMemory"
 
 type RetrievalSource =
@@ -170,8 +171,7 @@ function hasMutableProfileTopic(query: string) {
 
 function hasLocationTimelineTopic(query: string) {
   return (
-    /(在哪|所在地|住哪|住在|住|居住)/.test(query) &&
-    /(去年|今年)/.test(query)
+    /(在哪|所在地|住哪|住在|住|居住)/.test(query) && /(去年|今年)/.test(query)
   )
 }
 
@@ -473,11 +473,13 @@ export async function searchSemanticMemory(
   env: Env,
   userId: string,
   query: string,
+  onLlmCall?: (call: LlmCallObservation) => void,
 ) {
   const matches = await queryMemoryVectors(env, {
     userId,
     query,
     topK: 8,
+    onLlmCall,
   })
   const range = rangeForQuery(query)
   return matches
@@ -502,9 +504,12 @@ export async function searchHybridMemory(
     userId: string
     query: string
     limit?: number
+    onLlmCall?: (call: LlmCallObservation) => void
   },
 ): Promise<MemorySearchContext> {
-  const intent = await understandMemoryQuery(env, input.query)
+  const intent = await understandMemoryQuery(env, input.query, {
+    onLlmCall: input.onLlmCall,
+  })
   const [structured, timelineLocation, keyword, summaries, semantic] =
     await Promise.all([
       intent.wantsStructured
@@ -516,7 +521,7 @@ export async function searchHybridMemory(
         ? searchTimeRangeSummaries(env, input.userId, input.query)
         : Promise.resolve([]),
       intent.wantsSemantic
-        ? searchSemanticMemory(env, input.userId, input.query)
+        ? searchSemanticMemory(env, input.userId, input.query, input.onLlmCall)
         : Promise.resolve([]),
     ])
   return {
