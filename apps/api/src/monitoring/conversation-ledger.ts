@@ -1,4 +1,5 @@
 import type { Env } from "@/env"
+import type { LlmCallObservation } from "@/monitoring/llm-call"
 
 export type ObservationStatus =
   | "started"
@@ -51,7 +52,12 @@ export type RecordConversationObservationEventInput = {
 
 export async function isTokenUsageAnomalous(
   env: Env,
-  input: { userId: string; totalTokens: number },
+  input: {
+    userId: string
+    totalTokens: number
+    operation?: string
+    traceId?: string
+  },
 ) {
   const configuredLimit = Number(env.TOKEN_ALERT_HARD_LIMIT)
   const hardLimit =
@@ -60,20 +66,32 @@ export async function isTokenUsageAnomalous(
       : 2000
   if (input.totalTokens >= hardLimit) return true
 
-  const row = await env.DB.prepare(
-    `SELECT AVG(total_tokens) AS average_tokens
-     FROM (
-       SELECT total_tokens
-       FROM conversation_observations
-       WHERE user_id = ? AND status != 'started' AND total_tokens > 0
-       ORDER BY started_at DESC
-       LIMIT 50
-     )`,
+  const stage = `llm.${input.operation ?? "agent_reply"}`
+  const since = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const rows = await env.DB.prepare(
+    `SELECT e.total_tokens AS totalTokens
+     FROM conversation_observation_events e
+     JOIN conversation_observations o ON o.trace_id = e.trace_id
+     WHERE o.user_id = ?
+       AND e.stage = ?
+       AND e.trace_id != ?
+       AND e.status = 'ok'
+       AND e.total_tokens > 0
+       AND e.occurred_at >= ?
+     ORDER BY e.total_tokens ASC`,
   )
-    .bind(input.userId)
-    .first<{ average_tokens: number | null }>()
-    .catch(() => null)
-  const baseline = Number(row?.average_tokens ?? 0)
+    .bind(input.userId, stage, input.traceId ?? "", since)
+    .all<{ totalTokens: number }>()
+    .catch(() => ({ results: [] }))
+  const totals = (rows.results ?? [])
+    .map((row) => Number(row.totalTokens))
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .sort((left, right) => left - right)
+  const midpoint = Math.floor(totals.length / 2)
+  const baseline =
+    totals.length % 2 === 0
+      ? ((totals[midpoint - 1] ?? 0) + (totals[midpoint] ?? 0)) / 2
+      : (totals[midpoint] ?? 0)
   return baseline >= 100 && input.totalTokens >= baseline * 3
 }
 
@@ -185,5 +203,52 @@ export async function recordConversationObservationEvent(
     .run()
     .catch((error) => {
       console.error("Failed to record conversation observation event", error)
+    })
+}
+
+export async function appendConversationLlmCall(
+  env: Env,
+  input: { traceId: string; call: LlmCallObservation },
+) {
+  const usage = input.call.usage
+  await recordConversationObservationEvent(env, {
+    traceId: input.traceId,
+    stage: `llm.${input.call.operation}`,
+    status: input.call.status === "success" ? "ok" : "degraded",
+    durationMs: input.call.durationMs,
+    provider: input.call.provider,
+    model: input.call.model,
+    promptTokens: usage?.promptTokens,
+    completionTokens: usage?.completionTokens,
+    totalTokens: usage?.totalTokens,
+    errorCode: input.call.fallbackReason,
+  })
+  await env.DB.prepare(
+    `UPDATE conversation_observations SET
+      prompt_tokens = COALESCE(prompt_tokens, 0) + ?,
+      completion_tokens = COALESCE(completion_tokens, 0) + ?,
+      total_tokens = COALESCE(total_tokens, 0) + ?,
+      model_call_count = COALESCE(model_call_count, 0) + 1,
+      status = CASE
+        WHEN status IN ('failed', 'partial') THEN status
+        WHEN ? != 'success' THEN 'degraded'
+        ELSE status
+      END,
+      degradation_reason = COALESCE(?, degradation_reason),
+      updated_at = ?
+    WHERE trace_id = ?`,
+  )
+    .bind(
+      usage?.promptTokens ?? 0,
+      usage?.completionTokens ?? 0,
+      usage?.totalTokens ?? 0,
+      input.call.status,
+      input.call.fallbackReason ?? null,
+      Date.now(),
+      input.traceId,
+    )
+    .run()
+    .catch((error) => {
+      console.error("Failed to append conversation LLM call", error)
     })
 }

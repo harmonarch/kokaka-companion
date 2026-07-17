@@ -33,18 +33,66 @@ describe("conversation observation ledger", () => {
   })
 
   it("flags token usage far above the recent baseline", async () => {
+    let capturedSql = ""
+    let capturedValues: unknown[] = []
     const env = {
       DB: {
-        prepare: () => ({
-          bind: () => ({
-            first: async () => ({ average_tokens: 200 }),
+        prepare: (sql: string) => ({
+          bind: (...values: unknown[]) => ({
+            all: async () => {
+              capturedSql = sql
+              capturedValues = values
+              return {
+                results: [100, 190, 200, 210, 220].map((totalTokens) => ({
+                  totalTokens,
+                })),
+              }
+            },
           }),
         }),
       },
     } as unknown as Env
 
     await expect(
-      isTokenUsageAnomalous(env, { userId: "user-1", totalTokens: 600 }),
+      isTokenUsageAnomalous(env, {
+        userId: "user-1",
+        traceId: "trace-current",
+        operation: "memory_extraction",
+        totalTokens: 600,
+      }),
+    ).resolves.toBe(true)
+    expect(capturedSql).toContain("e.stage = ?")
+    expect(capturedSql).toContain("e.status = 'ok'")
+    expect(capturedSql).toContain("e.trace_id != ?")
+    expect(capturedSql).toContain("e.occurred_at >= ?")
+    expect(capturedValues.slice(0, 3)).toEqual([
+      "user-1",
+      "llm.memory_extraction",
+      "trace-current",
+    ])
+  })
+
+  it("uses the median so one previous spike does not inflate the baseline", async () => {
+    const env = {
+      DB: {
+        prepare: () => ({
+          bind: () => ({
+            all: async () => ({
+              results: [100, 110, 120, 5000].map((totalTokens) => ({
+                totalTokens,
+              })),
+            }),
+          }),
+        }),
+      },
+    } as unknown as Env
+
+    await expect(
+      isTokenUsageAnomalous(env, {
+        userId: "user-1",
+        operation: "agent_reply",
+        totalTokens: 360,
+      }),
     ).resolves.toBe(true)
   })
 
