@@ -4,6 +4,8 @@ dist
 .test-dist
 .wrangler
 .expo
+.next
+*.tsbuildinfo
 coverage
 *.local
 .env
