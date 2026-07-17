@@ -10,6 +10,7 @@ import type { RelationshipEvent } from "@/agent/relationship/stateMachine"
 import type { LlmCallObservation } from "@/monitoring/llm-call"
 
 export type AgentState = {
+  traceId?: string
   userId: string
   conversationId: string
   userMessageId?: string

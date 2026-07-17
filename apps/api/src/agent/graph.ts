@@ -29,6 +29,7 @@ export async function runAgent(
 ): Promise<AgentRunResult> {
   const graph = new StateGraph<AgentState>({
     channels: {
+      traceId: null,
       userId: null,
       conversationId: null,
       userMessageId: null,
@@ -73,6 +74,7 @@ export async function runAgent(
   const langSmithTracer = createLangSmithTracer(env)
   const result = await graph.invoke(
     {
+      traceId: input.traceId,
       userId: input.userId,
       conversationId,
       userMessageId: input.userMessageId,
