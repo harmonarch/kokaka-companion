@@ -1,5 +1,6 @@
 import type { ChatMessage } from "@ai-companion/shared"
 import type { Env } from "@/env"
+import { observeLlmCall, type LlmCallObservation } from "@/monitoring/llm-call"
 import {
   deleteMemoryVector,
   upsertMemoryVector,
@@ -177,9 +178,10 @@ function canStoreUserUtterance(value: string) {
 function asksAboutUserMemory(value: string) {
   if (/你刚刚|刚刚那样|这样说|那样说/.test(value)) return false
   return (
-    /[?？]/.test(value) ||
-    /^(?:你)?(?:还)?(?:记得|知道|说说|讲讲|告诉我)/.test(value)
-  ) && /(我|我的).*(喜欢|讨厌|不喜欢|叫什么|名字|生日|记忆)/.test(value)
+    (/[?？]/.test(value) ||
+      /^(?:你)?(?:还)?(?:记得|知道|说说|讲讲|告诉我)/.test(value)) &&
+    /(我|我的).*(喜欢|讨厌|不喜欢|叫什么|名字|生日|记忆)/.test(value)
+  )
 }
 
 function isOneOffRequest(value: string) {
@@ -265,7 +267,11 @@ function normalizeExtraction(value: unknown): ExtractedLongTermMemory {
       ? raw.emotionSnapshot.trim()
       : null
   const forgets = Array.isArray(raw.forgets)
-    ? uniq(raw.forgets.filter((forget): forget is string => typeof forget === "string"))
+    ? uniq(
+        raw.forgets.filter(
+          (forget): forget is string => typeof forget === "string",
+        ),
+      )
     : []
 
   return { facts, events, preferences, emotionSnapshot, forgets }
@@ -362,7 +368,9 @@ function keepUserSupportedMemory(
   userMessage: string,
 ): ExtractedLongTermMemory {
   return {
-    facts: memory.facts.filter((fact) => hasUserSource(fact.value, userMessage)),
+    facts: memory.facts.filter((fact) =>
+      hasUserSource(fact.value, userMessage),
+    ),
     events: memory.events.filter((event) => hasUserSource(event, userMessage)),
     preferences: memory.preferences.filter((preference) =>
       hasUserSource(preference, userMessage),
@@ -413,8 +421,9 @@ function contextBeforeCurrent(
 function titleFromText(value: string) {
   const explicit = value.match(/《([^》]{1,40})》/)?.[1]
   if (explicit) return `《${explicit}》`
-  const loose = value.match(/(?:读|阅读|看)([\u4e00-\u9fa5A-Za-z0-9]{2,20})/)
-    ?.[1]
+  const loose = value.match(
+    /(?:读|阅读|看)([\u4e00-\u9fa5A-Za-z0-9]{2,20})/,
+  )?.[1]
   return loose ? `《${loose}》` : null
 }
 
@@ -513,12 +522,18 @@ function resolveContextualPreferences(
 
   const previous = contextBeforeCurrent(context, userMessage)
   if (/你刚刚|刚刚那样|这样说|那样说/.test(text)) {
-    const assistant = [...previous].reverse().find((message) => message.role === "agent")
-    const preference = assistant ? preferenceFromAssistantReply(assistant.content) : null
+    const assistant = [...previous]
+      .reverse()
+      .find((message) => message.role === "agent")
+    const preference = assistant
+      ? preferenceFromAssistantReply(assistant.content)
+      : null
     return preference ? [preference] : []
   }
 
-  const user = [...previous].reverse().find((message) => message.role === "user")
+  const user = [...previous]
+    .reverse()
+    .find((message) => message.role === "user")
   const phrase = user ? feelingPhraseFromUserText(user.content) : null
   return phrase ? [withUserPrefix(`喜欢${phrase}`)] : []
 }
@@ -572,7 +587,8 @@ function preferenceRelation(existing: string, incoming: string) {
   if (existingNormalized === incomingNormalized) return "duplicate"
 
   const sameObject = preferenceObject(existing) === preferenceObject(incoming)
-  const samePolarity = preferencePolarity(existing) === preferencePolarity(incoming)
+  const samePolarity =
+    preferencePolarity(existing) === preferencePolarity(incoming)
   if (sameObject && !samePolarity) return "conflict"
 
   if (sameObject && samePolarity) {
@@ -639,7 +655,9 @@ function prepareMemoryForStorage(
   const emotionSnapshot = isAllowedEmotionSnapshot(memory.emotionSnapshot)
     ? withUserPrefix(memory.emotionSnapshot ?? "")
     : null
-  const forgets = uniq((memory.forgets ?? []).map(withUserPrefix).filter(Boolean))
+  const forgets = uniq(
+    (memory.forgets ?? []).map(withUserPrefix).filter(Boolean),
+  )
 
   return {
     facts: memory.facts,
@@ -697,6 +715,8 @@ async function insertStoredMemory(
     createdAt: number
     validFrom?: number | null
     validTo?: number | null
+    onLlmCall?: (call: LlmCallObservation) => void
+    onVectorResult?: (result: { success: boolean; reason?: string }) => void
   },
 ) {
   const id = crypto.randomUUID()
@@ -731,8 +751,11 @@ async function insertStoredMemory(
     type: input.type,
     content: input.content,
     createdAt: input.createdAt,
-    validFrom: input.validFrom === undefined ? input.createdAt : input.validFrom,
+    validFrom:
+      input.validFrom === undefined ? input.createdAt : input.validFrom,
     validTo: input.validTo ?? null,
+    onLlmCall: input.onLlmCall,
+    onVectorResult: input.onVectorResult,
   })
   return id
 }
@@ -748,6 +771,8 @@ async function updateStoredMemory(
     createdAt: number
     validFrom?: number | null
     validTo?: number | null
+    onLlmCall?: (call: LlmCallObservation) => void
+    onVectorResult?: (result: { success: boolean; reason?: string }) => void
   },
 ) {
   await env.DB.prepare(
@@ -771,8 +796,11 @@ async function updateStoredMemory(
     type: input.type,
     content: input.content,
     createdAt: input.createdAt,
-    validFrom: input.validFrom === undefined ? input.createdAt : input.validFrom,
+    validFrom:
+      input.validFrom === undefined ? input.createdAt : input.validFrom,
     validTo: input.validTo ?? null,
+    onLlmCall: input.onLlmCall,
+    onVectorResult: input.onVectorResult,
   })
 }
 
@@ -783,6 +811,8 @@ async function expireCurrentProfileFactMemory(
     field: ExtractedFact["field"]
     value: string
     validTo: number
+    onLlmCall?: (call: LlmCallObservation) => void
+    onVectorResult?: (result: { success: boolean; reason?: string }) => void
   },
 ) {
   const content = profileFactContent(input.field, input.value)
@@ -820,6 +850,8 @@ async function expireCurrentProfileFactMemory(
     createdAt: row.createdAt,
     validFrom: null,
     validTo: input.validTo,
+    onLlmCall: input.onLlmCall,
+    onVectorResult: input.onVectorResult,
   })
   return true
 }
@@ -832,6 +864,8 @@ async function insertCurrentProfileFactMemory(
     field: ExtractedFact["field"]
     value: string
     timestamp: number
+    onLlmCall?: (call: LlmCallObservation) => void
+    onVectorResult?: (result: { success: boolean; reason?: string }) => void
   },
 ) {
   const content = profileFactContent(input.field, input.value)
@@ -855,6 +889,8 @@ async function insertCurrentProfileFactMemory(
     createdAt: input.timestamp,
     validFrom: input.timestamp,
     validTo: null,
+    onLlmCall: input.onLlmCall,
+    onVectorResult: input.onVectorResult,
   })
   return true
 }
@@ -878,6 +914,8 @@ async function storeMemoryBySemanticRelation(
     type: MemoryType
     content: string
     createdAt: number
+    onLlmCall?: (call: LlmCallObservation) => void
+    onVectorResult?: (result: { success: boolean; reason?: string }) => void
   },
 ) {
   const sameType = input.existing.filter((memory) => memory.type === input.type)
@@ -900,6 +938,8 @@ async function storeMemoryBySemanticRelation(
         type: memory.type,
         content: input.content,
         createdAt: input.createdAt,
+        onLlmCall: input.onLlmCall,
+        onVectorResult: input.onVectorResult,
       })
       memory.content = input.content
       memory.createdAt = input.createdAt
@@ -1177,6 +1217,7 @@ export async function extractLongTermMemory(
     emotionState: string
     relationshipSnapshot?: string | null
     context?: ChatMessage[]
+    onLlmCall?: (call: LlmCallObservation) => void
   },
 ): Promise<ExtractedLongTermMemory> {
   const canStoreText = canStoreUserUtterance(input.userMessage)
@@ -1190,11 +1231,35 @@ export async function extractLongTermMemory(
   const fallbackWithRelationship = input.relationshipSnapshot
     ? {
         ...fallback,
-        emotionSnapshot:
-          fallback.emotionSnapshot ?? input.relationshipSnapshot,
+        emotionSnapshot: fallback.emotionSnapshot ?? input.relationshipSnapshot,
       }
     : fallback
-  if (!env.DEEPSEEK_API_KEY) return fallbackWithRelationship
+  const startedAt = Date.now()
+  const report = (
+    status: LlmCallObservation["status"],
+    fallbackReason?: string,
+    usage?: {
+      prompt_tokens?: number
+      completion_tokens?: number
+      total_tokens?: number
+    },
+  ) => {
+    const observation = observeLlmCall({
+      provider: "deepseek",
+      model: env.DEEPSEEK_MODEL,
+      operation: "memory_extraction",
+      durationMs: Date.now() - startedAt,
+      status,
+      retries: 0,
+      usage,
+      fallbackReason,
+    })
+    input.onLlmCall?.(observation)
+  }
+  if (!env.DEEPSEEK_API_KEY) {
+    report("fallback", "provider_not_configured")
+    return fallbackWithRelationship
+  }
 
   try {
     const response = await fetch(
@@ -1237,20 +1302,38 @@ export async function extractLongTermMemory(
         }),
       },
     )
-    if (!response.ok) return fallbackWithRelationship
+    if (!response.ok) {
+      report("fallback", `http_${response.status}`)
+      return fallbackWithRelationship
+    }
     const data = (await response.json()) as {
       choices?: Array<{ message?: { content?: string } }>
+      usage?: {
+        prompt_tokens?: number
+        completion_tokens?: number
+        total_tokens?: number
+      }
     }
     const content = data.choices?.[0]?.message?.content
-    if (!content) return fallbackWithRelationship
+    if (!content) {
+      report("fallback", "empty_response", data.usage)
+      return fallbackWithRelationship
+    }
+    const parsed = parseJsonObject(content)
+    if (!parsed) {
+      report("fallback", "invalid_response", data.usage)
+      return fallbackWithRelationship
+    }
+    report("success", undefined, data.usage)
     return mergeExtractions(
       fallbackWithRelationship,
       keepUserSupportedMemory(
-        removeAssistantSourcedMemory(normalizeExtraction(parseJsonObject(content))),
+        removeAssistantSourcedMemory(normalizeExtraction(parsed)),
         input.userMessage,
       ),
     )
   } catch {
+    report("fallback", "request_error")
     return fallbackWithRelationship
   }
 }
@@ -1261,6 +1344,8 @@ export async function saveLongTermMemory(
     userId: string
     conversationId: string
     memory: ExtractedLongTermMemory
+    onLlmCall?: (call: LlmCallObservation) => void
+    onVectorResult?: (result: { success: boolean; reason?: string }) => void
   },
 ) {
   const enabled = await isLongTermMemoryEnabled(env, input.userId)
@@ -1287,6 +1372,8 @@ export async function saveLongTermMemory(
         field: fact.field,
         value: oldValue,
         validTo: oldValidTo,
+        onLlmCall: input.onLlmCall,
+        onVectorResult: input.onVectorResult,
       })
       if (!expired) {
         await insertStoredMemory(env, {
@@ -1297,6 +1384,8 @@ export async function saveLongTermMemory(
           createdAt: oldValidTo,
           validFrom: null,
           validTo: oldValidTo,
+          onLlmCall: input.onLlmCall,
+          onVectorResult: input.onVectorResult,
         })
       }
     }
@@ -1316,6 +1405,8 @@ export async function saveLongTermMemory(
         field: fact.field,
         value: fact.value,
         timestamp,
+        onLlmCall: input.onLlmCall,
+        onVectorResult: input.onVectorResult,
       })
     }
     changed = true
@@ -1351,6 +1442,8 @@ export async function saveLongTermMemory(
       type: row.type,
       content: row.content,
       createdAt: timestamp,
+      onLlmCall: input.onLlmCall,
+      onVectorResult: input.onVectorResult,
     })
     changed = rowChanged || changed
   }
