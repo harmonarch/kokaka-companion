@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "turbo dev",
     "dev:api": "pnpm --filter @ai-companion/api dev",
+    "dev:dashboard": "pnpm --filter @ai-companion/dashboard dev",
     "dev:mobile": "pnpm --filter @ai-companion/mobile dev",
     "setup:env": "node scripts/setup-env.mjs",
     "build": "turbo build",
