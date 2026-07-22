@@ -47,10 +47,7 @@ export type HttpClientOptions = {
   tokenStore?: TokenStore
   createTraceId?: () => string
   onRequestComplete?: (observation: HttpRequestObservation) => void
-  onRequestError?: (
-    observation: HttpRequestObservation,
-    error: unknown,
-  ) => void
+  onRequestError?: (observation: HttpRequestObservation, error: unknown) => void
 }
 
 export type HttpRequestObservation = {
@@ -131,10 +128,16 @@ export function createHttpClient(options: HttpClientOptions) {
     ) {
       const refreshed = await refresh({ refresh_token: tokens.refresh_token })
       await options.tokenStore?.setTokens(refreshed.tokens)
-      return request<T>(path, init, {
-        ...requestOptions,
-        retryOnUnauthorized: false,
-      }, traceId, startedAt)
+      return request<T>(
+        path,
+        init,
+        {
+          ...requestOptions,
+          retryOnUnauthorized: false,
+        },
+        traceId,
+        startedAt,
+      )
     }
 
     const data: unknown = await response.json().catch(() => ({}))
@@ -146,11 +149,7 @@ export function createHttpClient(options: HttpClientOptions) {
         typeof data.error === "string"
           ? data.error
           : "Request failed"
-      const error = new ApiError(
-        response.status,
-        message,
-        responseTraceId,
-      )
+      const error = new ApiError(response.status, message, responseTraceId)
       options.onRequestError?.(
         {
           method,
