@@ -61,3 +61,24 @@ export function removeSubmittedDraft(
   }
   return currentDraft
 }
+
+export function getVoiceTranscriptionClientErrorMessage(status: number) {
+  switch (status) {
+    case 400:
+      return "没有录到声音"
+    case 401:
+      return "登录已过期，请重新登录"
+    case 403:
+      return "没有权限使用语音输入"
+    case 413:
+      return "录音太大，请缩短录音时间"
+    case 415:
+      return "此浏览器的录音格式不受支持"
+    case 422:
+      return "没有识别到语音"
+    case 429:
+      return null
+    default:
+      return status >= 400 && status < 500 ? "无法转写这段录音" : null
+  }
+}

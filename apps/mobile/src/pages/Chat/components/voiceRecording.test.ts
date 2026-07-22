@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
   maximumVoiceRecordingSizeBytes,
+  getVoiceTranscriptionClientErrorMessage,
   mergeVoiceTranscription,
   removeSubmittedDraft,
   validateVoiceRecording,
@@ -94,5 +95,26 @@ describe("voice transcription draft merging", () => {
     const submittedDraft = "已经发送"
     const latestDraft = mergeVoiceTranscription(submittedDraft, "稍后转写")
     assert.equal(removeSubmittedDraft(latestDraft, submittedDraft), "稍后转写")
+  })
+})
+
+describe("voice transcription errors", () => {
+  it("provides specific messages for recordings rejected by the server", () => {
+    assert.equal(getVoiceTranscriptionClientErrorMessage(400), "没有录到声音")
+    assert.equal(
+      getVoiceTranscriptionClientErrorMessage(413),
+      "录音太大，请缩短录音时间",
+    )
+    assert.equal(
+      getVoiceTranscriptionClientErrorMessage(415),
+      "此浏览器的录音格式不受支持",
+    )
+    assert.equal(getVoiceTranscriptionClientErrorMessage(422), "没有识别到语音")
+  })
+
+  it("keeps server and network failures eligible for retry", () => {
+    assert.equal(getVoiceTranscriptionClientErrorMessage(429), null)
+    assert.equal(getVoiceTranscriptionClientErrorMessage(500), null)
+    assert.equal(getVoiceTranscriptionClientErrorMessage(502), null)
   })
 })
