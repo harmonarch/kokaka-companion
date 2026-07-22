@@ -13,6 +13,8 @@
   "include": [
     "src/pages/Login/authValidation.ts",
     "src/pages/Login/authValidation.test.ts",
+    "src/pages/Chat/components/voiceRecording.ts",
+    "src/pages/Chat/components/voiceRecording.test.ts",
     "src/stores/authSession.ts",
     "src/stores/authStore.test.ts",
     "src/stores/chatReliability.ts",
