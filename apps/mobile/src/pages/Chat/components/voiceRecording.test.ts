@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
   maximumVoiceRecordingSizeBytes,
+  removeSubmittedDraft,
   validateVoiceRecording,
 } from "./voiceRecording"
 
@@ -67,6 +68,15 @@ describe("voice recording validation", () => {
         mimeType: "audio/mp4; codecs=mp4a.40.2",
       }).valid,
       true,
+    )
+  })
+})
+
+describe("submitted chat draft cleanup", () => {
+  it("keeps edits added while an earlier draft is sending", () => {
+    assert.equal(
+      removeSubmittedDraft("已经发送 稍后输入", "已经发送"),
+      "稍后输入",
     )
   })
 })

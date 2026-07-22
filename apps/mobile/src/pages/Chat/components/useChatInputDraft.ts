@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { removeSubmittedDraft } from "./voiceRecording"
 
 export function useChatInputDraft({
   disabled,
@@ -20,8 +21,13 @@ export function useChatInputDraft({
 
   function submit() {
     if (cannotSend) return
+    const submittedDraft = value
     void onSend(trimmedValue)
-      .then(() => setValue(""))
+      .then(() =>
+        setValue((currentValue) =>
+          removeSubmittedDraft(currentValue, submittedDraft),
+        ),
+      )
       .catch(() => undefined)
   }
 

@@ -42,3 +42,14 @@ export function validateVoiceRecording({
   }
   return { valid: true }
 }
+
+export function removeSubmittedDraft(
+  currentDraft: string,
+  submittedDraft: string,
+) {
+  if (currentDraft === submittedDraft) return ""
+  if (currentDraft.startsWith(submittedDraft)) {
+    return currentDraft.slice(submittedDraft.length).trimStart()
+  }
+  return currentDraft
+}
