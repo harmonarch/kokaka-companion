@@ -11,6 +11,88 @@ afterEach(() => {
 })
 
 describe("HTTP trace correlation", () => {
+  it("preserves audio content type, authorization, and trace id", async () => {
+    const audio = new Blob(["voice"], { type: "audio/webm;codecs=opus" })
+    const controller = new AbortController()
+    globalThis.fetch = async (url, init) => {
+      expect(String(url)).toBe("https://api.example.com/audio/transcriptions")
+      const headers = new Headers(init?.headers)
+      expect(headers.get("content-type")).toBe("audio/webm;codecs=opus")
+      expect(headers.get("authorization")).toBe("Bearer access")
+      expect(headers.get("x-trace-id")).toBe("trace-audio")
+      expect(init?.body).toBe(audio)
+      expect(init?.signal).toBe(controller.signal)
+      return Response.json({ text: "你好" })
+    }
+    const client = createHttpClient({
+      baseUrl: "https://api.example.com",
+      createTraceId: () => "trace-audio",
+      tokenStore: {
+        getTokens: () => ({
+          access_token: "access",
+          refresh_token: "refresh",
+        }),
+        setTokens: () => undefined,
+      },
+    })
+
+    await expect(
+      client.transcribeAudio(audio, controller.signal),
+    ).resolves.toEqual({
+      text: "你好",
+    })
+  })
+
+  it("replays the same audio after refreshing an expired token", async () => {
+    const audio = new Blob(["voice"], { type: "audio/mp4" })
+    let tokens = {
+      access_token: "old-access",
+      refresh_token: "old-refresh",
+    }
+    const audioAttempts: Array<{
+      authorization: string | null
+      body: BodyInit | null | undefined
+    }> = []
+    globalThis.fetch = async (url, init) => {
+      const path = new URL(String(url)).pathname
+      if (path === "/auth/refresh") {
+        return Response.json({
+          user: { id: "u1", email: "u@example.com", nickname: "u" },
+          tokens: {
+            access_token: "new-access",
+            refresh_token: "new-refresh",
+          },
+        })
+      }
+      audioAttempts.push({
+        authorization: new Headers(init?.headers).get("authorization"),
+        body: init?.body,
+      })
+      if (audioAttempts.length === 1) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 })
+      }
+      return Response.json({ text: "重试成功" })
+    }
+    const client = createHttpClient({
+      baseUrl: "https://api.example.com",
+      tokenStore: {
+        getTokens: () => tokens,
+        setTokens: (nextTokens) => {
+          if (nextTokens) tokens = nextTokens
+        },
+      },
+    })
+
+    await expect(client.transcribeAudio(audio)).resolves.toEqual({
+      text: "重试成功",
+    })
+    expect(audioAttempts.map((attempt) => attempt.authorization)).toEqual([
+      "Bearer old-access",
+      "Bearer new-access",
+    ])
+    expect(audioAttempts.every((attempt) => attempt.body === audio)).toBe(true)
+  })
+
   it("sends and observes the trace id without query values", async () => {
     const observations: HttpRequestObservation[] = []
     globalThis.fetch = async (_url, init) => {

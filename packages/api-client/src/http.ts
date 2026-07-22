@@ -20,8 +20,10 @@ import type {
   Memory,
   RelationshipResponse,
   UpdateMemoryRequest,
+  AudioTranscriptionResponse,
 } from "@ai-companion/shared"
 import {
+  audioTranscriptionResponseSchema,
   authResponseSchema,
   chatConversationsResponseSchema,
   deleteChatMessageResponseSchema,
@@ -372,6 +374,25 @@ export function createHttpClient(options: HttpClientOptions) {
     return relationshipResponseSchema.parse(data)
   }
 
+  async function transcribeAudio(
+    audio: Blob,
+    signal?: AbortSignal,
+  ): Promise<AudioTranscriptionResponse> {
+    const data = await request<unknown>(
+      "/audio/transcriptions",
+      {
+        method: "POST",
+        headers: {
+          "content-type": audio.type || "application/octet-stream",
+        },
+        body: audio,
+        signal,
+      },
+      { auth: true },
+    )
+    return audioTranscriptionResponseSchema.parse(data)
+  }
+
   async function memories(): Promise<MemoriesResponse> {
     const data = await request<unknown>("/memories", undefined, {
       auth: true,
@@ -430,6 +451,7 @@ export function createHttpClient(options: HttpClientOptions) {
     unpinChatConversation,
     deleteChatConversation,
     relationship,
+    transcribeAudio,
     memories,
     memoryContext,
     updateMemory,
