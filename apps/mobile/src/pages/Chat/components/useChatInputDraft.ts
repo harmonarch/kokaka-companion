@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { removeSubmittedDraft } from "./voiceRecording"
+import { mergeVoiceTranscription, removeSubmittedDraft } from "./voiceRecording"
 
 export function useChatInputDraft({
   disabled,
@@ -31,10 +31,19 @@ export function useChatInputDraft({
       .catch(() => undefined)
   }
 
+  function appendTranscription(transcription: string) {
+    if (!transcription.trim()) return
+    setValue((currentValue) =>
+      mergeVoiceTranscription(currentValue, transcription),
+    )
+    onTyping?.()
+  }
+
   return {
     value,
     setValue: setDraftValue,
     cannotSend,
     submit,
+    appendTranscription,
   }
 }

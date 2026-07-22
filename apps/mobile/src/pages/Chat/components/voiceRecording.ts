@@ -43,6 +43,14 @@ export function validateVoiceRecording({
   return { valid: true }
 }
 
+export function mergeVoiceTranscription(draft: string, transcription: string) {
+  const normalizedTranscription = transcription.trim()
+  if (!normalizedTranscription) return draft
+  if (!draft) return normalizedTranscription
+  if (/\s$/.test(draft)) return `${draft}${normalizedTranscription}`
+  return `${draft} ${normalizedTranscription}`
+}
+
 export function removeSubmittedDraft(
   currentDraft: string,
   submittedDraft: string,

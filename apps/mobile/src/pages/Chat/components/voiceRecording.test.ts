@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
   maximumVoiceRecordingSizeBytes,
+  mergeVoiceTranscription,
   removeSubmittedDraft,
   validateVoiceRecording,
 } from "./voiceRecording"
@@ -72,11 +73,26 @@ describe("voice recording validation", () => {
   })
 })
 
-describe("submitted chat draft cleanup", () => {
-  it("keeps edits added while an earlier draft is sending", () => {
+describe("voice transcription draft merging", () => {
+  it("appends to the latest draft without overwriting it", () => {
     assert.equal(
-      removeSubmittedDraft("已经发送 稍后输入", "已经发送"),
-      "稍后输入",
+      mergeVoiceTranscription("刚刚输入的内容", "转写内容"),
+      "刚刚输入的内容 转写内容",
     )
+    assert.equal(
+      mergeVoiceTranscription("刚刚输入的内容 ", " 转写内容 "),
+      "刚刚输入的内容 转写内容",
+    )
+    assert.equal(mergeVoiceTranscription("", " 转写内容 "), "转写内容")
+  })
+
+  it("ignores an empty transcription", () => {
+    assert.equal(mergeVoiceTranscription("保留草稿", "  "), "保留草稿")
+  })
+
+  it("keeps a transcription that arrives while an earlier draft is sending", () => {
+    const submittedDraft = "已经发送"
+    const latestDraft = mergeVoiceTranscription(submittedDraft, "稍后转写")
+    assert.equal(removeSubmittedDraft(latestDraft, submittedDraft), "稍后转写")
   })
 })
