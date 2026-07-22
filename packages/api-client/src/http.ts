@@ -93,7 +93,9 @@ export function createHttpClient(options: HttpClientOptions) {
   ): Promise<T> {
     const tokens = await options.tokenStore?.getTokens()
     const headers = new Headers(init.headers)
-    headers.set("content-type", "application/json")
+    if (!headers.has("content-type") && typeof init.body === "string") {
+      headers.set("content-type", "application/json")
+    }
     headers.set("x-trace-id", traceId)
     if (requestOptions.auth && tokens?.access_token) {
       headers.set("authorization", `Bearer ${tokens.access_token}`)
