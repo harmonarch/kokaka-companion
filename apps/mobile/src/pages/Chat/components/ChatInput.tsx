@@ -7,29 +7,80 @@ import {
   View,
 } from "react-native"
 import type {
+  GestureResponderEvent,
   NativeSyntheticEvent,
   TextInputKeyPressEventData,
 } from "react-native"
+import Svg, { Path } from "react-native-svg"
 import { webNoFocusInputHighlight } from "@/styles/noFocusHighlight"
 import type { AppTheme } from "@/theme"
 import { useAutoGrowingChatInputHeight } from "./useAutoGrowingChatInputHeight"
 import { useChatInputDraft } from "./useChatInputDraft"
+import { useWebVoiceRecording } from "./useWebVoiceRecording"
+
+const recordingButtonSize = 38
+
+function MicrophoneIcon({ color }: { color: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  )
+}
 
 export function ChatInput({
   disabled,
   disabledReason,
   onTyping,
+  onTranscribeRecording,
   onSend,
   theme,
 }: {
   disabled?: boolean
   disabledReason?: string
   onTyping?: () => void
+  onTranscribeRecording: (audio: Blob, signal?: AbortSignal) => Promise<string>
   onSend: (content: string) => Promise<void>
   theme: AppTheme
 }) {
   const draft = useChatInputDraft({ disabled, onTyping, onSend })
   const autoHeight = useAutoGrowingChatInputHeight(draft.value)
+  const voice = useWebVoiceRecording({
+    onTranscribeRecording,
+    onTranscription: draft.appendTranscription,
+  })
+  const voiceButtonDisabled =
+    disabled || !voice.available || voice.status === "transcribing"
+  const voiceStatusMessage =
+    voice.message ??
+    (Platform.OS === "web" && !voice.available
+      ? "此浏览器不支持语音输入"
+      : null)
+
+  function handleRecordingMove(event: GestureResponderEvent) {
+    const { locationX, locationY } = event.nativeEvent
+    if (
+      locationX < 0 ||
+      locationY < 0 ||
+      locationX > recordingButtonSize ||
+      locationY > recordingButtonSize
+    ) {
+      voice.markCancelled()
+    }
+  }
 
   function handleKeyPress(
     event: NativeSyntheticEvent<TextInputKeyPressEventData>,
@@ -109,23 +160,121 @@ export function ChatInput({
           ]}
           underlineColorAndroid="transparent"
         />
-        <Pressable
-          accessibilityRole="button"
-          disabled={draft.cannotSend}
-          onPress={draft.submit}
-          style={({ pressed }) => [
-            styles.button,
-            {
-              backgroundColor: pressed ? theme.primaryPressed : theme.primary,
-              transform: [{ translateY: pressed ? 1 : 0 }],
-            },
-            draft.cannotSend && styles.buttonDisabled,
-          ]}
-        >
-          <Text style={[styles.buttonText, { color: theme.primaryText }]}>
-            发送
-          </Text>
-        </Pressable>
+        <View style={styles.footer}>
+          <View style={styles.voiceStatus}>
+            {voiceStatusMessage ? (
+              <Text
+                style={[
+                  styles.statusText,
+                  {
+                    color:
+                      voice.status === "error" || voice.status === "failed"
+                        ? theme.danger
+                        : theme.muted,
+                  },
+                ]}
+              >
+                {voiceStatusMessage}
+                {voice.status === "recording"
+                  ? ` ${(voice.elapsedMs / 1000).toFixed(1)} 秒`
+                  : ""}
+              </Text>
+            ) : null}
+            {voice.canRetry ? (
+              <View style={styles.retryActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={voice.retry}
+                  style={({ pressed }) => [
+                    styles.textAction,
+                    pressed && styles.textActionPressed,
+                  ]}
+                >
+                  <Text style={[styles.textActionLabel, { color: theme.link }]}>
+                    重试
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={voice.discard}
+                  style={({ pressed }) => [
+                    styles.textAction,
+                    pressed && styles.textActionPressed,
+                  ]}
+                >
+                  <Text
+                    style={[styles.textActionLabel, { color: theme.muted }]}
+                  >
+                    删除
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
+          <View style={styles.actions}>
+            {Platform.OS === "web" ? (
+              <View
+                accessibilityRole="button"
+                accessibilityLabel={
+                  voice.status === "recording" || voice.status === "cancelled"
+                    ? "松开结束录音"
+                    : "按住录音"
+                }
+                accessibilityHint="移出按钮可以取消录音"
+                accessibilityState={{ disabled: voiceButtonDisabled }}
+                onStartShouldSetResponder={() =>
+                  !voiceButtonDisabled && !voice.isBusy
+                }
+                onResponderGrant={() => void voice.beginRecording()}
+                onResponderMove={handleRecordingMove}
+                onResponderRelease={voice.releaseRecording}
+                onResponderTerminate={voice.cancelRecording}
+                onResponderTerminationRequest={() => false}
+                style={[
+                  styles.voiceButton,
+                  {
+                    backgroundColor:
+                      voice.status === "cancelled"
+                        ? theme.dangerSurface
+                        : voice.status === "recording"
+                          ? theme.primarySoft
+                          : theme.elevated,
+                    borderColor:
+                      voice.status === "cancelled"
+                        ? theme.dangerBorder
+                        : theme.border,
+                  },
+                  voiceButtonDisabled && styles.buttonDisabled,
+                ]}
+              >
+                <MicrophoneIcon
+                  color={
+                    voice.status === "cancelled" ? theme.danger : theme.text
+                  }
+                />
+              </View>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              disabled={draft.cannotSend}
+              onPress={draft.submit}
+              style={({ pressed }) => [
+                styles.button,
+                {
+                  backgroundColor: pressed
+                    ? theme.primaryPressed
+                    : theme.primary,
+                  transform: [{ translateY: pressed ? 1 : 0 }],
+                },
+                draft.cannotSend && styles.buttonDisabled,
+              ]}
+            >
+              <Text style={[styles.buttonText, { color: theme.primaryText }]}>
+                发送
+              </Text>
+            </Pressable>
+          </View>
+        </View>
       </View>
     </View>
   )
@@ -167,9 +316,54 @@ const styles = StyleSheet.create({
     opacity: 0,
     zIndex: -1,
   },
+  footer: {
+    minHeight: recordingButtonSize,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  voiceStatus: {
+    minWidth: 0,
+    flex: 1,
+    gap: 2,
+  },
+  statusText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontVariant: ["tabular-nums"],
+  },
+  retryActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  textAction: {
+    minHeight: 24,
+    justifyContent: "center",
+  },
+  textActionPressed: {
+    opacity: 0.6,
+  },
+  textActionLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  actions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  voiceButton: {
+    width: recordingButtonSize,
+    height: recordingButtonSize,
+    borderWidth: 1,
+    borderRadius: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   button: {
-    alignSelf: "flex-end",
-    height: 34,
+    height: recordingButtonSize,
     minWidth: 76,
     alignItems: "center",
     justifyContent: "center",

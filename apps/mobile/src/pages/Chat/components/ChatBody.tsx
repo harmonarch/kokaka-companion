@@ -24,6 +24,7 @@ export function ChatBody({
   onAvatarPress,
   onLoadOlderHistory,
   onTyping,
+  onTranscribeRecording,
   onSend,
   onRetrySend,
   onDeleteMessage,
@@ -43,6 +44,7 @@ export function ChatBody({
   onAvatarPress: (role: ProfileRole) => void
   onLoadOlderHistory: () => Promise<void>
   onTyping: () => void
+  onTranscribeRecording: (audio: Blob, signal?: AbortSignal) => Promise<string>
   onSend: (content: string) => Promise<void>
   onRetrySend: (messageId: string) => Promise<void>
   onDeleteMessage: (messageId: string) => Promise<void>
@@ -69,6 +71,7 @@ export function ChatBody({
         disabled={inputDisabled}
         disabledReason={disabledReason}
         onTyping={onTyping}
+        onTranscribeRecording={onTranscribeRecording}
         onSend={onSend}
         theme={theme}
       />

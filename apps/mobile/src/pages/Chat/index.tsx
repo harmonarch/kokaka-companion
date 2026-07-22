@@ -45,6 +45,7 @@ export default function Chat() {
           onAvatarPress={chat.profileEditor.openProfileEditor}
           onLoadOlderHistory={chat.loadOlderHistory}
           onTyping={chat.sendTyping}
+          onTranscribeRecording={chat.transcribeRecording}
           onSend={chat.send}
           onRetrySend={chat.retrySend}
           onDeleteMessage={chat.deleteMessage}
