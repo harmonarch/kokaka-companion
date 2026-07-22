@@ -1,3 +1,5 @@
+import { useCallback } from "react"
+import { useAuthStore } from "@/stores/authStore"
 import { useChatComposerState } from "./useChatComposerState"
 import { useChatHeader } from "./useChatHeader"
 import { useChatMessages } from "./useChatMessages"
@@ -10,6 +12,15 @@ export const useChat = () => {
   const composer = useChatComposerState()
   const messages = useChatMessages()
   const profileEditor = useProfileEditorModal()
+  const transcribeRecording = useCallback(
+    async (audio: Blob, signal?: AbortSignal) => {
+      const response = await useAuthStore
+        .getState()
+        .client.transcribeAudio(audio, signal)
+      return response.text
+    },
+    [],
+  )
 
   return {
     restoringUser: session.restoringUser,
@@ -19,6 +30,7 @@ export const useChat = () => {
     agentStatusText: header.agentStatusText,
     inputDisabled: composer.inputDisabled,
     disabledReason: composer.disabledReason,
+    transcribeRecording,
     profileEditor,
     ...messages,
   }
