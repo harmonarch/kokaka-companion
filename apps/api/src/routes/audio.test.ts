@@ -36,6 +36,7 @@ function request(
 describe("audio transcription routes", () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.spyOn(console, "info").mockImplementation(() => undefined)
     authenticateRequestMock.mockResolvedValue({
       id: "u1",
       email: "u1@example.com",
@@ -75,6 +76,9 @@ describe("audio transcription routes", () => {
         vad_filter: true,
       })
       expect(run.mock.calls[0]?.[1]).not.toHaveProperty("language")
+      expect(JSON.stringify(vi.mocked(console.info).mock.calls)).not.toContain(
+        "你好，世界",
+      )
     },
   )
 
@@ -174,5 +178,8 @@ describe("audio transcription routes", () => {
     expect(await response.json()).toEqual({
       error: "Audio transcription failed",
     })
+    expect(JSON.stringify(vi.mocked(console.info).mock.calls)).not.toContain(
+      "provider secret failure",
+    )
   })
 })

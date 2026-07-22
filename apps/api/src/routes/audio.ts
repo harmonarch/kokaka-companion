@@ -76,6 +76,31 @@ function toBase64(bytes: Uint8Array) {
   return btoa(parts.join(""))
 }
 
+function logTranscription(input: {
+  traceId: string
+  durationMs: number
+  sizeBytes: number
+  format: string
+  status:
+    | "success"
+    | "empty"
+    | "unsupported"
+    | "too_large"
+    | "no_speech"
+    | "error"
+}) {
+  console.info(
+    JSON.stringify({
+      event: "audio_transcription",
+      trace_id: input.traceId,
+      duration_ms: input.durationMs,
+      size_bytes: input.sizeBytes,
+      format: input.format,
+      status: input.status,
+    }),
+  )
+}
+
 audioRoutes.post("/transcriptions", async (c) => {
   const startedAt = Date.now()
   const traceId = c.get("traceId") ?? ""
@@ -84,11 +109,25 @@ audioRoutes.post("/transcriptions", async (c) => {
   const declaredSize = Number.isFinite(contentLength) ? contentLength : 0
 
   if (!SUPPORTED_AUDIO_TYPES.has(format)) {
+    logTranscription({
+      traceId,
+      durationMs: Date.now() - startedAt,
+      sizeBytes: declaredSize,
+      format,
+      status: "unsupported",
+    })
     return c.json({ error: "Unsupported audio format" }, 415)
   }
 
   const audio = await readAudioBody(c.req.raw, MAX_AUDIO_BYTES)
   if (!audio.ok) {
+    logTranscription({
+      traceId,
+      durationMs: Date.now() - startedAt,
+      sizeBytes: audio.sizeBytes,
+      format,
+      status: audio.reason,
+    })
     return audio.reason === "too_large"
       ? c.json({ error: "Audio is too large" }, 413)
       : c.json({ error: "Audio is empty" }, 400)
@@ -101,10 +140,32 @@ audioRoutes.post("/transcriptions", async (c) => {
     })
     const text = result.text.trim()
     if (!text) {
+      logTranscription({
+        traceId,
+        durationMs: Date.now() - startedAt,
+        sizeBytes: audio.bytes.byteLength,
+        format,
+        status: "no_speech",
+      })
       return c.json({ error: "No speech detected" }, 422)
     }
+
+    logTranscription({
+      traceId,
+      durationMs: Date.now() - startedAt,
+      sizeBytes: audio.bytes.byteLength,
+      format,
+      status: "success",
+    })
     return c.json(audioTranscriptionResponseSchema.parse({ text }))
   } catch {
+    logTranscription({
+      traceId,
+      durationMs: Date.now() - startedAt,
+      sizeBytes: audio.bytes.byteLength,
+      format,
+      status: "error",
+    })
     return c.json({ error: "Audio transcription failed" }, 502)
   }
 })
