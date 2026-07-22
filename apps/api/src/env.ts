@@ -1,4 +1,5 @@
 export type Env = {
+  AI: Ai
   DB: D1Database
   CHAT_CONTEXT: KVNamespace
   MEMORY_VECTORIZE?: VectorizeIndex
@@ -26,6 +27,7 @@ export type Env = {
 }
 
 const required = [
+  "AI",
   "JWT_SECRET",
   "ACCESS_TOKEN_TTL_SECONDS",
   "REFRESH_TOKEN_TTL_SECONDS",

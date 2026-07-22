@@ -16,6 +16,9 @@ SENTRY_TRACES_SAMPLE_RATE = "0.1"
 [observability]
 enabled = true
 
+[ai]
+binding = "AI"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "ai-companion-local"
