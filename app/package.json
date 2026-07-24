@@ -8,6 +8,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "prebuild": "expo prebuild",
+    "build": "pnpm build:android && pnpm build:ios:simulator",
     "build:android": "./scripts/build-android.sh",
     "build:ios:device:unsigned": "./scripts/build-ios-device-unsigned.sh",
     "build:ios:simulator": "./scripts/build-ios-simulator.sh",
