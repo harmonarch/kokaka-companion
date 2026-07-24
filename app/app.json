@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "Kokaka Companion",
+    "slug": "kokaka-companion-native",
+    "scheme": "kokaka",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "plugins": [
+      "expo-router",
+      "@sentry/react-native/expo"
+    ]
+  }
+}

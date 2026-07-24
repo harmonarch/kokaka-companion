@@ -1,0 +1,29 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": ".test-dist",
+    "rootDir": "src",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "noEmit": false,
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["node"]
+  },
+  "include": [
+    "src/pages/Login/authValidation.ts",
+    "src/pages/Login/authValidation.test.ts",
+    "src/pages/Chat/components/voiceRecording.ts",
+    "src/pages/Chat/components/voiceRecording.test.ts",
+    "src/stores/authSession.ts",
+    "src/stores/authStore.test.ts",
+    "src/stores/chatReliability.ts",
+    "src/stores/chatReliability.test.ts",
+    "src/stores/chatTrace.ts",
+    "src/stores/chatTrace.test.ts",
+    "src/stores/requestCache.ts",
+    "src/stores/requestCache.test.ts",
+    "src/utils/errors.ts",
+    "src/utils/errors.test.ts"
+  ]
+}
