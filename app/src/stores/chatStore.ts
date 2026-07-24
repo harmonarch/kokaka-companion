@@ -243,7 +243,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (message.type === "token") {
           set({
             messages: applyTokenMessage(get().messages, message, {
-              id: crypto.randomUUID,
+              id: createTraceId,
               now: Date.now,
             }),
             agentPresence: "replying",
@@ -253,7 +253,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           set({
             messages: [
               {
-                id: createTransientNudgeId(crypto.randomUUID()),
+                id: createTransientNudgeId(createTraceId()),
                 role: "agent",
                 content: message.content,
                 created_at: Date.now(),
@@ -266,7 +266,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           set({
             messages: [
               {
-                id: crypto.randomUUID(),
+                id: createTraceId(),
                 role: "agent",
                 agent_id: message.agent_id,
                 agent_name: message.agent_name,
@@ -486,7 +486,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const createdAt = Date.now()
     const traceId = createTraceId()
     const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: createTraceId(),
       role: "user",
       content: trimmed,
       created_at: createdAt,
