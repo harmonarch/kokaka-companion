@@ -43,17 +43,27 @@ export async function saveJson<T>(key: string, value: T | null) {
 }
 
 export async function loadTokens(): Promise<AuthTokens | null> {
-  return loadJson<AuthTokens>(key)
+  const raw = await SecureStore.getItemAsync(key)
+  return raw ? (JSON.parse(raw) as AuthTokens) : null
 }
 
 export async function saveTokens(tokens: AuthTokens | null) {
-  await saveJson(key, tokens)
+  if (!tokens) {
+    await SecureStore.deleteItemAsync(key)
+    return
+  }
+  await SecureStore.setItemAsync(key, JSON.stringify(tokens))
 }
 
 export async function loadUser(): Promise<User | null> {
-  return loadJson<User>(userKey)
+  const raw = await SecureStore.getItemAsync(userKey)
+  return raw ? (JSON.parse(raw) as User) : null
 }
 
 export async function saveUser(user: User | null) {
-  await saveJson(userKey, user)
+  if (!user) {
+    await SecureStore.deleteItemAsync(userKey)
+    return
+  }
+  await SecureStore.setItemAsync(userKey, JSON.stringify(user))
 }
