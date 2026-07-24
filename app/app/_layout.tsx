@@ -1,6 +1,8 @@
 import { Stack, useNavigationContainerRef } from "expo-router"
+import { StatusBar } from "expo-status-bar"
 import { useEffect } from "react"
 import { View } from "react-native"
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context"
 import { NetworkToast } from "@/components/NetworkToast"
 import { useAuthStore } from "@/stores/authStore"
 import { useAppTheme } from "@/theme"
@@ -41,15 +43,23 @@ function Layout() {
   }, [])
 
   return (
-    <View style={{ flex: 1 }}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: theme.background },
-        }}
-      />
-      <NetworkToast />
-    </View>
+    <SafeAreaProvider>
+      <StatusBar style={theme.mode === "dark" ? "light" : "dark"} />
+      <SafeAreaView
+        edges={["top", "right", "bottom", "left"]}
+        style={{ flex: 1, backgroundColor: theme.background }}
+      >
+        <View style={{ flex: 1 }}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: theme.background },
+            }}
+          />
+          <NetworkToast />
+        </View>
+      </SafeAreaView>
+    </SafeAreaProvider>
   )
 }
 
