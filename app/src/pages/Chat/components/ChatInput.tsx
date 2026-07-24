@@ -16,7 +16,7 @@ import { webNoFocusInputHighlight } from "@/styles/noFocusHighlight"
 import type { AppTheme } from "@/theme"
 import { useAutoGrowingChatInputHeight } from "./useAutoGrowingChatInputHeight"
 import { useChatInputDraft } from "./useChatInputDraft"
-import { useWebVoiceRecording } from "./useWebVoiceRecording"
+import { useVoiceRecording } from "./useVoiceRecording"
 
 const recordingButtonSize = 38
 
@@ -58,17 +58,14 @@ export function ChatInput({
 }) {
   const draft = useChatInputDraft({ disabled, onTyping, onSend })
   const autoHeight = useAutoGrowingChatInputHeight(draft.value)
-  const voice = useWebVoiceRecording({
+  const voice = useVoiceRecording({
     onTranscribeRecording,
     onTranscription: draft.appendTranscription,
   })
   const voiceButtonDisabled =
     disabled || !voice.available || voice.status === "transcribing"
   const voiceStatusMessage =
-    voice.message ??
-    (Platform.OS === "web" && !voice.available
-      ? "此浏览器不支持语音输入"
-      : null)
+    voice.message ?? (!voice.available ? "此设备不支持语音输入" : null)
 
   function handleRecordingMove(event: GestureResponderEvent) {
     const { locationX, locationY } = event.nativeEvent
@@ -212,48 +209,44 @@ export function ChatInput({
             ) : null}
           </View>
           <View style={styles.actions}>
-            {Platform.OS === "web" ? (
-              <View
-                accessibilityRole="button"
-                accessibilityLabel={
-                  voice.status === "recording" || voice.status === "cancelled"
-                    ? "松开结束录音"
-                    : "按住录音"
-                }
-                accessibilityHint="移出按钮可以取消录音"
-                accessibilityState={{ disabled: voiceButtonDisabled }}
-                onStartShouldSetResponder={() =>
-                  !voiceButtonDisabled && !voice.isBusy
-                }
-                onResponderGrant={() => void voice.beginRecording()}
-                onResponderMove={handleRecordingMove}
-                onResponderRelease={voice.releaseRecording}
-                onResponderTerminate={voice.cancelRecording}
-                onResponderTerminationRequest={() => false}
-                style={[
-                  styles.voiceButton,
-                  {
-                    backgroundColor:
-                      voice.status === "cancelled"
-                        ? theme.dangerSurface
-                        : voice.status === "recording"
-                          ? theme.primarySoft
-                          : theme.elevated,
-                    borderColor:
-                      voice.status === "cancelled"
-                        ? theme.dangerBorder
-                        : theme.border,
-                  },
-                  voiceButtonDisabled && styles.buttonDisabled,
-                ]}
-              >
-                <MicrophoneIcon
-                  color={
-                    voice.status === "cancelled" ? theme.danger : theme.text
-                  }
-                />
-              </View>
-            ) : null}
+            <View
+              accessibilityRole="button"
+              accessibilityLabel={
+                voice.status === "recording" || voice.status === "cancelled"
+                  ? "松开结束录音"
+                  : "按住录音"
+              }
+              accessibilityHint="移出按钮可以取消录音"
+              accessibilityState={{ disabled: voiceButtonDisabled }}
+              onStartShouldSetResponder={() =>
+                !voiceButtonDisabled && !voice.isBusy
+              }
+              onResponderGrant={() => void voice.beginRecording()}
+              onResponderMove={handleRecordingMove}
+              onResponderRelease={voice.releaseRecording}
+              onResponderTerminate={voice.cancelRecording}
+              onResponderTerminationRequest={() => false}
+              style={[
+                styles.voiceButton,
+                {
+                  backgroundColor:
+                    voice.status === "cancelled"
+                      ? theme.dangerSurface
+                      : voice.status === "recording"
+                        ? theme.primarySoft
+                        : theme.elevated,
+                  borderColor:
+                    voice.status === "cancelled"
+                      ? theme.dangerBorder
+                      : theme.border,
+                },
+                voiceButtonDisabled && styles.buttonDisabled,
+              ]}
+            >
+              <MicrophoneIcon
+                color={voice.status === "cancelled" ? theme.danger : theme.text}
+              />
+            </View>
             <Pressable
               accessibilityRole="button"
               disabled={draft.cannotSend}
