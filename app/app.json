@@ -2,14 +2,68 @@
   "expo": {
     "name": "Kokaka Companion",
     "slug": "kokaka-companion-native",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "scheme": "kokaka",
-    "platforms": [
-      "ios",
-      "android"
-    ],
+    "platforms": ["ios", "android"],
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ededed",
+      "dark": {
+        "image": "./assets/splash-icon.png",
+        "backgroundColor": "#1b1b1b"
+      }
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.kokaka.companion",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true,
+          "NSExceptionDomains": {
+            "localhost": {
+              "NSExceptionAllowsInsecureHTTPLoads": true
+            }
+          }
+        }
+      }
+    },
+    "android": {
+      "package": "com.kokaka.companion",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#5ac86f"
+      },
+      "permissions": ["RECORD_AUDIO"]
+    },
     "plugins": [
       "expo-router",
-      "@sentry/react-native/expo"
+      "@sentry/react-native/expo",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "允许 Kokaka 使用麦克风将语音转成文字。"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "允许 Kokaka 从相册选择头像。"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ]
   }
 }
