@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { AppState } from "react-native"
 import { useAuthStore } from "@/stores/authStore"
 import { useChatStore } from "@/stores/chatStore"
 import { useConversationStore } from "@/stores/conversationStore"
@@ -45,11 +46,33 @@ export function useChatSession() {
     user,
   ])
 
+  useEffect(() => {
+    if (!user || !conversationsReady || !activeConversationId) return
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        connect()
+        void loadHistory(true)
+        return
+      }
+      disconnect()
+    })
+    return () => subscription.remove()
+  }, [
+    activeConversationId,
+    connect,
+    conversationsReady,
+    disconnect,
+    loadHistory,
+    user,
+  ])
+
   return {
     restoringUser: restoringUser || (Boolean(user) && !conversationsReady),
     hasActiveConversation: Boolean(
       activeConversationId &&
-        conversations.some((conversation) => conversation.id === activeConversationId),
+      conversations.some(
+        (conversation) => conversation.id === activeConversationId,
+      ),
     ),
     user,
   }
