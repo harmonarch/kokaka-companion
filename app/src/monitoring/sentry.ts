@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/react-native"
+import * as Crypto from "expo-crypto"
 import type { HttpRequestObservation } from "@ai-companion/api-client"
 
 const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN?.trim()
@@ -61,9 +62,7 @@ if (dsn) {
       event.request = event.request
         ? {
             method: event.request.method,
-            url: event.request.url
-              ? sanitizeUrl(event.request.url)
-              : undefined,
+            url: event.request.url ? sanitizeUrl(event.request.url) : undefined,
           }
         : undefined
       event.user = event.user?.id ? { id: event.user.id } : undefined
@@ -79,7 +78,7 @@ if (dsn) {
 }
 
 export function createTraceId() {
-  return crypto.randomUUID()
+  return Crypto.randomUUID()
 }
 
 export function setMonitoringUser(userId: string | null) {
