@@ -9,6 +9,7 @@
     "ios": "expo run:ios",
     "prebuild": "expo prebuild",
     "build:android": "./scripts/build-android.sh",
+    "build:ios:device:unsigned": "./scripts/build-ios-device-unsigned.sh",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "rm -rf .test-dist && tsc -p tsconfig.test.json && node --test \".test-dist/**/*.test.js\""
