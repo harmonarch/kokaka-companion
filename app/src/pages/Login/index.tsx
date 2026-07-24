@@ -1,6 +1,9 @@
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -32,156 +35,171 @@ export default function Login() {
   if (user) return <Redirect href="/chat" />
 
   return (
-    <View style={[styles.page, { backgroundColor: theme.background }]}>
-      <View
-        style={[
-          styles.shell,
-          {
-            backgroundColor: theme.background,
-            borderColor: theme.border,
-          },
-        ]}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={[styles.page, { backgroundColor: theme.background }]}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.header, { borderColor: theme.border }]}>
-          <View style={styles.headerSide} />
-          <View style={styles.headerTitle}>
-            <Text style={[styles.navTitle, { color: theme.text }]}>
-              {form.mode === "register" ? "注册" : "登录"}
-            </Text>
-            <Text style={[styles.navSubtitle, { color: theme.muted }]}>
-              {form.mode === "register" ? "创建新账号" : "欢迎回来"}
-            </Text>
-          </View>
-          <View style={styles.headerSide} />
-        </View>
-        <View style={styles.panel}>
-          <View style={[styles.mark, { backgroundColor: theme.primarySoft }]}>
-            <Text style={styles.markText}>微</Text>
-          </View>
-          <View style={styles.brand}>
-          <Text style={[styles.title, { color: theme.text }]}>
-              {form.mode === "register" ? "创建账号" : "邮箱登录"}
-          </Text>
-        </View>
-        <Text style={[styles.subtitle, { color: theme.muted }]}>
-            {form.mode === "register"
-              ? "填写基础信息，稍后可继续完善个人资料。"
-              : "使用邮箱和密码继续进入聊天。"}
-        </Text>
-        <View style={[styles.tabs, { borderColor: theme.border }]}>
-          <Pressable
-            onPress={() => form.setMode("register")}
-            style={[
-              styles.tab,
-              form.mode === "register" && { backgroundColor: theme.surface },
-            ]}
-          >
-            <Text
-              style={
-                form.mode === "register"
-                  ? [styles.tabTextActive, { color: theme.primaryText }]
-                  : [styles.tabText, { color: theme.muted }]
-              }
-            >
-              注册
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => form.setMode("login")}
-            style={[
-              styles.tab,
-              form.mode === "login" && { backgroundColor: theme.surface },
-            ]}
-          >
-            <Text
-              style={
-                form.mode === "login"
-                  ? [styles.tabTextActive, { color: theme.primaryText }]
-                  : [styles.tabText, { color: theme.muted }]
-              }
-            >
-              登录
-            </Text>
-          </Pressable>
-        </View>
-        <TextInput
-          value={form.email}
-          onChangeText={form.setEmail}
+        <View
           style={[
-            styles.input,
-            webNoFocusInputHighlight,
+            styles.shell,
             {
-              backgroundColor: theme.field,
+              backgroundColor: theme.background,
               borderColor: theme.border,
-              color: theme.text,
-            },
-          ]}
-          underlineColorAndroid="transparent"
-          placeholder="邮箱"
-          placeholderTextColor={theme.subtle}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-        <TextInput
-          value={form.password}
-          onChangeText={form.setPassword}
-          style={[
-            styles.input,
-            webNoFocusInputHighlight,
-            {
-              backgroundColor: theme.field,
-              borderColor: theme.border,
-              color: theme.text,
-            },
-          ]}
-          underlineColorAndroid="transparent"
-          placeholder="密码"
-          placeholderTextColor={theme.subtle}
-          secureTextEntry
-        />
-        {form.mode === "register" ? (
-          <TextInput
-            value={form.nickname}
-            onChangeText={form.setNickname}
-            style={[
-              styles.input,
-              webNoFocusInputHighlight,
-              {
-                backgroundColor: theme.field,
-                borderColor: theme.border,
-                color: theme.text,
-              },
-            ]}
-            underlineColorAndroid="transparent"
-            placeholder="希望怎么称呼你"
-            placeholderTextColor={theme.subtle}
-          />
-        ) : null}
-        {error ? (
-          <Text style={[styles.error, { color: theme.danger }]}>{error}</Text>
-        ) : null}
-        <Pressable
-          onPress={press}
-          style={({ pressed }) => [
-            styles.primary,
-            {
-              backgroundColor: pressed ? theme.primaryPressed : theme.primary,
-              transform: [{ translateY: pressed ? 1 : 0 }],
             },
           ]}
         >
-          <Text style={[styles.primaryText, { color: theme.primaryText }]}>
-            {form.mode === "register" ? "开始陪伴" : "回到聊天"}
-          </Text>
-        </Pressable>
-          <Text style={[styles.terms, { color: theme.muted }]}>
-            {form.mode === "register"
-              ? "注册即代表同意服务协议、隐私政策与儿童隐私保护规则。"
-              : "登录即代表同意服务协议和隐私政策。"}
-          </Text>
+          <View style={[styles.header, { borderColor: theme.border }]}>
+            <View style={styles.headerSide} />
+            <View style={styles.headerTitle}>
+              <Text style={[styles.navTitle, { color: theme.text }]}>
+                {form.mode === "register" ? "注册" : "登录"}
+              </Text>
+              <Text style={[styles.navSubtitle, { color: theme.muted }]}>
+                {form.mode === "register" ? "创建新账号" : "欢迎回来"}
+              </Text>
+            </View>
+            <View style={styles.headerSide} />
+          </View>
+          <View style={styles.panel}>
+            <View style={[styles.mark, { backgroundColor: theme.primarySoft }]}>
+              <Text style={styles.markText}>微</Text>
+            </View>
+            <View style={styles.brand}>
+              <Text style={[styles.title, { color: theme.text }]}>
+                {form.mode === "register" ? "创建账号" : "邮箱登录"}
+              </Text>
+            </View>
+            <Text style={[styles.subtitle, { color: theme.muted }]}>
+              {form.mode === "register"
+                ? "填写基础信息，稍后可继续完善个人资料。"
+                : "使用邮箱和密码继续进入聊天。"}
+            </Text>
+            <View style={[styles.tabs, { borderColor: theme.border }]}>
+              <Pressable
+                onPress={() => form.setMode("register")}
+                style={[
+                  styles.tab,
+                  form.mode === "register" && {
+                    backgroundColor: theme.surface,
+                  },
+                ]}
+              >
+                <Text
+                  style={
+                    form.mode === "register"
+                      ? [styles.tabTextActive, { color: theme.primaryText }]
+                      : [styles.tabText, { color: theme.muted }]
+                  }
+                >
+                  注册
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => form.setMode("login")}
+                style={[
+                  styles.tab,
+                  form.mode === "login" && { backgroundColor: theme.surface },
+                ]}
+              >
+                <Text
+                  style={
+                    form.mode === "login"
+                      ? [styles.tabTextActive, { color: theme.primaryText }]
+                      : [styles.tabText, { color: theme.muted }]
+                  }
+                >
+                  登录
+                </Text>
+              </Pressable>
+            </View>
+            <TextInput
+              value={form.email}
+              onChangeText={form.setEmail}
+              style={[
+                styles.input,
+                webNoFocusInputHighlight,
+                {
+                  backgroundColor: theme.field,
+                  borderColor: theme.border,
+                  color: theme.text,
+                },
+              ]}
+              underlineColorAndroid="transparent"
+              placeholder="邮箱"
+              placeholderTextColor={theme.subtle}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+            <TextInput
+              value={form.password}
+              onChangeText={form.setPassword}
+              style={[
+                styles.input,
+                webNoFocusInputHighlight,
+                {
+                  backgroundColor: theme.field,
+                  borderColor: theme.border,
+                  color: theme.text,
+                },
+              ]}
+              underlineColorAndroid="transparent"
+              placeholder="密码"
+              placeholderTextColor={theme.subtle}
+              secureTextEntry
+            />
+            {form.mode === "register" ? (
+              <TextInput
+                value={form.nickname}
+                onChangeText={form.setNickname}
+                style={[
+                  styles.input,
+                  webNoFocusInputHighlight,
+                  {
+                    backgroundColor: theme.field,
+                    borderColor: theme.border,
+                    color: theme.text,
+                  },
+                ]}
+                underlineColorAndroid="transparent"
+                placeholder="希望怎么称呼你"
+                placeholderTextColor={theme.subtle}
+              />
+            ) : null}
+            {error ? (
+              <Text style={[styles.error, { color: theme.danger }]}>
+                {error}
+              </Text>
+            ) : null}
+            <Pressable
+              onPress={press}
+              style={({ pressed }) => [
+                styles.primary,
+                {
+                  backgroundColor: pressed
+                    ? theme.primaryPressed
+                    : theme.primary,
+                  transform: [{ translateY: pressed ? 1 : 0 }],
+                },
+              ]}
+            >
+              <Text style={[styles.primaryText, { color: theme.primaryText }]}>
+                {form.mode === "register" ? "开始陪伴" : "回到聊天"}
+              </Text>
+            </Pressable>
+            <Text style={[styles.terms, { color: theme.muted }]}>
+              {form.mode === "register"
+                ? "注册即代表同意服务协议、隐私政策与儿童隐私保护规则。"
+                : "登录即代表同意服务协议和隐私政策。"}
+            </Text>
+          </View>
         </View>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   )
 }
 
@@ -189,6 +207,9 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     alignItems: "stretch",
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   shell: {
     flex: 1,
