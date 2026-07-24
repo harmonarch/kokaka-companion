@@ -1,4 +1,14 @@
-import { Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native"
+import {
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native"
 import { webNoFocusInputHighlight } from "@/styles/noFocusHighlight"
 import type { AppTheme } from "@/theme"
 import type { ProfileRole } from "../profile/types"
@@ -31,7 +41,10 @@ export function ProfileEditorModal({
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={styles.backdrop}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.backdrop}
+      >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View
           style={[
@@ -62,7 +75,10 @@ export function ProfileEditorModal({
                   ]}
                 >
                   {avatar ? (
-                    <Image source={{ uri: avatar }} style={styles.avatarImage} />
+                    <Image
+                      source={{ uri: avatar }}
+                      style={styles.avatarImage}
+                    />
                   ) : (
                     <Text style={styles.avatarText}>
                       {role === "agent" ? "K" : "我"}
@@ -118,7 +134,7 @@ export function ProfileEditorModal({
             </View>
           ) : null}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }
