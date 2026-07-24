@@ -1,4 +1,4 @@
-import { StyleSheet } from "react-native"
+import { Platform, StyleSheet } from "react-native"
 
 export const styles = StyleSheet.create({
   page: {
@@ -118,7 +118,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 32,
   },
   emptyListInversionFix: {
-    transform: [{ scaleY: -1 }],
+    transform: Platform.OS === "android" ? [{ scale: -1 }] : [{ scaleY: -1 }],
   },
   emptyTitle: {
     fontSize: 17,
