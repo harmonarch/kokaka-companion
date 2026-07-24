@@ -1,4 +1,4 @@
-import { View } from "react-native"
+import { KeyboardAvoidingView, Platform, View } from "react-native"
 import { Redirect, router } from "expo-router"
 import { useAppTheme } from "@/theme"
 import { useChat } from "@/pages/Chat/hooks/useChat"
@@ -20,7 +20,10 @@ export default function Chat() {
   if (!chat.hasActiveConversation) return <Redirect href="/chats" />
 
   return (
-    <View style={[styles.page, { backgroundColor: theme.background }]}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={[styles.page, { backgroundColor: theme.background }]}
+    >
       <View style={[styles.shell, { backgroundColor: theme.background }]}>
         <ChatHeader
           title={chat.chatTitle}
@@ -52,6 +55,6 @@ export default function Chat() {
         />
         <ChatOverlays profileEditor={chat.profileEditor} theme={theme} />
       </View>
-    </View>
+    </KeyboardAvoidingView>
   )
 }
