@@ -1,7 +1,9 @@
 import { useState } from "react"
 import {
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -12,10 +14,7 @@ import type { AppTheme } from "@/theme"
 import { pickAvatarImage } from "@/pages/Chat/profile/pickAvatarImage"
 import { useToastStore } from "@/stores/toastStore"
 import { webNoFocusInputHighlight } from "@/styles/noFocusHighlight"
-import {
-  getNetworkErrorMessage,
-  getReadableErrorMessage,
-} from "@/utils/errors"
+import { getNetworkErrorMessage, getReadableErrorMessage } from "@/utils/errors"
 import { styles } from "../styles"
 import type { CreateAgentInput } from "../types"
 import { FormError, ModalHeader, SaveButton } from "./modalControls"
@@ -86,7 +85,10 @@ export function AddAgentModal({
 
   return (
     <Modal transparent animationType="fade" visible={visible}>
-      <View style={styles.backdrop}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.backdrop}
+      >
         <Pressable style={StyleSheet.absoluteFill} onPress={close} />
         <View
           style={[
@@ -217,7 +219,7 @@ export function AddAgentModal({
             />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }
