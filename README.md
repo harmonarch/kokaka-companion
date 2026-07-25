@@ -36,9 +36,9 @@ kokaka 希望成为一个能倾听、能记忆、能理解、能支持的陪伴 
 | 多主题分段回复                                            | □    |
 | 主动推送                                                  | □    |
 | 亲密度模型                                                | ✅   |
-| 语音输入                                                  | □    |
+| 语音输入                                                  | ✅   |
 | 文件上传                                                  | □    |
-| 正式 App 端                                               | □    |
+| 正式 App 端                                               | ✅   |
 
 ## 技术栈
 
@@ -50,6 +50,7 @@ kokaka 希望成为一个能倾听、能记忆、能理解、能支持的陪伴 
 | 数据库     | Wrangler 本地 D1 + Drizzle   |
 | 短期上下文 | Cloudflare KV                |
 | Web 原型   | Expo + React Native Web      |
+| 原生 App   | React Native + Expo          |
 | 监控面板   | Next.js                      |
 | 状态管理   | Zustand                      |
 | 共享类型   | TypeScript + Zod             |
@@ -104,7 +105,15 @@ Expo 会在终端输出本地 Web 地址，通常是：
 http://localhost:8081
 ```
 
-### 6. 启动监控面板
+### 6. 启动原生 App
+
+```sh
+pnpm dev:app
+```
+
+Android、iOS 的运行和安装包生成方式见 [`app/README.md`](app/README.md)。
+
+### 7. 启动监控面板
 
 ```sh
 cp apps/dashboard/.env.example apps/dashboard/.env.local
@@ -145,6 +154,7 @@ pnpm build
 
 ```txt
 kokaka/
+├── app/                   # Android 与 iOS 原生 App
 ├── apps/
 │   ├── api/              # Cloudflare Workers API
 │   ├── dashboard/        # Next.js 监控面板
