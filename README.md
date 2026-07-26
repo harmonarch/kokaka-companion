@@ -104,7 +104,15 @@ Expo 会在终端输出本地 Web 地址，通常是：
 http://localhost:8081
 ```
 
-### 6. 启动监控面板
+### 6. 启动原生 App
+
+```sh
+pnpm dev:app
+```
+
+Android、iOS 模拟器与安装包的使用方式见 [`app/README.md`](app/README.md)。
+
+### 7. 启动监控面板
 
 ```sh
 cp apps/dashboard/.env.example apps/dashboard/.env.local
@@ -145,6 +153,7 @@ pnpm build
 
 ```txt
 kokaka/
+├── app/                   # Android 与 iOS 原生 App
 ├── apps/
 │   ├── api/              # Cloudflare Workers API
 │   ├── dashboard/        # Next.js 监控面板
