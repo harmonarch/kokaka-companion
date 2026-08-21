@@ -142,7 +142,15 @@ pnpm --filter @ai-companion/api migrate:production
 pnpm --filter @ai-companion/dashboard deploy:cloudflare
 ```
 
-面板使用服务绑定 `MONITORING_API` 访问 API，因此部署后无需配置 `MONITORING_API_URL`。生产环境里的密钥（如 `DASHBOARD_ACCESS_PASSWORD`、`MONITORING_API_KEY`）通过 `wrangler secret put` 注入，不要写进 `wrangler.jsonc`。
+部署前会自动同步生产 secret：`deploy:production` 和 `deploy:cloudflare` 都会先调用 `scripts/deploy-secrets.mjs`，读取各 app 的 `.env.production` 并通过 `wrangler secret bulk` 写入 Worker。首次部署前先准备这两个文件：
+
+```sh
+cp apps/api/.env.production.example apps/api/.env.production
+cp apps/dashboard/.env.production.example apps/dashboard/.env.production
+# 编辑这两个文件填入真实值（留空的 key 会被跳过）
+```
+
+面板使用服务绑定 `MONITORING_API` 访问 API，因此部署后无需配置 `MONITORING_API_URL`。`MONITORING_API_KEY` 在 API 与面板两侧需要保持一致，所以两侧的 `.env.production` 里填同一个值。secret 只通过 `wrangler secret bulk` 注入，不要写进 `wrangler.jsonc` 或 `wrangler.production.toml`。
 
 ## 本地验证
 
