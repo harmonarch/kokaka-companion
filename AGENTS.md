@@ -31,3 +31,18 @@ packages/core  session 与聊天控制逻辑
 - `apps/mobile/expo-env.d.ts` 提供 `process.env` 类型声明，不要删除。
 - `pnpm --filter @ai-companion/api build` 会执行 `wrangler deploy --dry-run`，本地可能因为 Wrangler 环境卡住；优先使用 API typecheck 和 test 做日常验证。
 - WebSocket 当前使用 query token，后续需要升级鉴权方式。
+
+## 部署准备清单
+
+部署到 Cloudflare 前逐项确认，避免漏配 secret 或漏跑迁移：
+
+- 首次部署前准备两份 secret 文件（git 忽略，复制自模板并填入真实值）：
+  - `cp apps/api/.env.production.example apps/api/.env.production`
+  - `cp apps/dashboard/.env.production.example apps/dashboard/.env.production`
+  - 留空的 key 会被 `scripts/deploy-secrets.mjs` 跳过，不会写入。
+- API 必填 secret：`JWT_SECRET`、`PASSWORD_HASH_SECRET`（生产环境用新的随机值，不要复用 `.env.example` 里的开发值）、`DEEPSEEK_API_KEY`。
+- `MONITORING_API_KEY` 在 API 与 dashboard 两侧必须填同一个值，否则面板读不到监控数据。
+- `DASHBOARD_ACCESS_PASSWORD` 是面板 Basic Auth 密码；用户名 `admin` 已写在 `wrangler.jsonc` 的 `vars` 里。
+- 先迁移数据库再部署 API：`pnpm --filter @ai-companion/api migrate:production`。
+- secret 无需手动 `wrangler secret put`：`deploy:production` / `deploy:cloudflare` 会自动先执行 `deploy-secrets.mjs`。
+- secret 只通过 `wrangler secret bulk` 注入，不要写进 `wrangler.jsonc` 或 `wrangler.production.toml`。
