@@ -127,6 +127,23 @@ http://localhost:3001
 
 监控面板的 `MONITORING_API_KEY` 需要和 API 使用相同的值。
 
+打开面板时浏览器会弹出 Basic Auth，凭据来自 `.env.local` 里的 `DASHBOARD_ACCESS_USER` 和 `DASHBOARD_ACCESS_PASSWORD`（`middleware.ts` 校验）。
+
+### 8. 部署到 Cloudflare
+
+API 与监控面板都可以直接部署到 Cloudflare Workers。
+
+```sh
+# API（使用 wrangler.production.toml）
+pnpm --filter @ai-companion/api deploy:production
+pnpm --filter @ai-companion/api migrate:production
+
+# 监控面板（OpenNext + wrangler.jsonc）
+pnpm --filter @ai-companion/dashboard deploy:cloudflare
+```
+
+面板使用服务绑定 `MONITORING_API` 访问 API，因此部署后无需配置 `MONITORING_API_URL`。生产环境里的密钥（如 `DASHBOARD_ACCESS_PASSWORD`、`MONITORING_API_KEY`）通过 `wrangler secret put` 注入，不要写进 `wrangler.jsonc`。
+
 ## 本地验证
 
 ```sh

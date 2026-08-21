@@ -5,6 +5,7 @@ dist
 .wrangler
 .expo
 .next
+.open-next
 *.tsbuildinfo
 coverage
 *.local

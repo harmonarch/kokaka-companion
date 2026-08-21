@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ai-companion-dashboard",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-07-24",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets",
+  },
+  "observability": {
+    "enabled": true,
+  },
+  "services": [
+    {
+      "binding": "MONITORING_API",
+      "service": "ai-companion-api",
+    },
+  ],
+  "vars": {
+    "DASHBOARD_ACCESS_USER": "admin",
+    "MONITORING_API_URL": "https://ai-companion-api.kokaka-companion.workers.dev",
+  },
+}

@@ -5,6 +5,10 @@
   "scripts": {
     "dev": "next dev --port 3001",
     "build": "next build",
+    "build:cloudflare": "MONITORING_API_URL= MONITORING_API_KEY= DASHBOARD_ACCESS_PASSWORD= opennextjs-cloudflare build",
+    "preview:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy:cloudflare": "pnpm build:cloudflare && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "test": "vitest run"
@@ -12,15 +16,17 @@
   "dependencies": {
     "@ai-companion/shared": "workspace:*",
     "lucide-react": "^1.25.0",
-    "next": "^15.5.20",
+    "next": "^15.5.21",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.2",
     "@types/node": "^20.19.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "wrangler": "^4.114.0"
   }
 }
