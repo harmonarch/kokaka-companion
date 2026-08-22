@@ -6,7 +6,7 @@ import type {
 } from "@ai-companion/shared"
 import type { Env } from "@/env"
 import { findUserById } from "@/auth/session"
-import { verifyAccessToken } from "@/auth/tokens"
+import { consumeWsTicket } from "@/ws/ticket"
 import { runAgent } from "@/agent/graph"
 import {
   chatMessageExists,
@@ -505,12 +505,9 @@ export async function handleChatWebSocket(
   requestTraceId?: string,
 ) {
   const url = new URL(request.url)
-  const token = url.searchParams.get("token")
-  if (!token) {
-    return new Response("Unauthorized", { status: 401 })
-  }
-  const payload = await verifyAccessToken(token, env)
-  const user = payload ? await findUserById(env, payload.sub) : null
+  const ticket = url.searchParams.get("ticket")
+  const userId = ticket ? await consumeWsTicket(env, ticket) : null
+  const user = userId ? await findUserById(env, userId) : null
   if (!user) {
     return new Response("Unauthorized", { status: 401 })
   }
