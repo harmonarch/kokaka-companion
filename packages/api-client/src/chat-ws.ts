@@ -3,7 +3,7 @@ import { serverWsMessageSchema } from "@ai-companion/shared"
 
 export type ChatWebSocketClientOptions = {
   url: string
-  accessToken: string
+  ticket: string
   onMessage: (message: ServerWsMessage) => void
   onOpen?: () => void
   onClose?: () => void
@@ -19,8 +19,8 @@ export class ChatWebSocketClient {
   connect() {
     const separator = this.options.url.includes("?") ? "&" : "?"
     this.socket = new WebSocket(
-      `${this.options.url}${separator}token=${encodeURIComponent(
-        this.options.accessToken,
+      `${this.options.url}${separator}ticket=${encodeURIComponent(
+        this.options.ticket,
       )}`,
     )
     this.socket.onopen = () => this.options.onOpen?.()

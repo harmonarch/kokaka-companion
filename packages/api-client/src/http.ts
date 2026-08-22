@@ -21,6 +21,7 @@ import type {
   RelationshipResponse,
   UpdateMemoryRequest,
   AudioTranscriptionResponse,
+  WsTicketResponse,
 } from "@ai-companion/shared"
 import {
   audioTranscriptionResponseSchema,
@@ -37,6 +38,7 @@ import {
   relationshipResponseSchema,
   updateChatConversationResponseSchema,
   userSchema,
+  wsTicketResponseSchema,
 } from "@ai-companion/shared"
 
 export type TokenStore = {
@@ -432,6 +434,15 @@ export function createHttpClient(options: HttpClientOptions) {
     )
   }
 
+  async function wsTicket(): Promise<WsTicketResponse> {
+    const data = await request<unknown>(
+      "/ws/ticket",
+      { method: "POST" },
+      { auth: true },
+    )
+    return wsTicketResponseSchema.parse(data)
+  }
+
   return {
     register,
     login,
@@ -456,5 +467,6 @@ export function createHttpClient(options: HttpClientOptions) {
     memoryContext,
     updateMemory,
     deleteMemory,
+    wsTicket,
   }
 }
