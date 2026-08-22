@@ -251,3 +251,9 @@ export const chatHistoryRequestSchema = z.object({
 })
 
 export type ChatHistoryRequest = z.infer<typeof chatHistoryRequestSchema>
+
+export const wsTicketResponseSchema = z.object({
+  ticket: z.string().min(1),
+})
+
+export type WsTicketResponse = z.infer<typeof wsTicketResponseSchema>
