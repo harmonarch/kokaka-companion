@@ -170,7 +170,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
     const controller = new ChatController({
       wsUrl: chatWsUrl,
-      getTokens: () => useAuthStore.getState().tokens,
+      createTicket: async () =>
+        (await useAuthStore.getState().client.wsTicket()).ticket,
       createClient: (options) => new ChatWebSocketClient(options),
       onProtocolError: (error) => {
         captureAppError(error, { operation: "chat.protocol" })
