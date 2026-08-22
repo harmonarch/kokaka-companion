@@ -2,7 +2,11 @@ import { useEffect, useState } from "react"
 import { router } from "expo-router"
 import { useAuthStore } from "@/stores/authStore"
 import { useToastStore } from "@/stores/toastStore"
-import { getNetworkErrorMessage, getReadableErrorMessage } from "@/utils/errors"
+import {
+  getAuthCredentialsError,
+  getNetworkErrorMessage,
+  getReadableErrorMessage,
+} from "@/utils/errors"
 import { getAuthFieldsError } from "./authValidation"
 import type { LoginMode } from "./useLoginForm"
 
@@ -46,7 +50,9 @@ export function useLogin() {
     } catch (err) {
       const networkError = getNetworkErrorMessage(err)
       if (networkError) showToast(networkError)
-      setError(getReadableErrorMessage(err, "操作失败"))
+      setError(
+        getAuthCredentialsError(err) ?? getReadableErrorMessage(err, "操作失败"),
+      )
     }
   }
 

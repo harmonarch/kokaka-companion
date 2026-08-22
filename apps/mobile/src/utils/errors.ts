@@ -4,6 +4,16 @@ export function getNetworkErrorMessage(error: unknown) {
   return isNetworkError(error) ? networkErrorMessage : null
 }
 
+export const authCredentialsErrorMessage = "邮箱或密码错误，请检查后重试。"
+
+export function getAuthCredentialsError(error: unknown) {
+  const status =
+    typeof error === "object" && error && "status" in error
+      ? Number(error.status)
+      : null
+  return status === 401 ? authCredentialsErrorMessage : null
+}
+
 export function getReadableErrorMessage(error: unknown, fallback: string) {
   if (isNetworkError(error)) return null
 

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
+  authCredentialsErrorMessage,
+  getAuthCredentialsError,
   getNetworkErrorMessage,
   getReadableErrorMessage,
   networkErrorMessage,
@@ -45,5 +47,13 @@ describe("readable error messages", () => {
       getReadableErrorMessage(error, "聊天列表载入失败"),
       "服务暂时不可用，请稍后再试。",
     )
+  })
+
+  it("maps login 401 to credentials error instead of session expiry", () => {
+    const error = Object.assign(new Error("Invalid email or password"), {
+      status: 401,
+    })
+    assert.equal(getAuthCredentialsError(error), authCredentialsErrorMessage)
+    assert.equal(getAuthCredentialsError(new Error("Request failed")), null)
   })
 })
