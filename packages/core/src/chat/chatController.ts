@@ -1,5 +1,4 @@
 import type {
-  AuthTokens,
   ChatAgentContext,
   ClientWsMessage,
   ServerWsMessage,
@@ -14,7 +13,7 @@ export type ChatConnectionStatus =
 
 export type ChatSocketClientOptions = {
   url: string
-  accessToken: string
+  ticket: string
   onMessage: (message: ServerWsMessage) => void
   onOpen?: () => void
   onClose?: () => void
@@ -30,7 +29,7 @@ export type ChatSocketClient = {
 
 export type ChatControllerOptions = {
   wsUrl: string
-  getTokens: () => AuthTokens | null
+  createTicket: () => Promise<string>
   onMessage: (message: ServerWsMessage) => void
   onStatus?: (status: ChatConnectionStatus) => void
   createClient: (options: ChatSocketClientOptions) => ChatSocketClient
@@ -52,27 +51,34 @@ export class ChatController {
 
   constructor(private readonly options: ChatControllerOptions) {}
 
-  connect() {
+  async connect() {
     this.manuallyClosed = false
     this.clearReconnectTimer()
     this.reconnectAttempt = 0
-    this.connectClient("connecting")
+    await this.connectClient("connecting")
   }
 
-  private connectClient(status: ChatConnectionStatus) {
-    const tokens = this.options.getTokens()
-    if (!tokens) {
-      throw new Error("Missing access token")
-    }
+  private async connectClient(status: ChatConnectionStatus) {
     this.connectionId += 1
     const connectionId = this.connectionId
     const previousClient = this.client
     this.client = null
     previousClient?.close()
     this.options.onStatus?.(status)
+
+    let ticket: string
+    try {
+      ticket = await this.options.createTicket()
+    } catch {
+      this.options.onStatus?.("error")
+      this.scheduleReconnect()
+      return
+    }
+    if (connectionId !== this.connectionId) return
+
     this.client = this.options.createClient({
       url: this.options.wsUrl,
-      accessToken: tokens.access_token,
+      ticket,
       onMessage: this.options.onMessage,
       onOpen: () => {
         if (connectionId !== this.connectionId) return

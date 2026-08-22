@@ -24,17 +24,12 @@ class FakeChatWebSocketClient {
   }
 }
 
-const tokens = {
-  access_token: "access-token",
-  refresh_token: "refresh-token",
-}
-
 function createHarness() {
   const clients: FakeChatWebSocketClient[] = []
   const statuses: ChatConnectionStatus[] = []
   const controller = new ChatController({
     wsUrl: "ws://localhost:8787/ws/chat",
-    getTokens: () => tokens,
+    createTicket: () => Promise.resolve("ticket"),
     onMessage: () => undefined,
     onStatus: (status) => statuses.push(status),
     createClient: (options) => {
@@ -51,26 +46,33 @@ function createHarness() {
   }
 }
 
+// Advance mock timers and flush the microtasks scheduled by the async
+// `createTicket` continuation inside `connectClient`.
+async function tickAndFlush(ms: number) {
+  mock.timers.tick(ms)
+  await Promise.resolve()
+}
+
 describe("ChatController reconnect", () => {
   afterEach(() => {
     mock.timers.reset()
   })
 
-  it("reconnects after an unexpected close", () => {
+  it("reconnects after an unexpected close", async () => {
     mock.timers.enable({ apis: ["setTimeout"] })
     const { clients, controller, statuses } = createHarness()
 
-    controller.connect()
+    await controller.connect()
     clients[0].options.onOpen?.()
     clients[0].options.onClose?.()
 
     assert.deepEqual(statuses, ["connecting", "connected", "reconnecting"])
     assert.equal(clients.length, 1)
 
-    mock.timers.tick(999)
+    await tickAndFlush(999)
     assert.equal(clients.length, 1)
 
-    mock.timers.tick(1)
+    await tickAndFlush(1)
     assert.equal(clients.length, 2)
     assert.equal(statuses.at(-1), "reconnecting")
   })
@@ -85,77 +87,77 @@ describe("ChatController reconnect", () => {
     assert.equal(ChatController.reconnectDelayForAttempt(12), 30000)
   })
 
-  it("keeps growing delays across repeated failed reconnects", () => {
+  it("keeps growing delays across repeated failed reconnects", async () => {
     mock.timers.enable({ apis: ["setTimeout"] })
     const { clients, controller } = createHarness()
 
-    controller.connect()
+    await controller.connect()
     clients[0].options.onClose?.()
-    mock.timers.tick(1000)
+    await tickAndFlush(1000)
     assert.equal(clients.length, 2)
 
     clients[1].options.onClose?.()
-    mock.timers.tick(1999)
+    await tickAndFlush(1999)
     assert.equal(clients.length, 2)
 
-    mock.timers.tick(1)
+    await tickAndFlush(1)
     assert.equal(clients.length, 3)
   })
 
-  it("resets reconnect delay after a successful connection", () => {
+  it("resets reconnect delay after a successful connection", async () => {
     mock.timers.enable({ apis: ["setTimeout"] })
     const { clients, controller } = createHarness()
 
-    controller.connect()
+    await controller.connect()
     clients[0].options.onClose?.()
-    mock.timers.tick(1000)
+    await tickAndFlush(1000)
     clients[1].options.onClose?.()
-    mock.timers.tick(2000)
+    await tickAndFlush(2000)
 
     clients[2].options.onOpen?.()
     clients[2].options.onClose?.()
-    mock.timers.tick(999)
+    await tickAndFlush(999)
     assert.equal(clients.length, 3)
 
-    mock.timers.tick(1)
+    await tickAndFlush(1)
     assert.equal(clients.length, 4)
   })
 
-  it("does not reconnect after an explicit close", () => {
+  it("does not reconnect after an explicit close", async () => {
     mock.timers.enable({ apis: ["setTimeout"] })
     const { clients, controller, statuses } = createHarness()
 
-    controller.connect()
+    await controller.connect()
     controller.close()
     clients[0].options.onClose?.()
-    mock.timers.tick(30000)
+    await tickAndFlush(30000)
 
     assert.equal(clients.length, 1)
     assert.equal(clients[0].closed, true)
     assert.equal(statuses.at(-1), "idle")
   })
 
-  it("clears pending reconnects when connect is called again", () => {
+  it("clears pending reconnects when connect is called again", async () => {
     mock.timers.enable({ apis: ["setTimeout"] })
     const { clients, controller } = createHarness()
 
-    controller.connect()
+    await controller.connect()
     clients[0].options.onClose?.()
-    controller.connect()
-    mock.timers.tick(1000)
+    await controller.connect()
+    await tickAndFlush(1000)
 
     assert.equal(clients.length, 2)
     assert.equal(clients[0].closed, true)
   })
 
-  it("ignores close events from replaced clients", () => {
+  it("ignores close events from replaced clients", async () => {
     mock.timers.enable({ apis: ["setTimeout"] })
     const { clients, controller, statuses } = createHarness()
 
-    controller.connect()
-    controller.connect()
+    await controller.connect()
+    await controller.connect()
     clients[0].options.onClose?.()
-    mock.timers.tick(30000)
+    await tickAndFlush(30000)
 
     assert.equal(clients.length, 2)
     assert.deepEqual(statuses, ["connecting", "connecting"])
@@ -163,10 +165,10 @@ describe("ChatController reconnect", () => {
 })
 
 describe("ChatController send", () => {
-  it("sends a single-agent chat message with session and persona context", () => {
+  it("sends a single-agent chat message with session and persona context", async () => {
     const { clients, controller } = createHarness()
 
-    controller.connect()
+    await controller.connect()
     clients[0].options.onOpen?.()
     controller.send("今天有点乱", "chat:agent-1", "m1", [
       {
@@ -191,10 +193,10 @@ describe("ChatController send", () => {
     })
   })
 
-  it("sends a group chat message with multiple agent persona contexts", () => {
+  it("sends a group chat message with multiple agent persona contexts", async () => {
     const { clients, controller } = createHarness()
 
-    controller.connect()
+    await controller.connect()
     clients[0].options.onOpen?.()
     controller.send("一起帮我复盘一下", "group-1", "m2", [
       {
@@ -229,9 +231,9 @@ describe("ChatController send", () => {
     })
   })
 
-  it("sends the same trace id with a chat message", () => {
+  it("sends the same trace id with a chat message", async () => {
     const { controller, clients } = createHarness()
-    controller.connect()
+    await controller.connect()
 
     controller.send("hello", "chat-1", "m-trace", undefined, "trace-1")
 
@@ -245,10 +247,10 @@ describe("ChatController send", () => {
     })
   })
 
-  it("sends typing state for the active session", () => {
+  it("sends typing state for the active session", async () => {
     const { clients, controller } = createHarness()
 
-    controller.connect()
+    await controller.connect()
     clients[0].options.onOpen?.()
     controller.sendTyping("chat:agent-1")
 
