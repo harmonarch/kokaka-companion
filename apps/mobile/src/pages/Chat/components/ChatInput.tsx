@@ -18,6 +18,10 @@ import { useAutoGrowingChatInputHeight } from "./useAutoGrowingChatInputHeight"
 import { useChatInputDraft } from "./useChatInputDraft"
 import { useWebVoiceRecording } from "./useWebVoiceRecording"
 
+// 语音录制暂时下线：后端 whisper 转写返回 502，修复前隐藏录音入口。
+// 恢复时把该开关改为 true（或整体删除）。
+const voiceRecordingEnabled = false
+
 const recordingButtonSize = 38
 
 function MicrophoneIcon({ color }: { color: string }) {
@@ -64,11 +68,12 @@ export function ChatInput({
   })
   const voiceButtonDisabled =
     disabled || !voice.available || voice.status === "transcribing"
-  const voiceStatusMessage =
-    voice.message ??
-    (Platform.OS === "web" && !voice.available
-      ? "此浏览器不支持语音输入"
-      : null)
+  const voiceStatusMessage = voiceRecordingEnabled
+    ? voice.message ??
+      (Platform.OS === "web" && !voice.available
+        ? "此浏览器不支持语音输入"
+        : null)
+    : null
 
   function handleRecordingMove(event: GestureResponderEvent) {
     const { locationX, locationY } = event.nativeEvent
@@ -212,7 +217,7 @@ export function ChatInput({
             ) : null}
           </View>
           <View style={styles.actions}>
-            {Platform.OS === "web" ? (
+            {voiceRecordingEnabled && Platform.OS === "web" ? (
               <View
                 accessibilityRole="button"
                 accessibilityLabel={

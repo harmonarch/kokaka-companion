@@ -88,6 +88,7 @@ function logTranscription(input: {
     | "too_large"
     | "no_speech"
     | "error"
+  error?: string
 }) {
   console.info(
     JSON.stringify({
@@ -97,6 +98,7 @@ function logTranscription(input: {
       size_bytes: input.sizeBytes,
       format: input.format,
       status: input.status,
+      error: input.error,
     }),
   )
 }
@@ -158,13 +160,16 @@ audioRoutes.post("/transcriptions", async (c) => {
       status: "success",
     })
     return c.json(audioTranscriptionResponseSchema.parse({ text }))
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error("audio transcription failed", error)
     logTranscription({
       traceId,
       durationMs: Date.now() - startedAt,
       sizeBytes: audio.bytes.byteLength,
       format,
       status: "error",
+      error: message,
     })
     return c.json({ error: "Audio transcription failed" }, 502)
   }
