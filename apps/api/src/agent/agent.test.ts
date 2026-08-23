@@ -26,6 +26,34 @@ function relationshipState(input?: Partial<ReturnType<typeof defaultRelationship
   }
 }
 
+function crisisState() {
+  return {
+    userId: "u1",
+    conversationId: "c1",
+    userMessage: "我不想活了",
+    shortMessageBurst: false,
+    context: [],
+    longTermMemory: {
+      enabled: true,
+      profile: null,
+      memories: [],
+      summaries: [],
+    },
+    memorySearch: {
+      query: "我不想活了",
+      keywords: [],
+      results: [],
+    },
+    emotionState: "crisis" as const,
+    relationshipState: relationshipState(),
+    relationshipEvent: "neutral" as const,
+    relationshipSnapshot: null,
+    reasoning: "",
+    strategy: "表达陪伴，认真承接。",
+    reply: "",
+  }
+}
+
 describe("P0 agent", () => {
   it("classifies the four required emotion states", () => {
     expect(classifyEmotion("今天很普通")).toBe("normal")
@@ -297,7 +325,57 @@ describe("P0 agent", () => {
     }
     const prompt = request.messages[0].content
     expect(prompt).toContain("当前命中危机安全层")
+    expect(prompt).toContain("12356")
     expect(prompt).not.toContain("当前关系情绪：吃醋")
+  })
+
+  it("adds crisis resources to the fallback reply when the provider is unavailable", async () => {
+    const reply = await generateReplyWithDeepSeek(env, crisisState())
+
+    expect(reply).toContain("12356")
+    expect(reply).toContain("120")
+    expect(reply).toContain("110")
+  })
+
+  it("appends crisis resources to a successful crisis reply", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "我会认真陪你撑过这一刻" } }],
+        }),
+        { status: 200 },
+      ),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const reply = await generateReplyWithDeepSeek(
+      { ...env, DEEPSEEK_API_KEY: "key" },
+      crisisState(),
+    )
+
+    expect(reply).toContain("我会认真陪你撑过这一刻")
+    expect(reply).toContain("12356")
+  })
+
+  it("does not duplicate crisis resources when the model already names the hotline", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            { message: { content: "请拨打全国统一心理援助热线 12356" } },
+          ],
+        }),
+        { status: 200 },
+      ),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const reply = await generateReplyWithDeepSeek(
+      { ...env, DEEPSEEK_API_KEY: "key" },
+      crisisState(),
+    )
+
+    expect(reply.match(/12356/g)).toHaveLength(1)
   })
 
   it("persists recent context for 6 hours", async () => {
