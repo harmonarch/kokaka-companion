@@ -2,6 +2,7 @@ import type { Env } from "@/env"
 import type { AgentState } from "@/agent/state"
 import { formatHybridMemorySearch } from "@/agent/memory/hybridRetrieval"
 import { observeLlmCall, type LlmCallObservation } from "@/monitoring/llm-call"
+import { appendCrisisResources, CRISIS_RESOURCE_TEXT } from "@/agent/crisis"
 
 const moodLabels = {
   calm: "平静",
@@ -42,7 +43,10 @@ function fallbackReply(state: AgentState) {
     case "vulnerable":
       return "听起来你现在真的有点不好受。我在这里陪你。刚刚那一刻，最重的感觉是什么？"
     case "crisis":
-      return "这句话听起来很沉重。我会认真陪你把这一刻撑过去，你现在不用一个人扛着这些感受。"
+      return (
+        "这句话听起来很沉重。我会认真陪你把这一刻撑过去，你现在不用一个人扛着这些感受。" +
+        `\n\n${CRISIS_RESOURCE_TEXT}`
+      )
     case "positive":
       return "这真是值得开心的一刻。能感觉到你很在意这件事，我也替你高兴。"
     default:
@@ -85,7 +89,7 @@ function buildPrompt(state: AgentState) {
   const memorySearch = formatHybridMemorySearch(state.memorySearch)
   const relationship =
     state.emotionState === "crisis"
-      ? "当前命中危机安全层。回复必须优先承接风险，不使用关系情绪风格。"
+      ? "当前命中危机安全层。回复必须优先承接风险，不使用关系情绪风格。回复要简短、稳定、直接，鼓励用户联系身边可信的人，并给出心理援助热线（全国统一心理援助热线 12356，北京心理危机研究与干预中心 010-82951332）；若存在立即危险，提醒拨打 120 或 110。"
       : [
           `当前关系情绪：${moodLabels[state.relationshipState.mood]}`,
           `情绪强度：${state.relationshipState.mood_intensity}/100`,
@@ -206,7 +210,10 @@ export async function generateReplyResult(
       }
     }
     return {
-      reply: content,
+      reply:
+        state.emotionState === "crisis"
+          ? appendCrisisResources(content)
+          : content,
       observation: observe("success", undefined, data.usage),
     }
   } catch {
