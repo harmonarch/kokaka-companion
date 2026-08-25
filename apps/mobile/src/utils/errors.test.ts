@@ -41,8 +41,11 @@ describe("readable error messages", () => {
     )
   })
 
-  it("shows service unavailable separately", () => {
-    const error = Object.assign(new Error("Request failed"), { status: 503 })
+  it("shows HTTP service failures separately from connection errors", () => {
+    const error = Object.assign(new Error("Service unavailable"), {
+      status: 503,
+    })
+    assert.equal(getNetworkErrorMessage(error), null)
     assert.equal(
       getReadableErrorMessage(error, "聊天列表载入失败"),
       "服务暂时不可用，请稍后再试。",

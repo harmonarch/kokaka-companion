@@ -46,6 +46,12 @@ export function getReadableErrorMessage(error: unknown, fallback: string) {
 }
 
 function isNetworkError(error: unknown) {
+  const status =
+    typeof error === "object" && error && "status" in error
+      ? Number(error.status)
+      : null
+  if (status !== null && Number.isFinite(status)) return false
+
   const message = error instanceof Error ? error.message : String(error ?? "")
   const normalized = message.toLowerCase()
 
