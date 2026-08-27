@@ -10,6 +10,13 @@ const mobileEnv = resolve(root, "apps/mobile/.env")
 const appExample = resolve(root, "app/.env.example")
 const appEnv = resolve(root, "app/.env")
 
+function copyIfMissing(source, target) {
+  if (existsSync(target)) return false
+
+  copyFileSync(source, target)
+  return true
+}
+
 function readArgValue(name) {
   const prefix = `--${name}=`
   const item = process.argv.slice(2).find((arg) => arg.startsWith(prefix))
@@ -19,9 +26,9 @@ function readArgValue(name) {
 const deepseekApiKey =
   readArgValue("deepseek-api-key") || process.env.DEEPSEEK_API_KEY || ""
 
-copyFileSync(apiExample, apiDevVars)
-copyFileSync(mobileExample, mobileEnv)
-copyFileSync(appExample, appEnv)
+const apiDevVarsCreated = copyIfMissing(apiExample, apiDevVars)
+const mobileEnvCreated = copyIfMissing(mobileExample, mobileEnv)
+const appEnvCreated = copyIfMissing(appExample, appEnv)
 
 if (deepseekApiKey) {
   const content = readFileSync(apiDevVars, "utf8")
@@ -36,9 +43,9 @@ if (!existsSync(apiDevVars) || !existsSync(mobileEnv) || !existsSync(appEnv)) {
   throw new Error("环境文件生成失败")
 }
 
-console.log("已生成 apps/api/.dev.vars")
-console.log("已生成 apps/mobile/.env")
-console.log("已生成 app/.env")
+console.log(`${apiDevVarsCreated ? "已生成" : "已保留"} apps/api/.dev.vars`)
+console.log(`${mobileEnvCreated ? "已生成" : "已保留"} apps/mobile/.env`)
+console.log(`${appEnvCreated ? "已生成" : "已保留"} app/.env`)
 console.log(
   deepseekApiKey
     ? "已写入 DEEPSEEK_API_KEY"
