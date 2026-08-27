@@ -7,8 +7,15 @@ export const CRISIS_RESOURCE_TEXT =
   "如果你此刻有立即伤害自己或他人的风险，请先保证安全：立刻拨打 120（急救）或 110（报警），并尽量让身边可信的人陪着你。" +
   "你也可以随时联系心理援助热线：全国统一心理援助热线 12356（24 小时）；北京心理危机研究与干预中心 010-82951332（24 小时）。"
 
+function hasCrisisHotline(reply: string) {
+  // 只匹配独立的 5 位热线号码（前后不能是数字），避免把包含 12356 的更长数字
+  // 误判成“已经写了热线”而漏掉危机资源。
+  const standaloneHotline = new RegExp(`(?<!\\d)${CRISIS_HOTLINE}(?!\\d)`)
+  return standaloneHotline.test(reply) || reply.includes(CRISIS_HOTLINE_BEIJING)
+}
+
 export function appendCrisisResources(reply: string) {
-  if (reply.includes(CRISIS_HOTLINE) || reply.includes(CRISIS_HOTLINE_BEIJING)) {
+  if (hasCrisisHotline(reply)) {
     return reply
   }
   return `${reply.trim()}\n\n${CRISIS_RESOURCE_TEXT}`
