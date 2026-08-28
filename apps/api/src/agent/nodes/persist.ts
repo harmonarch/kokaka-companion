@@ -6,8 +6,18 @@ import { saveChatMessages } from "@/chat/history"
 
 const RECENT_CONTEXT_TTL_SECONDS = 60 * 60 * 6
 
-export async function loadContext(env: Env, userId: string) {
-  const raw = await env.CHAT_CONTEXT.get(`ctx:${userId}`)
+export function recentContextKey(userId: string, conversationId: string) {
+  return `ctx:${userId}:${conversationId}`
+}
+
+export async function loadContext(
+  env: Env,
+  userId: string,
+  conversationId: string,
+) {
+  const raw = await env.CHAT_CONTEXT.get(
+    recentContextKey(userId, conversationId),
+  )
   if (!raw) return []
   const parsed = recentContextSchema.safeParse(JSON.parse(raw))
   return parsed.success ? parsed.data.messages : []
@@ -15,7 +25,7 @@ export async function loadContext(env: Env, userId: string) {
 
 export function createLoadContextNode(env: Env) {
   return async (state: AgentState): Promise<Partial<AgentState>> => ({
-    context: await loadContext(env, state.userId),
+    context: await loadContext(env, state.userId, state.conversationId),
   })
 }
 
@@ -40,9 +50,13 @@ export function createPersistContextNode(env: Env) {
       agentMessage,
     ].slice(-20)
     const context: RecentContext = { messages }
-    await env.CHAT_CONTEXT.put(`ctx:${state.userId}`, JSON.stringify(context), {
-      expirationTtl: RECENT_CONTEXT_TTL_SECONDS,
-    })
+    await env.CHAT_CONTEXT.put(
+      recentContextKey(state.userId, state.conversationId),
+      JSON.stringify(context),
+      {
+        expirationTtl: RECENT_CONTEXT_TTL_SECONDS,
+      },
+    )
     await env.CHAT_CONTEXT.put(`mood:${state.userId}`, state.emotionState, {
       expirationTtl: 60 * 60 * 24 * 7,
     })
@@ -55,4 +69,18 @@ export function createPersistContextNode(env: Env) {
     })
     return { context: messages }
   }
+}
+
+export async function deleteRecentContexts(env: Env, userId: string) {
+  let cursor: string | undefined
+  do {
+    const listed = await env.CHAT_CONTEXT.list({
+      prefix: `${recentContextKey(userId, "")}`,
+      cursor,
+    })
+    await Promise.all(
+      listed.keys.map((key) => env.CHAT_CONTEXT.delete(key.name)),
+    )
+    cursor = listed.list_complete ? undefined : listed.cursor
+  } while (cursor)
 }

@@ -432,7 +432,7 @@ describe("P0 agent", () => {
       reply: "新的回复",
     })
 
-    const recentContextPut = puts.find((put) => put.key === "ctx:u1")
+    const recentContextPut = puts.find((put) => put.key === "ctx:u1:c1")
 
     expect(recentContextPut?.options?.expirationTtl).toBe(60 * 60 * 6)
     expect(result.context).toHaveLength(20)

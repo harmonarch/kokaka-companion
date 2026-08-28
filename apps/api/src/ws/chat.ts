@@ -20,6 +20,7 @@ import {
 } from "@/agent/memory/longTermMemory"
 import { LLMEvaluator } from "@/ws/collector/llm-evaluator"
 import { MessageCollector } from "@/ws/collector/message-collector"
+import { recentContextKey } from "@/agent/nodes/persist"
 import type { PendingMessage } from "@/ws/collector/types"
 import type { LlmCallObservation } from "@/monitoring/llm-call"
 import {
@@ -379,7 +380,7 @@ export async function updateCollectedHistory(
   const contextWriteStartedAt = Date.now()
   try {
     await env.CHAT_CONTEXT.put(
-      `ctx:${input.userId}`,
+      recentContextKey(input.userId, input.conversationId),
       JSON.stringify(recentContext),
       { expirationTtl: 60 * 60 * 6 },
     )
@@ -466,7 +467,7 @@ export async function appendCollectedHistory(
   const contextWriteStartedAt = Date.now()
   try {
     await env.CHAT_CONTEXT.put(
-      `ctx:${input.userId}`,
+      recentContextKey(input.userId, input.conversationId),
       JSON.stringify(recentContext),
       { expirationTtl: 60 * 60 * 6 },
     )
