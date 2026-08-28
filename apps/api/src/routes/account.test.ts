@@ -15,6 +15,12 @@ function createEnvFixture() {
   const deletedKeys: string[] = []
   const deletedTables: string[] = []
   const updates: string[] = []
+  const contextKeys = new Set([
+    "ctx:u1:c1",
+    "ctx:u1:c2",
+    "ctx:other:c1",
+    "ctx:u1",
+  ])
 
   const db = {
     prepare(sql: string) {
@@ -55,18 +61,28 @@ function createEnvFixture() {
   const env = {
     DB: db,
     CHAT_CONTEXT: {
+      async list(options: { prefix?: string }) {
+        return {
+          keys: [...contextKeys]
+            .filter((key) => key.startsWith(options.prefix ?? ""))
+            .map((name) => ({ name })),
+          list_complete: true,
+        }
+      },
       async delete(key: string) {
+        contextKeys.delete(key)
         deletedKeys.push(key)
       },
     },
   } as unknown as Env
 
-  return { env, deletedKeys, deletedTables, updates }
+  return { env, deletedKeys, deletedTables, updates, contextKeys }
 }
 
 describe("account routes", () => {
   it("clears short-term context, mood and long-term memory cache on account deletion", async () => {
-    const { env, deletedKeys, deletedTables, updates } = createEnvFixture()
+    const { env, deletedKeys, deletedTables, updates, contextKeys } =
+      createEnvFixture()
 
     const response = await accountRoutes.request(
       new Request("http://localhost/", {
@@ -82,9 +98,12 @@ describe("account routes", () => {
     expect(updates).toHaveLength(2)
     expect(deletedKeys).toEqual([
       "ctx:u1",
+      "ctx:u1:c1",
+      "ctx:u1:c2",
       "mood:u1",
       longTermMemoryCacheKey("u1"),
     ])
+    expect([...contextKeys]).toEqual(["ctx:other:c1"])
     expect(deletedTables).toEqual([
       "user_profiles",
       "memories",
