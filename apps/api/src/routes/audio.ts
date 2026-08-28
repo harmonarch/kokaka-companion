@@ -161,7 +161,6 @@ audioRoutes.post("/transcriptions", async (c) => {
     })
     return c.json(audioTranscriptionResponseSchema.parse({ text }))
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
     console.error("audio transcription failed", error)
     logTranscription({
       traceId,
@@ -169,7 +168,7 @@ audioRoutes.post("/transcriptions", async (c) => {
       sizeBytes: audio.bytes.byteLength,
       format,
       status: "error",
-      error: message,
+      error: "model_failure",
     })
     return c.json({ error: "Audio transcription failed" }, 502)
   }
