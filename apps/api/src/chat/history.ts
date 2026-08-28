@@ -82,8 +82,8 @@ export async function replaceChatMessages(
   await env.DB.batch([
     ...input.deleteIds.map((id) =>
       env.DB.prepare(
-        "DELETE FROM chat_messages WHERE user_id = ? AND id = ?",
-      ).bind(input.userId, id),
+        "DELETE FROM chat_messages WHERE user_id = ? AND conversation_id = ? AND id = ?",
+      ).bind(input.userId, input.conversationId, id),
     ),
     ...input.messages.map((message) =>
       createInsertChatMessageStatement(env, input, message),
