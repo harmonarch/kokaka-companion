@@ -38,6 +38,7 @@ import {
 async function observeStorageWrite(
   env: Env,
   input: {
+    userId: string
     traceId?: string | null
     stage: "storage.chat_d1" | "storage.context_kv" | "storage.memory"
     startedAt: number
@@ -46,6 +47,7 @@ async function observeStorageWrite(
 ) {
   if (!input.traceId) return
   await recordConversationObservationEvent(env, {
+    userId: input.userId,
     traceId: input.traceId,
     stage: input.stage,
     status: input.success ? "ok" : "failed",
@@ -53,6 +55,7 @@ async function observeStorageWrite(
     errorCode: input.success ? undefined : "write_failed",
   })
   await updateConversationObservation(env, {
+    userId: input.userId,
     traceId: input.traceId,
     ...(input.success
       ? {}
@@ -80,7 +83,11 @@ async function appendBackgroundLlmCalls(
   for (const call of input.calls) {
     await Promise.all(
       input.traceIds.map((traceId) =>
-        appendConversationLlmCall(env, { traceId, call }),
+        appendConversationLlmCall(env, {
+          userId: input.userId,
+          traceId,
+          call,
+        }),
       ),
     )
     const totalTokens = call.usage?.totalTokens ?? 0
@@ -93,7 +100,7 @@ async function appendBackgroundLlmCalls(
         totalTokens,
       }))
     ) {
-      await updateTraceObservations(env, input.traceIds, {
+      await updateTraceObservations(env, input.userId, input.traceIds, {
         status: "degraded",
         degradationReason: `${call.operation}_token_anomaly`,
       })
@@ -103,12 +110,16 @@ async function appendBackgroundLlmCalls(
 
 async function updateTraceObservations(
   env: Env,
+  userId: string,
   traceIds: string[],
-  input: Omit<Parameters<typeof updateConversationObservation>[1], "traceId">,
+  input: Omit<
+    Parameters<typeof updateConversationObservation>[1],
+    "traceId" | "userId"
+  >,
 ) {
   await Promise.all(
     traceIds.map((traceId) =>
-      updateConversationObservation(env, { traceId, ...input }),
+      updateConversationObservation(env, { userId, traceId, ...input }),
     ),
   )
 }
@@ -341,6 +352,7 @@ export async function updateCollectedHistory(
       messages: [...userMessages, ...agentMessages],
     })
     await observeStorageWrite(env, {
+      userId: input.userId,
       traceId: input.pending[0]?.traceId,
       stage: "storage.chat_d1",
       startedAt: chatWriteStartedAt,
@@ -349,6 +361,7 @@ export async function updateCollectedHistory(
   } catch (error) {
     console.error("Failed to replace collected chat history", error)
     await observeStorageWrite(env, {
+      userId: input.userId,
       traceId: input.pending[0]?.traceId,
       stage: "storage.chat_d1",
       startedAt: chatWriteStartedAt,
@@ -371,6 +384,7 @@ export async function updateCollectedHistory(
       { expirationTtl: 60 * 60 * 6 },
     )
     await observeStorageWrite(env, {
+      userId: input.userId,
       traceId: input.pending[0]?.traceId,
       stage: "storage.context_kv",
       startedAt: contextWriteStartedAt,
@@ -379,6 +393,7 @@ export async function updateCollectedHistory(
   } catch (error) {
     console.error("Failed to replace collected recent context", error)
     await observeStorageWrite(env, {
+      userId: input.userId,
       traceId: input.pending[0]?.traceId,
       stage: "storage.context_kv",
       startedAt: contextWriteStartedAt,
@@ -415,6 +430,7 @@ export async function appendCollectedHistory(
       messages: [...userMessages, ...agentMessages],
     })
     await observeStorageWrite(env, {
+      userId: input.userId,
       traceId: input.pending[0]?.traceId,
       stage: "storage.chat_d1",
       startedAt: chatWriteStartedAt,
@@ -423,6 +439,7 @@ export async function appendCollectedHistory(
   } catch (error) {
     console.error("Failed to append collected chat history", error)
     await observeStorageWrite(env, {
+      userId: input.userId,
       traceId: input.pending[0]?.traceId,
       stage: "storage.chat_d1",
       startedAt: chatWriteStartedAt,
@@ -454,6 +471,7 @@ export async function appendCollectedHistory(
       { expirationTtl: 60 * 60 * 6 },
     )
     await observeStorageWrite(env, {
+      userId: input.userId,
       traceId: input.pending[0]?.traceId,
       stage: "storage.context_kv",
       startedAt: contextWriteStartedAt,
@@ -462,6 +480,7 @@ export async function appendCollectedHistory(
   } catch (error) {
     console.error("Failed to append collected recent context", error)
     await observeStorageWrite(env, {
+      userId: input.userId,
       traceId: input.pending[0]?.traceId,
       stage: "storage.context_kv",
       startedAt: contextWriteStartedAt,
@@ -610,6 +629,7 @@ export async function handleChatWebSocket(
         const llmCalls = [...evaluator.drainObservations(), ...result.llmCalls]
         for (const call of llmCalls) {
           await recordConversationObservationEvent(env, {
+            userId: user.id,
             traceId,
             stage: `llm.${call.operation}`,
             status: call.status === "success" ? "ok" : "degraded",
@@ -639,6 +659,7 @@ export async function handleChatWebSocket(
         })
         if (tokenAnomaly) {
           await recordConversationObservationEvent(env, {
+            userId: user.id,
             traceId,
             stage: "tokens.anomaly",
             status: "degraded",
@@ -670,7 +691,7 @@ export async function handleChatWebSocket(
             agent_name: replyParts[0]?.agentName,
             trace_id: traceId,
           })
-          await updateTraceObservations(env, traceIds, {
+          await updateTraceObservations(env, user.id, traceIds, {
             status: finalDegradationReason ? "degraded" : "ok",
             degradationReason: finalDegradationReason,
             firstResponseMs,
@@ -799,7 +820,7 @@ export async function handleChatWebSocket(
               topic_id: "default",
               trace_id: traceId,
             })
-            await updateTraceObservations(env, traceIds, {
+            await updateTraceObservations(env, user.id, traceIds, {
               status: finalDegradationReason ? "degraded" : "ok",
               degradationReason: finalDegradationReason,
               firstResponseMs,
@@ -821,7 +842,7 @@ export async function handleChatWebSocket(
               trace_ids: traceIds,
             })
           } else {
-            await updateTraceObservations(env, traceIds, {
+            await updateTraceObservations(env, user.id, traceIds, {
               status: "partial",
               degradationReason: interrupted
                 ? "reply_interrupted"
@@ -855,6 +876,7 @@ export async function handleChatWebSocket(
                 onLlmCall: (call) => memoryLlmCalls.push(call),
               })
               await recordConversationObservationEvent(env, {
+                userId: user.id,
                 traceId,
                 stage: "memory.extract",
                 status: memoryLlmCalls.some((call) => call.status !== "success")
@@ -878,12 +900,14 @@ export async function handleChatWebSocket(
                 calls: memoryLlmCalls,
               })
               await recordConversationObservationEvent(env, {
+                userId: user.id,
                 traceId,
                 stage: "memory.d1_write",
                 status: "ok",
               })
               for (const vectorResult of vectorResults) {
                 await recordConversationObservationEvent(env, {
+                  userId: user.id,
                   traceId,
                   stage: "memory.vector_upsert",
                   status: vectorResult.success ? "ok" : "degraded",
@@ -891,7 +915,7 @@ export async function handleChatWebSocket(
                 })
               }
               if (vectorResults.some((result) => !result.success)) {
-                await updateTraceObservations(env, traceIds, {
+                await updateTraceObservations(env, user.id, traceIds, {
                   status: "partial",
                   degradationReason:
                     vectorResults.find((result) => !result.success)?.reason ??
@@ -899,7 +923,7 @@ export async function handleChatWebSocket(
                   vectorStored: false,
                 })
               } else if (vectorResults.length > 0) {
-                await updateTraceObservations(env, traceIds, {
+                await updateTraceObservations(env, user.id, traceIds, {
                   vectorStored: true,
                 })
               }
@@ -909,11 +933,13 @@ export async function handleChatWebSocket(
                 messages: collectedContext,
               })
               await recordConversationObservationEvent(env, {
+                userId: user.id,
                 traceId,
                 stage: "memory.summary_write",
                 status: "ok",
               })
               await observeStorageWrite(env, {
+                userId: user.id,
                 traceId,
                 stage: "storage.memory",
                 startedAt,
@@ -921,6 +947,7 @@ export async function handleChatWebSocket(
               })
             } catch (error) {
               await observeStorageWrite(env, {
+                userId: user.id,
                 traceId,
                 stage: "storage.memory",
                 startedAt,
@@ -976,6 +1003,7 @@ export async function handleChatWebSocket(
               onLlmCall: (call) => memoryLlmCalls.push(call),
             })
             await recordConversationObservationEvent(env, {
+              userId: user.id,
               traceId,
               stage: "memory.extract",
               status: memoryLlmCalls.some((call) => call.status !== "success")
@@ -999,12 +1027,14 @@ export async function handleChatWebSocket(
               calls: memoryLlmCalls,
             })
             await recordConversationObservationEvent(env, {
+              userId: user.id,
               traceId,
               stage: "memory.d1_write",
               status: "ok",
             })
             for (const vectorResult of vectorResults) {
               await recordConversationObservationEvent(env, {
+                userId: user.id,
                 traceId,
                 stage: "memory.vector_upsert",
                 status: vectorResult.success ? "ok" : "degraded",
@@ -1012,7 +1042,7 @@ export async function handleChatWebSocket(
               })
             }
             if (vectorResults.some((result) => !result.success)) {
-              await updateTraceObservations(env, traceIds, {
+              await updateTraceObservations(env, user.id, traceIds, {
                 status: "partial",
                 degradationReason:
                   vectorResults.find((result) => !result.success)?.reason ??
@@ -1020,7 +1050,7 @@ export async function handleChatWebSocket(
                 vectorStored: false,
               })
             } else if (vectorResults.length > 0) {
-              await updateTraceObservations(env, traceIds, {
+              await updateTraceObservations(env, user.id, traceIds, {
                 vectorStored: true,
               })
             }
@@ -1030,11 +1060,13 @@ export async function handleChatWebSocket(
               messages: collectedContext,
             })
             await recordConversationObservationEvent(env, {
+              userId: user.id,
               traceId,
               stage: "memory.summary_write",
               status: "ok",
             })
             await observeStorageWrite(env, {
+              userId: user.id,
               traceId,
               stage: "storage.memory",
               startedAt,
@@ -1042,6 +1074,7 @@ export async function handleChatWebSocket(
             })
           } catch (error) {
             await observeStorageWrite(env, {
+              userId: user.id,
               traceId,
               stage: "storage.memory",
               startedAt,
@@ -1090,7 +1123,7 @@ export async function handleChatWebSocket(
           trace_ids: [...activeTraceIds],
         })
         if (activeTraceIds.size > 0) {
-          void updateTraceObservations(env, [...activeTraceIds], {
+          void updateTraceObservations(env, user.id, [...activeTraceIds], {
             status: "failed",
             degradationReason: "chat_failed",
           })

@@ -19,6 +19,7 @@ export type StartConversationObservationInput = {
 
 export type UpdateConversationObservationInput = {
   traceId: string
+  userId: string
   status?: ObservationStatus
   degradationReason?: string
   firstResponseMs?: number
@@ -37,6 +38,7 @@ export type UpdateConversationObservationInput = {
 export type RecordConversationObservationEventInput = {
   id?: string
   traceId: string
+  userId: string
   stage: string
   status: ObservationStatus
   durationMs?: number
@@ -101,7 +103,7 @@ export async function startConversationObservation(
 ) {
   const startedAt = input.startedAt ?? Date.now()
   await env.DB.prepare(
-    `INSERT INTO conversation_observations (
+    `INSERT OR IGNORE INTO conversation_observations (
       trace_id, primary_trace_id, user_id, conversation_id, expression_group_id,
       status, started_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -147,7 +149,7 @@ export async function updateConversationObservation(
       memory_stored = COALESCE(?, memory_stored),
       vector_stored = COALESCE(?, vector_stored),
       updated_at = ?
-    WHERE trace_id = ?`,
+    WHERE trace_id = ? AND user_id = ?`,
   )
     .bind(
       input.status ?? null,
@@ -167,6 +169,7 @@ export async function updateConversationObservation(
       input.vectorStored === undefined ? null : Number(input.vectorStored),
       input.updatedAt ?? Date.now(),
       input.traceId,
+      input.userId,
     )
     .run()
     .catch((error) => {
@@ -183,7 +186,12 @@ export async function recordConversationObservationEvent(
       id, trace_id, stage, status, duration_ms, provider, model,
       prompt_tokens, completion_tokens, total_tokens, error_code,
       external_trace_id, occurred_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    WHERE EXISTS (
+      SELECT 1 FROM conversation_observations
+      WHERE trace_id = ? AND user_id = ?
+    )`,
   )
     .bind(
       input.id ?? crypto.randomUUID(),
@@ -199,6 +207,8 @@ export async function recordConversationObservationEvent(
       input.errorCode ?? null,
       input.externalTraceId ?? null,
       input.occurredAt ?? Date.now(),
+      input.traceId,
+      input.userId,
     )
     .run()
     .catch((error) => {
@@ -208,10 +218,11 @@ export async function recordConversationObservationEvent(
 
 export async function appendConversationLlmCall(
   env: Env,
-  input: { traceId: string; call: LlmCallObservation },
+  input: { traceId: string; userId: string; call: LlmCallObservation },
 ) {
   const usage = input.call.usage
   await recordConversationObservationEvent(env, {
+    userId: input.userId,
     traceId: input.traceId,
     stage: `llm.${input.call.operation}`,
     status: input.call.status === "success" ? "ok" : "degraded",
@@ -236,7 +247,7 @@ export async function appendConversationLlmCall(
       END,
       degradation_reason = COALESCE(?, degradation_reason),
       updated_at = ?
-    WHERE trace_id = ?`,
+    WHERE trace_id = ? AND user_id = ?`,
   )
     .bind(
       usage?.promptTokens ?? 0,
@@ -246,6 +257,7 @@ export async function appendConversationLlmCall(
       input.call.fallbackReason ?? null,
       Date.now(),
       input.traceId,
+      input.userId,
     )
     .run()
     .catch((error) => {

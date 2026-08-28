@@ -108,7 +108,9 @@ describe("conversation observation ledger", () => {
     })
 
     expect(statements).toHaveLength(1)
-    expect(statements[0].sql).toContain("INSERT INTO conversation_observations")
+    expect(statements[0].sql).toContain(
+      "INSERT OR IGNORE INTO conversation_observations",
+    )
     expect(statements[0].values).toEqual([
       "trace-1",
       "trace-1",
@@ -127,6 +129,7 @@ describe("conversation observation ledger", () => {
 
     await updateConversationObservation(env, {
       traceId: "trace-1",
+      userId: "user-1",
       status: "degraded",
       degradationReason: "vectorize_unavailable",
       firstResponseMs: 300,
@@ -162,6 +165,7 @@ describe("conversation observation ledger", () => {
       0,
       900,
       "trace-1",
+      "user-1",
     ])
   })
 
@@ -171,6 +175,7 @@ describe("conversation observation ledger", () => {
     await recordConversationObservationEvent(env, {
       id: "event-1",
       traceId: "trace-1",
+      userId: "user-1",
       stage: "agent.generate",
       status: "failed",
       durationMs: 250,
@@ -187,6 +192,7 @@ describe("conversation observation ledger", () => {
     expect(statements[0].sql).toContain(
       "INSERT INTO conversation_observation_events",
     )
+    expect(statements[0].sql).toContain("WHERE trace_id = ? AND user_id = ?")
     expect(statements[0].values).toEqual([
       "event-1",
       "trace-1",
@@ -201,6 +207,8 @@ describe("conversation observation ledger", () => {
       "provider_timeout",
       "langsmith-1",
       500,
+      "trace-1",
+      "user-1",
     ])
     expect(statements[0].sql).not.toMatch(/content|prompt_text|response_text/i)
   })
