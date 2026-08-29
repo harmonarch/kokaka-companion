@@ -105,6 +105,12 @@ function memoryVectorMetadata(input: {
   }
 }
 
+function hasEmbeddingConfig(env: Env) {
+  return Boolean(
+    env.EMBEDDING_BASE_URL && env.EMBEDDING_MODEL && env.EMBEDDING_API_KEY,
+  )
+}
+
 export async function upsertMemoryVector(
   env: Env,
   input: {
@@ -125,9 +131,16 @@ export async function upsertMemoryVector(
     onLlmCall: input.onLlmCall,
   })
   if (!embedding || !env.MEMORY_VECTORIZE) {
+    // 环境未开通（embedding 配置或 Vectorize 绑定缺失）按跳过处理；
+    // 配置齐全但请求失败是可重试错误，用独立 reason 标记。
+    const skipped = !env.MEMORY_VECTORIZE || !hasEmbeddingConfig(env)
     input.onVectorResult?.({
       success: false,
-      reason: embedding ? "vectorize_unavailable" : "embedding_unavailable",
+      reason: skipped
+        ? embedding
+          ? "vectorize_unavailable"
+          : "embedding_unavailable"
+        : "embedding_request_failed",
     })
     return false
   }
@@ -176,6 +189,12 @@ export async function deleteMemoryVectorsByIds(env: Env, ids: string[]) {
     await index.deleteByIds(ids.slice(start, start + VECTORIZE_DELETE_BATCH_SIZE))
   }
   return true
+}
+
+// embedding/vectorize 配置缺失属于环境未开通，按跳过处理；
+// 其余失败（网络、provider、写入错误）视为需要重试的真实失败。
+export function isVectorStorageSkipped(reason?: string) {
+  return reason === "embedding_unavailable" || reason === "vectorize_unavailable"
 }
 
 export async function queryMemoryVectors(
