@@ -361,6 +361,15 @@ export async function searchTimelineLocationMemory(
   return results
 }
 
+type KeywordMemoryRow = {
+  id: string
+  type: string
+  content: string
+  createdAt: number
+  validFrom: number | null
+  validTo: number | null
+}
+
 export async function searchKeywordMemory(
   env: Env,
   userId: string,
@@ -369,10 +378,11 @@ export async function searchKeywordMemory(
   const keywords = extractKeywords(query)
   if (keywords.length === 0) return []
   const range = rangeForQuery(query)
-  const results: MemorySearchResult[] = []
-  for (const keyword of keywords) {
-    const rows = range
-      ? await env.DB.prepare(
+  // 每个关键词一条 LIKE 查询，合并进单次 batch 往返，避免逐条串行
+  // 查询放大 D1 延迟。
+  const statements = keywords.map((keyword) =>
+    range
+      ? env.DB.prepare(
           `SELECT
              id,
              type,
@@ -387,17 +397,8 @@ export async function searchKeywordMemory(
              AND COALESCE(valid_to, 9223372036854775807) >= ?
            ORDER BY created_at DESC
            LIMIT 5`,
-        )
-          .bind(userId, `%${keyword}%`, range.end, range.start)
-          .all<{
-            id: string
-            type: string
-            content: string
-            createdAt: number
-            validFrom: number | null
-            validTo: number | null
-          }>()
-      : await env.DB.prepare(
+        ).bind(userId, `%${keyword}%`, range.end, range.start)
+      : env.DB.prepare(
           `SELECT
              id,
              type,
@@ -411,29 +412,22 @@ export async function searchKeywordMemory(
              AND valid_to IS NULL
            ORDER BY created_at DESC
            LIMIT 5`,
-        )
-          .bind(userId, `%${keyword}%`)
-          .all<{
-            id: string
-            type: string
-            content: string
-            createdAt: number
-            validFrom: number | null
-            validTo: number | null
-          }>()
-    results.push(
-      ...(rows.results ?? []).map((row) => ({
+        ).bind(userId, `%${keyword}%`),
+  )
+  const results = await env.DB.batch<KeywordMemoryRow>(statements)
+  return results.flatMap((result) =>
+    (result.results ?? []).map(
+      (row): MemorySearchResult => ({
         id: row.id,
-        source: "keyword" as const,
+        source: "keyword",
         content: `[${row.type}] ${row.content}`,
         score: 0.85,
         createdAt: row.createdAt,
         validFrom: row.validFrom,
         validTo: row.validTo,
-      })),
-    )
-  }
-  return results
+      }),
+    ),
+  )
 }
 
 export async function searchTimeRangeSummaries(

@@ -38,9 +38,30 @@ function createEnvFixture() {
     },
   ]
 
+  async function runSelect<T>(sql: string, values: unknown[]) {
+    if (sql.includes("FROM memories")) {
+      const keyword = String(values[1]).replaceAll("%", "")
+      return {
+        results: memories
+          .filter((memory) => memory.content.includes(keyword))
+          .map((memory) => ({
+            id: memory.id,
+            type: memory.type,
+            content: memory.content,
+            createdAt: memory.createdAt,
+          })) as T[],
+      }
+    }
+    if (sql.includes("FROM conversation_summaries")) {
+      return { results: summaries as T[] }
+    }
+    return { results: [] as T[] }
+  }
+
   const db = {
     prepare(sql: string) {
-      return {
+      const statement = {
+        sql,
         values: [] as unknown[],
         bind(...values: unknown[]) {
           this.values = values
@@ -53,25 +74,17 @@ function createEnvFixture() {
           return null
         },
         async all<T>() {
-          if (sql.includes("FROM memories")) {
-            const keyword = String(this.values[1]).replaceAll("%", "")
-            return {
-              results: memories
-                .filter((memory) => memory.content.includes(keyword))
-                .map((memory) => ({
-                  id: memory.id,
-                  type: memory.type,
-                  content: memory.content,
-                  createdAt: memory.createdAt,
-                })) as T[],
-            }
-          }
-          if (sql.includes("FROM conversation_summaries")) {
-            return { results: summaries as T[] }
-          }
-          return { results: [] as T[] }
+          return runSelect<T>(sql, this.values)
         },
       }
+      return statement
+    },
+    async batch<T>(statements: Array<{ sql: string; values: unknown[] }>) {
+      return Promise.all(
+        statements.map((statement) =>
+          runSelect<T>(statement.sql, statement.values),
+        ),
+      )
     },
   }
 
@@ -199,7 +212,8 @@ describe("hybrid memory retrieval", () => {
     ]
     const db = {
       prepare(sql: string) {
-        return {
+        const statement = {
+          sql,
           values: [] as unknown[],
           bind(...values: unknown[]) {
             this.values = values
@@ -210,28 +224,40 @@ describe("hybrid memory retrieval", () => {
             return null
           },
           async all<T>() {
-            if (sql.includes("FROM memories")) {
-              if (sql.includes("type = 'event'")) {
-                return { results: memories as T[] }
-              }
-              const keyword = String(this.values[1]).replaceAll("%", "")
-              return {
-                results: memories
-                  .filter((memory) => memory.content.includes(keyword))
-                  .map((memory) => ({
-                    id: memory.id,
-                    type: memory.type,
-                    content: memory.content,
-                    createdAt: memory.createdAt,
-                    validFrom: memory.validFrom,
-                    validTo: memory.validTo,
-                  })) as T[],
-              }
-            }
-            return { results: [] as T[] }
+            return runSelect<T>(sql, this.values)
           },
         }
+        return statement
       },
+      async batch<T>(statements: Array<{ sql: string; values: unknown[] }>) {
+        return Promise.all(
+          statements.map((statement) =>
+            runSelect<T>(statement.sql, statement.values),
+          ),
+        )
+      },
+    }
+
+    async function runSelect<T>(sql: string, values: unknown[]) {
+      if (sql.includes("FROM memories")) {
+        if (sql.includes("type = 'event'")) {
+          return { results: memories as T[] }
+        }
+        const keyword = String(values[1]).replaceAll("%", "")
+        return {
+          results: memories
+            .filter((memory) => memory.content.includes(keyword))
+            .map((memory) => ({
+              id: memory.id,
+              type: memory.type,
+              content: memory.content,
+              createdAt: memory.createdAt,
+              validFrom: memory.validFrom,
+              validTo: memory.validTo,
+            })) as T[],
+        }
+      }
+      return { results: [] as T[] }
     }
     const env = { DB: db } as unknown as Env
 
