@@ -57,8 +57,15 @@ async function deleteMemoryVectorsForUser(
   }
 }
 
+// 数据清理放在软删除与 token 撤销之前：中途失败时使用者仍持有有效
+// 凭据可重试；所有删除操作都是幂等的，重试安全。
 accountRoutes.delete("/", authMiddleware, async (c) => {
   const user = c.get("user")
+  await deleteLongTermMemory(c.env, user.id)
+  await c.env.CHAT_CONTEXT.delete(`ctx:${user.id}`)
+  await deleteRecentContexts(c.env, user.id)
+  await c.env.CHAT_CONTEXT.delete(`mood:${user.id}`)
+  await invalidateLongTermMemoryCache(c.env, user.id)
   const now = Math.floor(Date.now() / 1000)
   await c.env.DB.prepare(
     "UPDATE users SET deleted_at = ?, updated_at = ? WHERE id = ?",
@@ -70,10 +77,5 @@ accountRoutes.delete("/", authMiddleware, async (c) => {
   )
     .bind(now, user.id)
     .run()
-  await c.env.CHAT_CONTEXT.delete(`ctx:${user.id}`)
-  await deleteRecentContexts(c.env, user.id)
-  await c.env.CHAT_CONTEXT.delete(`mood:${user.id}`)
-  await invalidateLongTermMemoryCache(c.env, user.id)
-  await deleteLongTermMemory(c.env, user.id)
   return c.json({ ok: true })
 })

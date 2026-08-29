@@ -89,7 +89,7 @@ function createEnvFixture() {
 }
 
 describe("account routes", () => {
-  it("clears memory vectors, short-term context, mood and long-term memory cache on account deletion", async () => {
+  it("clears memory vectors, context, mood and cache before soft-deleting on account deletion", async () => {
     const {
       env,
       deletedKeys,
@@ -111,15 +111,6 @@ describe("account routes", () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ ok: true })
     expect(deletedVectorIds).toEqual(["m1", "m2"])
-    expect(updates).toHaveLength(2)
-    expect(deletedKeys).toEqual([
-      "ctx:u1",
-      "ctx:u1:c1",
-      "ctx:u1:c2",
-      "mood:u1",
-      longTermMemoryCacheKey("u1"),
-    ])
-    expect([...contextKeys]).toEqual(["ctx:other:c1"])
     expect(deletedTables).toEqual([
       "user_profiles",
       "memories",
@@ -131,5 +122,17 @@ describe("account routes", () => {
       "chat_agents",
       "relationship_states",
     ])
+    expect(updates).toEqual([
+      expect.stringContaining("UPDATE users SET deleted_at"),
+      expect.stringContaining("UPDATE refresh_tokens SET revoked_at"),
+    ])
+    expect(deletedKeys).toEqual([
+      "ctx:u1",
+      "ctx:u1:c1",
+      "ctx:u1:c2",
+      "mood:u1",
+      longTermMemoryCacheKey("u1"),
+    ])
+    expect([...contextKeys]).toEqual(["ctx:other:c1"])
   })
 })
