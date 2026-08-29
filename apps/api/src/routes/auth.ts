@@ -119,6 +119,16 @@ authRoutes.post("/refresh", async (c) => {
       revoked_at: number | null
     }>()
 
+  if (record?.revoked_at) {
+    // 已轮换的 token 再次使用意味着可能泄露：撤销该用户全部 refresh
+    // token，强制所有设备重新登录。
+    await c.env.DB.prepare(
+      "UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL",
+    )
+      .bind(now, record.user_id)
+      .run()
+  }
+
   if (!record || record.revoked_at || record.expires_at <= now) {
     throw new HTTPException(401, { message: "Invalid refresh token" })
   }
