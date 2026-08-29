@@ -141,6 +141,7 @@ function createEnvFixture() {
   const deletedKeys: string[] = []
   const upsertedVectors: unknown[] = []
   const deletedVectorIds: string[] = []
+  const vectorDeleteState = { shouldFail: false }
 
   const db = {
     prepare(sql: string) {
@@ -222,6 +223,9 @@ function createEnvFixture() {
         upsertedVectors.push(...items)
       },
       async deleteByIds(ids: string[]) {
+        if (vectorDeleteState.shouldFail) {
+          throw new Error("vectorize unavailable")
+        }
         deletedVectorIds.push(...ids)
       },
     },
@@ -237,6 +241,7 @@ function createEnvFixture() {
     deletedKeys,
     upsertedVectors,
     deletedVectorIds,
+    vectorDeleteState,
   }
 }
 
@@ -300,60 +305,6 @@ describe("memory routes", () => {
     )
     expect(deletedKeys).toEqual([longTermMemoryCacheKey("u1")])
     expect(upsertedVectors).toHaveLength(1)
-  })
-
-  it("fails a memory update when the vector sync fails so the caller can retry", async () => {
-    const { env, memories, deletedKeys, upsertedVectors } = createEnvFixture()
-    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
-      new Error("embedding provider down"),
-    )
-    const response = await memoryRoutes.request(
-      new Request("http://localhost/m1", {
-        method: "PATCH",
-        headers: {
-          authorization: "Bearer token",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ content: "用户喜欢更直接的回复" }),
-      }),
-      undefined,
-      env,
-    )
-
-    expect(response.status).toBe(500)
-    expect(memories.find((memory) => memory.id === "m1")?.content).toBe(
-      "用户喜欢更直接的回复",
-    )
-    expect(upsertedVectors).toHaveLength(0)
-    expect(deletedKeys).toEqual([longTermMemoryCacheKey("u1")])
-  })
-
-  it("succeeds a memory update without vector storage configured", async () => {
-    const { env } = createEnvFixture()
-    const mutableEnv = env as Record<string, unknown>
-    delete mutableEnv.MEMORY_VECTORIZE
-    delete mutableEnv.EMBEDDING_BASE_URL
-    delete mutableEnv.EMBEDDING_MODEL
-    delete mutableEnv.EMBEDDING_API_KEY
-
-    const response = await memoryRoutes.request(
-      new Request("http://localhost/m1", {
-        method: "PATCH",
-        headers: {
-          authorization: "Bearer token",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ content: "用户喜欢更直接的回复" }),
-      }),
-      undefined,
-      env,
-    )
-
-    expect(response.status).toBe(200)
-    expect(await response.json()).toMatchObject({
-      id: "m1",
-      content: "用户喜欢更直接的回复",
-    })
   })
 
   it("returns the latest three turns for a memory conversation", async () => {
@@ -438,5 +389,107 @@ describe("memory routes", () => {
     expect(memories.map((memory) => memory.id)).toEqual(["m1", "other"])
     expect(deletedKeys).toEqual([longTermMemoryCacheKey("u1")])
     expect(deletedVectorIds).toEqual(["m2"])
+  })
+
+  it("fails a memory update when the vector sync fails so the caller can retry", async () => {
+    const { env, memories, deletedKeys, upsertedVectors } = createEnvFixture()
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
+      new Error("embedding provider down"),
+    )
+    const response = await memoryRoutes.request(
+      new Request("http://localhost/m1", {
+        method: "PATCH",
+        headers: {
+          authorization: "Bearer token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ content: "用户喜欢更直接的回复" }),
+      }),
+      undefined,
+      env,
+    )
+
+    expect(response.status).toBe(500)
+    expect(memories.find((memory) => memory.id === "m1")?.content).toBe(
+      "用户喜欢更直接的回复",
+    )
+    expect(upsertedVectors).toHaveLength(0)
+    expect(deletedKeys).toEqual([longTermMemoryCacheKey("u1")])
+  })
+
+  it("succeeds a memory update without vector storage configured", async () => {
+    const { env } = createEnvFixture()
+    const mutableEnv = env as Record<string, unknown>
+    delete mutableEnv.MEMORY_VECTORIZE
+    delete mutableEnv.EMBEDDING_BASE_URL
+    delete mutableEnv.EMBEDDING_MODEL
+    delete mutableEnv.EMBEDDING_API_KEY
+
+    const response = await memoryRoutes.request(
+      new Request("http://localhost/m1", {
+        method: "PATCH",
+        headers: {
+          authorization: "Bearer token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ content: "用户喜欢更直接的回复" }),
+      }),
+      undefined,
+      env,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      id: "m1",
+      content: "用户喜欢更直接的回复",
+    })
+  })
+
+  it("keeps the memory row when vector deletion fails so deletion can be retried", async () => {
+    const { env, memories, deletedVectorIds, vectorDeleteState } =
+      createEnvFixture()
+    vectorDeleteState.shouldFail = true
+    const failed = await memoryRoutes.request(
+      new Request("http://localhost/m2", {
+        method: "DELETE",
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+
+    expect(failed.status).toBe(500)
+    expect(memories.map((memory) => memory.id)).toEqual(["m1", "m2", "other"])
+    expect(deletedVectorIds).toEqual([])
+
+    vectorDeleteState.shouldFail = false
+    const retried = await memoryRoutes.request(
+      new Request("http://localhost/m2", {
+        method: "DELETE",
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+
+    expect(retried.status).toBe(200)
+    expect(memories.map((memory) => memory.id)).toEqual(["m1", "other"])
+    expect(deletedVectorIds).toEqual(["m2"])
+  })
+
+  it("does not touch another user's memory or vector on delete", async () => {
+    const { env, memories, deletedVectorIds } = createEnvFixture()
+    const response = await memoryRoutes.request(
+      new Request("http://localhost/other", {
+        method: "DELETE",
+        headers: { authorization: "Bearer token" },
+      }),
+      undefined,
+      env,
+    )
+
+    expect(response.status).toBe(404)
+    expect(memories.map((memory) => memory.id)).toEqual(["m1", "m2", "other"])
+    expect(deletedVectorIds).toEqual([])
   })
 })

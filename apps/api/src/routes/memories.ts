@@ -18,6 +18,19 @@ export const memoryRoutes = new Hono<AppBindings>()
 
 memoryRoutes.use("*", authMiddleware)
 
+// 清理刚确认过所有权、但 D1 行删除竞态失败的孤儿向量。向量 id 是随机
+// UUID，未经过所有权确认的 id 不应触发向量删除。
+async function cleanupOrphanMemoryVector(
+  env: AppBindings["Bindings"],
+  id: string,
+) {
+  try {
+    await deleteMemoryVector(env, id)
+  } catch (error) {
+    console.error("Failed to clean up orphan memory vector", error)
+  }
+}
+
 type MemoryRow = {
   id: string
   conversation_id: string | null
@@ -156,6 +169,19 @@ memoryRoutes.patch("/:id", async (c) => {
 memoryRoutes.delete("/:id", async (c) => {
   const user = c.get("user")
   const id = c.req.param("id")
+  const existing = await c.env.DB.prepare(
+    "SELECT id FROM memories WHERE user_id = ? AND id = ?",
+  )
+    .bind(user.id, id)
+    .first<{ id: string }>()
+
+  if (!existing) {
+    return c.json({ error: "记忆不存在" }, 404)
+  }
+
+  // 先删向量再删 D1 行：向量删除失败时行还在，使用者重试即可收敛；
+  // 反过来先删行会让向量变成无人能再定位的孤儿。
+  await deleteMemoryVector(c.env, id)
   const result = await c.env.DB.prepare(
     "DELETE FROM memories WHERE user_id = ? AND id = ?",
   )
@@ -163,10 +189,11 @@ memoryRoutes.delete("/:id", async (c) => {
     .run()
 
   if (!result.meta?.changes) {
+    // 所有权刚确认过（并发删除竞态），孤儿向量可以安全清理。
+    await cleanupOrphanMemoryVector(c.env, id)
     return c.json({ error: "记忆不存在" }, 404)
   }
 
-  await deleteMemoryVector(c.env, id)
   await invalidateLongTermMemoryCache(c.env, user.id)
   return c.json({ ok: true })
 })
