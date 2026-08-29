@@ -13,6 +13,7 @@ import { monitoringRoutes } from "@/routes/monitoring"
 import { audioRoutes } from "@/routes/audio"
 import { wsRoutes } from "@/routes/ws"
 import { handleChatWebSocket } from "@/ws/chat"
+import { cleanupExpiredData } from "@/maintenance/cleanup"
 import { withSentry } from "@sentry/cloudflare"
 import { resolveTraceId, sentryOptions } from "@/monitoring/sentry"
 
@@ -61,4 +62,11 @@ app.get("/ws/chat", (c) =>
   handleChatWebSocket(c.req.raw, c.env, c.executionCtx, c.get("traceId")),
 )
 
-export default withSentry((env) => sentryOptions(env as Env), app)
+const scheduled: ExportedHandlerScheduledHandler = (_event, env, ctx) => {
+  ctx.waitUntil(cleanupExpiredData(env as Env))
+}
+
+export default withSentry((env) => sentryOptions(env as Env), {
+  fetch: app.fetch,
+  scheduled,
+})

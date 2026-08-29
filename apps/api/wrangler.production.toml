@@ -17,6 +17,9 @@ TOKEN_ALERT_HARD_LIMIT = "2000"
 [observability]
 enabled = true
 
+[triggers]
+crons = ["0 3 * * *"]
+
 [ai]
 binding = "AI"
 

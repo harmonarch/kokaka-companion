@@ -16,6 +16,9 @@ SENTRY_TRACES_SAMPLE_RATE = "0.1"
 [observability]
 enabled = true
 
+[triggers]
+crons = ["0 3 * * *"]
+
 [ai]
 binding = "AI"
 
