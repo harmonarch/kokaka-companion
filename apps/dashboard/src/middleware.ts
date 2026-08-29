@@ -22,6 +22,21 @@ function credentialsFrom(request: NextRequest) {
   }
 }
 
+// 常数时间比较：按位累积差异，避免凭据比较泄漏计时信息。
+// 长度差异直接判不等。
+function timingSafeEquals(left: string, right: string) {
+  const encoder = new TextEncoder()
+  const leftBytes = encoder.encode(left)
+  const rightBytes = encoder.encode(right)
+  if (leftBytes.length !== rightBytes.length) return false
+
+  let diff = 0
+  for (let index = 0; index < leftBytes.length; index += 1) {
+    diff |= leftBytes[index] ^ rightBytes[index]
+  }
+  return diff === 0
+}
+
 export function middleware(request: NextRequest) {
   const expectedUser = process.env.DASHBOARD_ACCESS_USER
   const expectedPassword = process.env.DASHBOARD_ACCESS_PASSWORD
@@ -33,10 +48,12 @@ export function middleware(request: NextRequest) {
   }
 
   const credentials = credentialsFrom(request)
-  if (
-    credentials?.user === expectedUser &&
-    credentials.password === expectedPassword
-  ) {
+  const userMatches = timingSafeEquals(credentials?.user ?? "", expectedUser)
+  const passwordMatches = timingSafeEquals(
+    credentials?.password ?? "",
+    expectedPassword,
+  )
+  if (userMatches && passwordMatches) {
     return NextResponse.next()
   }
 

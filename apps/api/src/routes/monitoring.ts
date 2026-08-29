@@ -6,6 +6,7 @@ import {
   type MonitoringTrace,
 } from "@ai-companion/shared"
 import type { AppBindings } from "@/middleware/auth"
+import { timingSafeEquals } from "@/auth/compare"
 
 type TraceRow = Omit<
   MonitoringTrace,
@@ -22,7 +23,7 @@ export const monitoringRoutes = new Hono<AppBindings>()
 monitoringRoutes.use("*", async (c, next) => {
   const expected = c.env.MONITORING_API_KEY?.trim()
   const supplied = c.req.header("x-monitoring-key")?.trim()
-  if (!expected || !supplied || supplied !== expected) {
+  if (!expected || !supplied || !timingSafeEquals(supplied, expected)) {
     return c.json({ error: "Unauthorized" }, 401)
   }
   await next()
