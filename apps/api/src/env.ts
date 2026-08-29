@@ -24,6 +24,7 @@ export type Env = {
   LANGSMITH_PROJECT?: string
   TOKEN_ALERT_HARD_LIMIT?: string
   MONITORING_API_KEY?: string
+  CORS_ALLOWED_ORIGINS?: string
 }
 
 const required = [

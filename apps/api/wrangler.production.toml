@@ -13,6 +13,8 @@ DEEPSEEK_MODEL = "deepseek-chat"
 SENTRY_ENVIRONMENT = "production"
 SENTRY_TRACES_SAMPLE_RATE = "0.1"
 TOKEN_ALERT_HARD_LIMIT = "2000"
+# 浏览器来源白名单（逗号分隔）。不配置则 API 对任意来源开放跨域。
+# CORS_ALLOWED_ORIGINS = "https://dashboard.example.com,https://app.example.com"
 
 [observability]
 enabled = true

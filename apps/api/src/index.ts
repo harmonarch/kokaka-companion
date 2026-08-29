@@ -1,7 +1,7 @@
 import { Hono } from "hono"
-import { cors } from "hono/cors"
 import type { AppBindings } from "@/middleware/auth"
 import { errorMiddleware } from "@/middleware/error"
+import { createCorsMiddleware } from "@/middleware/cors"
 import { assertEnv, type Env } from "@/env"
 import { authRoutes } from "@/routes/auth"
 import { meRoutes } from "@/routes/me"
@@ -19,15 +19,7 @@ import { resolveTraceId, sentryOptions } from "@/monitoring/sentry"
 
 const app = new Hono<AppBindings>()
 
-app.use(
-  "*",
-  cors({
-    origin: "*",
-    allowHeaders: ["authorization", "content-type", "x-trace-id"],
-    allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    exposeHeaders: ["x-trace-id"],
-  }),
-)
+app.use("*", createCorsMiddleware())
 
 app.use("*", async (c, next) => {
   const traceId = resolveTraceId(c.req.header("x-trace-id"))
