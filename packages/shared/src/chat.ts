@@ -106,10 +106,10 @@ export type DeleteChatConversationResponse = z.infer<
 
 export const clientChatMessageSchema = z.object({
   type: z.literal("message"),
-  content: z.string().trim().min(1),
-  session_id: z.string().min(1),
-  client_message_id: z.string().min(1),
-  trace_id: z.string().min(1).optional(),
+  content: z.string().trim().min(1).max(2000),
+  session_id: z.string().min(1).max(128),
+  client_message_id: z.string().min(1).max(128),
+  trace_id: z.string().min(1).max(128).optional(),
   agents: z.array(chatAgentContextSchema).max(12).optional(),
 })
 
@@ -123,7 +123,7 @@ export const clientDoneMessageSchema = z.object({
 
 export const clientTypingMessageSchema = z.object({
   type: z.literal("typing"),
-  session_id: z.string().min(1),
+  session_id: z.string().min(1).max(128),
 })
 
 export const clientWsMessageSchema = z.discriminatedUnion("type", [
