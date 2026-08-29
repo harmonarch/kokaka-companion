@@ -43,6 +43,8 @@ packages/core  session 与聊天控制逻辑
 - API 必填 secret：`JWT_SECRET`、`PASSWORD_HASH_SECRET`（生产环境用新的随机值，不要复用 `.env.example` 里的开发值）、`DEEPSEEK_API_KEY`。
 - `MONITORING_API_KEY` 在 API 与 dashboard 两侧必须填同一个值，否则面板读不到监控数据。
 - `DASHBOARD_ACCESS_PASSWORD` 是面板 Basic Auth 密码；用户名 `admin` 已写在 `wrangler.jsonc` 的 `vars` 里。
+- 建议在 `wrangler.production.toml` 的 `[vars]` 里配置 `CORS_ALLOWED_ORIGINS`（逗号分隔的浏览器来源白名单，dashboard 与 mobile web 站点）；不配置则 API 对任意来源开放跨域。
+- API 已配置每日 cron（`[triggers]`，凌晨 3 点）清理过期 refresh token 和 30 天前的会话观测数据，首次部署后无需手动执行。
 - 先迁移数据库再部署 API：`pnpm --filter @ai-companion/api migrate:production`。
 - secret 无需手动 `wrangler secret put`：`deploy:production` / `deploy:cloudflare` 会自动先执行 `deploy-secrets.mjs`。
 - secret 只通过 `wrangler secret bulk` 注入，不要写进 `wrangler.jsonc` 或 `wrangler.production.toml`。
