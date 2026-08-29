@@ -2,6 +2,7 @@ import type { AuthTokens } from "@ai-companion/shared"
 import type { Env } from "@/env"
 import { ttlSeconds } from "@/env"
 import { hashOpaqueToken } from "@/auth/password"
+import { timingSafeEquals } from "@/auth/compare"
 
 const encoder = new TextEncoder()
 
@@ -53,7 +54,7 @@ export async function verifyAccessToken(token: string, env: Env) {
   const [header, body, signature] = token.split(".")
   if (!header || !body || !signature) return null
   const expected = await sign(`${header}.${body}`, env.JWT_SECRET)
-  if (expected !== signature) return null
+  if (!timingSafeEquals(expected, signature)) return null
   const payload = JSON.parse(fromBase64Url(body)) as AccessTokenPayload
   if (!payload.sub || payload.exp < Math.floor(Date.now() / 1000)) return null
   return payload

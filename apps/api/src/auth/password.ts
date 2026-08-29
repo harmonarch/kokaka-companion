@@ -1,4 +1,5 @@
 import type { Env } from "@/env"
+import { timingSafeEquals } from "@/auth/compare"
 
 const encoder = new TextEncoder()
 
@@ -31,7 +32,7 @@ export async function verifyPassword(
   const candidate = await digest(
     `${salt}:${password}:${env.PASSWORD_HASH_SECRET}`,
   )
-  return candidate === hash
+  return timingSafeEquals(candidate, hash)
 }
 
 export async function hashOpaqueToken(token: string, env: Env) {
