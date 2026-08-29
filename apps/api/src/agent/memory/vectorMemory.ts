@@ -159,6 +159,25 @@ export async function deleteMemoryVector(env: Env, id: string) {
   return true
 }
 
+const VECTORIZE_DELETE_BATCH_SIZE = 1000
+
+export async function deleteMemoryVectorsByIds(env: Env, ids: string[]) {
+  const index = env.MEMORY_VECTORIZE as
+    | (VectorizeIndex & {
+        deleteByIds?: (ids: string[]) => Promise<unknown>
+      })
+    | undefined
+  if (!index?.deleteByIds || ids.length === 0) return false
+  for (
+    let start = 0;
+    start < ids.length;
+    start += VECTORIZE_DELETE_BATCH_SIZE
+  ) {
+    await index.deleteByIds(ids.slice(start, start + VECTORIZE_DELETE_BATCH_SIZE))
+  }
+  return true
+}
+
 export async function queryMemoryVectors(
   env: Env,
   input: {

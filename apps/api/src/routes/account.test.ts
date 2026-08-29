@@ -14,6 +14,7 @@ vi.mock("@/auth/session", () => ({
 function createEnvFixture() {
   const deletedKeys: string[] = []
   const deletedTables: string[] = []
+  const deletedVectorIds: string[] = []
   const updates: string[] = []
   const contextKeys = new Set([
     "ctx:u1:c1",
@@ -36,6 +37,9 @@ function createEnvFixture() {
           return { success: true }
         },
         async all() {
+          if (sql.startsWith("SELECT id FROM memories")) {
+            return { results: [{ id: "m1" }, { id: "m2" }] }
+          }
           return {
             results: [
               { name: "id" },
@@ -74,15 +78,26 @@ function createEnvFixture() {
         deletedKeys.push(key)
       },
     },
+    MEMORY_VECTORIZE: {
+      async deleteByIds(ids: string[]) {
+        deletedVectorIds.push(...ids)
+      },
+    },
   } as unknown as Env
 
-  return { env, deletedKeys, deletedTables, updates, contextKeys }
+  return { env, deletedKeys, deletedTables, deletedVectorIds, updates, contextKeys }
 }
 
 describe("account routes", () => {
-  it("clears short-term context, mood and long-term memory cache on account deletion", async () => {
-    const { env, deletedKeys, deletedTables, updates, contextKeys } =
-      createEnvFixture()
+  it("clears memory vectors, short-term context, mood and long-term memory cache on account deletion", async () => {
+    const {
+      env,
+      deletedKeys,
+      deletedTables,
+      deletedVectorIds,
+      updates,
+      contextKeys,
+    } = createEnvFixture()
 
     const response = await accountRoutes.request(
       new Request("http://localhost/", {
@@ -95,6 +110,7 @@ describe("account routes", () => {
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ ok: true })
+    expect(deletedVectorIds).toEqual(["m1", "m2"])
     expect(updates).toHaveLength(2)
     expect(deletedKeys).toEqual([
       "ctx:u1",

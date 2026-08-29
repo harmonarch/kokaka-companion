@@ -3,6 +3,7 @@ import type { AppBindings } from "@/middleware/auth"
 import { authMiddleware } from "@/middleware/auth"
 import { ensureChatMessagesTable } from "@/chat/history"
 import { invalidateLongTermMemoryCache } from "@/agent/memory/longTermMemory"
+import { deleteMemoryVectorsByIds } from "@/agent/memory/vectorMemory"
 import { deleteRecentContexts } from "@/agent/nodes/persist"
 import { deleteChatConversationData } from "@/chat/conversations"
 import { ensureChatProfilesTable } from "@/routes/profiles"
@@ -17,6 +18,7 @@ async function deleteLongTermMemory(
   await env.DB.prepare("DELETE FROM user_profiles WHERE user_id = ?")
     .bind(userId)
     .run()
+  await deleteMemoryVectorsForUser(env, userId)
   await env.DB.prepare("DELETE FROM memories WHERE user_id = ?")
     .bind(userId)
     .run()
@@ -36,6 +38,23 @@ async function deleteLongTermMemory(
   await env.DB.prepare("DELETE FROM relationship_states WHERE user_id = ?")
     .bind(userId)
     .run()
+}
+
+// 向量 id 就是 memories.id，必须在删除 D1 行之前按 id 清理向量，
+// 否则行删除后无法再定位向量；清理失败直接抛出让使用者可重试。
+async function deleteMemoryVectorsForUser(
+  env: AppBindings["Bindings"],
+  userId: string,
+) {
+  const rows = await env.DB.prepare(
+    "SELECT id FROM memories WHERE user_id = ?",
+  )
+    .bind(userId)
+    .all<{ id: string }>()
+  const ids = (rows.results ?? []).map((row) => row.id)
+  if (ids.length > 0) {
+    await deleteMemoryVectorsByIds(env, ids)
+  }
 }
 
 accountRoutes.delete("/", authMiddleware, async (c) => {
