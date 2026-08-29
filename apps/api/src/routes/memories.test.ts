@@ -302,6 +302,60 @@ describe("memory routes", () => {
     expect(upsertedVectors).toHaveLength(1)
   })
 
+  it("fails a memory update when the vector sync fails so the caller can retry", async () => {
+    const { env, memories, deletedKeys, upsertedVectors } = createEnvFixture()
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
+      new Error("embedding provider down"),
+    )
+    const response = await memoryRoutes.request(
+      new Request("http://localhost/m1", {
+        method: "PATCH",
+        headers: {
+          authorization: "Bearer token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ content: "用户喜欢更直接的回复" }),
+      }),
+      undefined,
+      env,
+    )
+
+    expect(response.status).toBe(500)
+    expect(memories.find((memory) => memory.id === "m1")?.content).toBe(
+      "用户喜欢更直接的回复",
+    )
+    expect(upsertedVectors).toHaveLength(0)
+    expect(deletedKeys).toEqual([longTermMemoryCacheKey("u1")])
+  })
+
+  it("succeeds a memory update without vector storage configured", async () => {
+    const { env } = createEnvFixture()
+    const mutableEnv = env as Record<string, unknown>
+    delete mutableEnv.MEMORY_VECTORIZE
+    delete mutableEnv.EMBEDDING_BASE_URL
+    delete mutableEnv.EMBEDDING_MODEL
+    delete mutableEnv.EMBEDDING_API_KEY
+
+    const response = await memoryRoutes.request(
+      new Request("http://localhost/m1", {
+        method: "PATCH",
+        headers: {
+          authorization: "Bearer token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ content: "用户喜欢更直接的回复" }),
+      }),
+      undefined,
+      env,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      id: "m1",
+      content: "用户喜欢更直接的回复",
+    })
+  })
+
   it("returns the latest three turns for a memory conversation", async () => {
     const { env } = createEnvFixture()
     const response = await memoryRoutes.request(

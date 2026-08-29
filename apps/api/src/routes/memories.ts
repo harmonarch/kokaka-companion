@@ -8,6 +8,7 @@ import {
 import { invalidateLongTermMemoryCache } from "@/agent/memory/longTermMemory"
 import {
   deleteMemoryVector,
+  isVectorStorageSkipped,
   upsertMemoryVector,
 } from "@/agent/memory/vectorMemory"
 import type { AppBindings } from "@/middleware/auth"
@@ -121,6 +122,11 @@ memoryRoutes.patch("/:id", async (c) => {
   )
     .bind(input.content, user.id, id)
     .run()
+
+  // D1 是记忆的唯一事实来源；向量是它的投影。先写 D1 再同步向量，
+  // 投影最多滞后，不会超前。除环境未开通外，向量同步失败按错误返回，
+  // 让使用者重试，避免旧内容长期残留在检索结果里。
+  let vectorSyncFailed = false
   await upsertMemoryVector(c.env, {
     id,
     userId: user.id,
@@ -128,8 +134,16 @@ memoryRoutes.patch("/:id", async (c) => {
     type: existing.type,
     content: input.content,
     createdAt: existing.created_at,
+    onVectorResult: (result) => {
+      vectorSyncFailed =
+        !result.success && !isVectorStorageSkipped(result.reason)
+    },
   })
   await invalidateLongTermMemoryCache(c.env, user.id)
+
+  if (vectorSyncFailed) {
+    throw new Error("记忆已更新，但记忆检索索引同步失败")
+  }
 
   return c.json(
     parseMemoryRow({
