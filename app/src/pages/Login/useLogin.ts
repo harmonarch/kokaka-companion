@@ -34,7 +34,7 @@ export function useLogin() {
     mode: LoginMode,
   ) {
     setError(null)
-    const validationError = getAuthFieldsError(email, password)
+    const validationError = getAuthFieldsError(email, password, mode)
     if (validationError) {
       showToast(validationError)
       return
