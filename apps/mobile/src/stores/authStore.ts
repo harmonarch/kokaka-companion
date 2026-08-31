@@ -1,3 +1,4 @@
+import { hashClientPassword } from "@ai-companion/shared"
 import type { AuthTokens, User } from "@ai-companion/shared"
 import { createHttpClient } from "@ai-companion/api-client"
 import { create } from "zustand"
@@ -83,12 +84,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
       }
     },
     register: async (email, password, nickname) => {
-      const response = await client.register({ email, password, nickname })
+      const password_hash = hashClientPassword(password)
+      const response = await client.register({ email, password_hash, nickname })
       set({ user: response.user, tokens: response.tokens, error: null })
       await saveUser(response.user)
     },
     login: async (email, password) => {
-      const response = await client.login({ email, password })
+      const password_hash = hashClientPassword(password)
+      const response = await client.login({ email, password_hash })
       set({ user: response.user, tokens: response.tokens, error: null })
       await saveUser(response.user)
     },
