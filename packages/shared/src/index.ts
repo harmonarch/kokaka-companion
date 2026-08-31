@@ -1,5 +1,6 @@
 export * from "./auth"
 export * from "./audio"
+export * from "./password"
 export * from "./chat"
 export * from "./emotion"
 export * from "./memory"
