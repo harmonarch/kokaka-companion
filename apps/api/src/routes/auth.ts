@@ -68,7 +68,7 @@ authRoutes.post("/register", async (c) => {
     .bind(
       user.id,
       user.email,
-      await hashPassword(input.password, c.env),
+      await hashPassword(input.password_hash, c.env),
       user.nickname,
       now,
       now,
@@ -94,7 +94,7 @@ authRoutes.post("/login", async (c) => {
     }>()
   if (
     !row ||
-    !(await verifyPassword(input.password, row.password_hash, c.env))
+    !(await verifyPassword(input.password_hash, row.password_hash, c.env))
   ) {
     throw new HTTPException(401, { message: "Invalid email or password" })
   }
