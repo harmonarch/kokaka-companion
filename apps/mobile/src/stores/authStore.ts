@@ -1,6 +1,7 @@
 import { hashClientPassword } from "@ai-companion/shared"
 import type { AuthTokens, User } from "@ai-companion/shared"
 import { createHttpClient } from "@ai-companion/api-client"
+import { router } from "expo-router"
 import { create } from "zustand"
 import {
   loadJson,
@@ -50,6 +51,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
     createTraceId,
     onRequestComplete: recordHttpObservation,
     onRequestError: recordHttpObservation,
+    onUnauthorized: async () => {
+      if (!get().ready || !get().tokens) return
+      await clearSessionLocally()
+      router.replace("/login")
+    },
     tokenStore: {
       getTokens: () => get().tokens,
       setTokens: async (tokens) => {
