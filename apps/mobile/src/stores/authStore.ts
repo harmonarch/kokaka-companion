@@ -38,6 +38,13 @@ type AuthState = {
 }
 
 export const useAuthStore = create<AuthState>((set, get) => {
+  const clearSessionLocally = async () => {
+    set({ user: null, tokens: null })
+    await saveTokens(null)
+    await saveUser(null)
+    await clearPendingOutgoing({ loadJson, saveJson })
+  }
+
   const client = createHttpClient({
     baseUrl: apiBaseUrl,
     createTraceId,
@@ -107,17 +114,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
     },
     logout: async () => {
       await client.logout().catch(() => undefined)
-      set({ user: null, tokens: null })
-      await saveTokens(null)
-      await saveUser(null)
-      await clearPendingOutgoing({ loadJson, saveJson })
+      await clearSessionLocally()
     },
     deleteAccount: async () => {
       await client.deleteAccount()
-      set({ user: null, tokens: null })
-      await saveTokens(null)
-      await saveUser(null)
-      await clearPendingOutgoing({ loadJson, saveJson })
+      await clearSessionLocally()
     },
   }
 })
