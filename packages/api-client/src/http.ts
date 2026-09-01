@@ -52,6 +52,7 @@ export type HttpClientOptions = {
   createTraceId?: () => string
   onRequestComplete?: (observation: HttpRequestObservation) => void
   onRequestError?: (observation: HttpRequestObservation, error: unknown) => void
+  onUnauthorized?: () => void | Promise<void>
 }
 
 export type HttpRequestObservation = {
@@ -74,6 +75,15 @@ export class ApiError extends Error {
     this.status = status
     this.traceId = traceId
   }
+}
+
+function isUnauthorizedError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    (error as { status: unknown }).status === 401
+  )
 }
 
 type RequestOptions = {
@@ -132,18 +142,23 @@ export function createHttpClient(options: HttpClientOptions) {
       requestOptions.retryOnUnauthorized !== false &&
       tokens?.refresh_token
     ) {
-      const refreshed = await refresh({ refresh_token: tokens.refresh_token })
-      await options.tokenStore?.setTokens(refreshed.tokens)
-      return request<T>(
-        path,
-        init,
-        {
-          ...requestOptions,
-          retryOnUnauthorized: false,
-        },
-        traceId,
-        startedAt,
-      )
+      try {
+        const refreshed = await refresh({ refresh_token: tokens.refresh_token })
+        await options.tokenStore?.setTokens(refreshed.tokens)
+        return request<T>(
+          path,
+          init,
+          {
+            ...requestOptions,
+            retryOnUnauthorized: false,
+          },
+          traceId,
+          startedAt,
+        )
+      } catch (error) {
+        if (isUnauthorizedError(error)) await options.onUnauthorized?.()
+        throw error
+      }
     }
 
     const data: unknown = await response.json().catch(() => ({}))
@@ -156,6 +171,9 @@ export function createHttpClient(options: HttpClientOptions) {
           ? data.error
           : "Request failed"
       const error = new ApiError(response.status, message, responseTraceId)
+      if (response.status === 401 && requestOptions.auth) {
+        await options.onUnauthorized?.()
+      }
       options.onRequestError?.(
         {
           method,
