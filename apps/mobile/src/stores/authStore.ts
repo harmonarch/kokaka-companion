@@ -14,6 +14,7 @@ import {
 import { getUserAfterRefreshError } from "./authSession"
 import { apiBaseUrl } from "@/config/api"
 import { clearPendingOutgoing } from "./chatReliability"
+import { useToastStore } from "@/stores/toastStore"
 import {
   createTraceId,
   recordHttpObservation,
@@ -53,6 +54,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     onRequestError: recordHttpObservation,
     onUnauthorized: async () => {
       if (!get().ready || !get().tokens) return
+      useToastStore.getState().showToast("登录已过期，请重新登录")
       await clearSessionLocally()
       router.replace("/login")
     },
