@@ -93,6 +93,7 @@ type RequestOptions = {
 
 export function createHttpClient(options: HttpClientOptions) {
   const baseUrl = options.baseUrl.replace(/\/$/, "")
+  let refreshInFlight: Promise<void> | null = null
 
   function createTraceId() {
     return options.createTraceId?.() ?? crypto.randomUUID()
@@ -142,23 +143,17 @@ export function createHttpClient(options: HttpClientOptions) {
       requestOptions.retryOnUnauthorized !== false &&
       tokens?.refresh_token
     ) {
-      try {
-        const refreshed = await refresh({ refresh_token: tokens.refresh_token })
-        await options.tokenStore?.setTokens(refreshed.tokens)
-        return request<T>(
-          path,
-          init,
-          {
-            ...requestOptions,
-            retryOnUnauthorized: false,
-          },
-          traceId,
-          startedAt,
-        )
-      } catch (error) {
-        if (isUnauthorizedError(error)) await options.onUnauthorized?.()
-        throw error
-      }
+      await refreshOnce()
+      return request<T>(
+        path,
+        init,
+        {
+          ...requestOptions,
+          retryOnUnauthorized: false,
+        },
+        traceId,
+        startedAt,
+      )
     }
 
     const data: unknown = await response.json().catch(() => ({}))
@@ -224,6 +219,23 @@ export function createHttpClient(options: HttpClientOptions) {
     const parsed = authResponseSchema.parse(data)
     await options.tokenStore?.setTokens(parsed.tokens)
     return parsed
+  }
+
+  async function refreshOnce() {
+    if (refreshInFlight) return refreshInFlight
+    const promise = (async () => {
+      const current = await options.tokenStore?.getTokens()
+      try {
+        await refresh({ refresh_token: current?.refresh_token ?? "" })
+      } catch (error) {
+        if (isUnauthorizedError(error)) await options.onUnauthorized?.()
+        throw error
+      } finally {
+        refreshInFlight = null
+      }
+    })()
+    refreshInFlight = promise
+    return promise
   }
 
   async function logout(input?: LogoutRequest) {
