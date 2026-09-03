@@ -73,7 +73,7 @@ function createEnvFixture(options: {
     DB: db,
     JWT_SECRET: "test-secret",
     ACCESS_TOKEN_TTL_SECONDS: "900",
-    REFRESH_TOKEN_TTL_SECONDS: "2592000",
+    REFRESH_TOKEN_TTL_SECONDS: "604800",
     PASSWORD_HASH_SECRET: "test-pepper",
   } as unknown as Env
 

@@ -79,6 +79,6 @@ export async function refreshTokenRecord(token: string, env: Env) {
     tokenHash: await hashOpaqueToken(token, env),
     expiresAt:
       Math.floor(Date.now() / 1000) +
-      ttlSeconds(env.REFRESH_TOKEN_TTL_SECONDS, 2592000),
+      ttlSeconds(env.REFRESH_TOKEN_TTL_SECONDS, 604800),
   }
 }

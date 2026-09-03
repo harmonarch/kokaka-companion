@@ -170,7 +170,7 @@ function createMemoryEnv() {
     },
     JWT_SECRET: "test-secret",
     ACCESS_TOKEN_TTL_SECONDS: "900",
-    REFRESH_TOKEN_TTL_SECONDS: "2592000",
+    REFRESH_TOKEN_TTL_SECONDS: "604800",
     PASSWORD_HASH_SECRET: "password-secret",
     LLM_PROVIDER: "deepseek",
     DEEPSEEK_BASE_URL: "https://example.com",
