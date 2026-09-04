@@ -51,12 +51,24 @@ export async function createAccessToken(userId: string, env: Env) {
 }
 
 export async function verifyAccessToken(token: string, env: Env) {
-  const [header, body, signature] = token.split(".")
+  const parts = token.split(".")
+  if (parts.length !== 3) return null
+  const [header, body, signature] = parts
   if (!header || !body || !signature) return null
+
   const expected = await sign(`${header}.${body}`, env.JWT_SECRET)
   if (!timingSafeEquals(expected, signature)) return null
-  const payload = JSON.parse(fromBase64Url(body)) as AccessTokenPayload
-  if (!payload.sub || payload.exp < Math.floor(Date.now() / 1000)) return null
+
+  let payload: AccessTokenPayload
+  try {
+    payload = JSON.parse(fromBase64Url(body)) as AccessTokenPayload
+  } catch {
+    return null
+  }
+
+  if (typeof payload?.sub !== "string" || !payload.sub) return null
+  if (typeof payload.exp !== "number" || !Number.isFinite(payload.exp)) return null
+  if (payload.exp < Math.floor(Date.now() / 1000)) return null
   return payload
 }
 
