@@ -1,20 +1,27 @@
+import Constants from "expo-constants"
 import { Image, Pressable, Text, View } from "react-native"
 import type { AppTheme } from "@/theme"
 import { BottomTabs } from "@/pages/ChatList/components/BottomTabs"
 import { styles } from "../styles"
 import type { AccountAction } from "./AccountActionConfirmDialog"
 
+const appVersion = Constants.expoConfig?.version ?? "1.0.0"
+
 export function ProfileContent({
   avatar,
   busy,
+  clearingCache,
   nickname,
+  onClearCache,
   onEditProfile,
   onRequestAccountAction,
   theme,
 }: {
   avatar: string
   busy: AccountAction | null
+  clearingCache: boolean
   nickname: string
+  onClearCache: () => void
   onEditProfile: () => void
   onRequestAccountAction: (action: AccountAction) => void
   theme: AppTheme
@@ -28,6 +35,18 @@ export function ProfileContent({
         onPress={onEditProfile}
         theme={theme}
       />
+      <View style={styles.section}>
+        <ProfileRow
+          title="清除缓存"
+          detail={clearingCache ? "正在清除…" : ""}
+          disabled={busy !== null || clearingCache}
+          onPress={onClearCache}
+          theme={theme}
+        />
+      </View>
+      <View style={styles.section}>
+        <ProfileRow title="版本" value={appVersion} theme={theme} />
+      </View>
       <ProfileActions
         busy={busy}
         onRequestAccountAction={onRequestAccountAction}
@@ -127,31 +146,22 @@ function ProfileActions({
 function ProfileRow({
   title,
   detail,
+  value,
   danger,
   disabled,
   theme,
   onPress,
 }: {
   title: string
-  detail: string
+  detail?: string
+  value?: string
   danger?: boolean
   disabled?: boolean
   theme: AppTheme
-  onPress: () => void
+  onPress?: () => void
 }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => [
-        styles.settingRow,
-        {
-          backgroundColor: pressed ? theme.elevated : theme.surface,
-          borderColor: theme.softBorder,
-        },
-        disabled && styles.disabled,
-      ]}
-    >
+  const rowContent = (
+    <>
       <View style={styles.settingCopy}>
         <Text
           style={[
@@ -167,7 +177,46 @@ function ProfileRow({
           </Text>
         ) : null}
       </View>
-      <Text style={[styles.chevron, { color: theme.subtle }]}>›</Text>
+      {value ? (
+        <Text style={[styles.settingValue, { color: theme.muted }]}>
+          {value}
+        </Text>
+      ) : (
+        <Text style={[styles.chevron, { color: theme.subtle }]}>›</Text>
+      )}
+    </>
+  )
+
+  if (!onPress) {
+    return (
+      <View
+        style={[
+          styles.settingRow,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.softBorder,
+          },
+        ]}
+      >
+        {rowContent}
+      </View>
+    )
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [
+        styles.settingRow,
+        {
+          backgroundColor: pressed ? theme.elevated : theme.surface,
+          borderColor: theme.softBorder,
+        },
+        disabled && styles.disabled,
+      ]}
+    >
+      {rowContent}
     </Pressable>
   )
 }

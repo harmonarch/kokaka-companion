@@ -86,6 +86,10 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
   },
+  settingValue: {
+    fontSize: 15,
+    fontWeight: "500",
+  },
   chevron: {
     fontSize: 28,
     lineHeight: 30,

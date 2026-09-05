@@ -28,7 +28,9 @@ export default function Profile() {
       <ProfileContent
         avatar={profile.avatar}
         busy={profile.busy}
+        clearingCache={profile.clearingCache}
         nickname={profile.nickname}
+        onClearCache={profile.clearCache}
         onEditProfile={profile.openUserProfileEditor}
         onRequestAccountAction={profile.requestAccountAction}
         theme={theme}

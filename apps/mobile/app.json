@@ -2,6 +2,7 @@
   "expo": {
     "name": "Kokaka Companion",
     "slug": "kokaka-companion",
+    "version": "1.0.0",
     "scheme": "kokaka",
     "platforms": ["web", "ios", "android"],
     "web": {

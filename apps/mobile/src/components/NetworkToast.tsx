@@ -6,6 +6,7 @@ import { useAppTheme } from "@/theme"
 export function NetworkToast() {
   const theme = useAppTheme()
   const message = useToastStore((state) => state.message)
+  const tone = useToastStore((state) => state.tone)
   const hideToast = useToastStore((state) => state.hideToast)
 
   useEffect(() => {
@@ -22,11 +23,17 @@ export function NetworkToast() {
         selectable
         style={[
           styles.toast,
-          {
-            backgroundColor: theme.dangerSurface,
-            borderColor: theme.dangerBorder,
-            color: theme.mode === "dark" ? "#ffb4ad" : "#b84a4a",
-          },
+          tone === "success"
+            ? {
+                backgroundColor: theme.primarySoft,
+                borderColor: theme.primary,
+                color: theme.primaryText,
+              }
+            : {
+                backgroundColor: theme.dangerSurface,
+                borderColor: theme.dangerBorder,
+                color: theme.mode === "dark" ? "#ffb4ad" : "#b84a4a",
+              },
         ]}
       >
         {message}
