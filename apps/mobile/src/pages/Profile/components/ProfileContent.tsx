@@ -5,7 +5,7 @@ import { BottomTabs } from "@/pages/ChatList/components/BottomTabs"
 import { styles } from "../styles"
 import type { AccountAction } from "./AccountActionConfirmDialog"
 
-const appVersion = Constants.expoConfig?.version ?? "1.0.0"
+const appVersion = Constants.expoConfig?.version ?? ""
 
 export function ProfileContent({
   avatar,
@@ -44,9 +44,11 @@ export function ProfileContent({
           theme={theme}
         />
       </View>
-      <View style={styles.section}>
-        <ProfileRow title="版本" value={appVersion} theme={theme} />
-      </View>
+      {appVersion ? (
+        <View style={styles.section}>
+          <ProfileRow title="版本" value={appVersion} theme={theme} />
+        </View>
+      ) : null}
       <ProfileActions
         busy={busy}
         onRequestAccountAction={onRequestAccountAction}

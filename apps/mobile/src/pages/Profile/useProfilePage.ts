@@ -20,6 +20,7 @@ export function useProfilePage() {
   const [confirmAction, setConfirmAction] = useState<AccountAction | null>(null)
   const [busy, setBusy] = useState<BusyAction>(null)
   const [clearingCache, setClearingCache] = useState(false)
+  const clearingCacheRef = useRef(false)
   const clearCacheTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -29,17 +30,20 @@ export function useProfilePage() {
   useEffect(() => {
     return () => {
       if (clearCacheTimer.current) clearTimeout(clearCacheTimer.current)
+      clearCacheTimer.current = null
     }
   }, [])
 
   const clearCache = useCallback(() => {
-    if (clearingCache) return
+    if (clearingCacheRef.current) return
+    clearingCacheRef.current = true
     setClearingCache(true)
     clearCacheTimer.current = setTimeout(() => {
+      clearingCacheRef.current = false
       setClearingCache(false)
       useToastStore.getState().showToast("已清除缓存", "success")
     }, 1500)
-  }, [clearingCache])
+  }, [])
 
   const closeConfirmDialog = useCallback(() => {
     if (busy === null) setConfirmAction(null)
