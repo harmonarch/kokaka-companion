@@ -23,6 +23,9 @@ const light = {
   danger: "#e05656",
   dangerBorder: "#f0c0c0",
   dangerSurface: "#fff2f2",
+  glassFill: "rgba(255, 255, 255, 0.6)",
+  glassBorder: "rgba(255, 255, 255, 0.55)",
+  glassSelected: "rgba(0, 0, 0, 0.06)",
 }
 
 const dark = {
@@ -46,6 +49,9 @@ const dark = {
   danger: "#ff6b64",
   dangerBorder: "#693332",
   dangerSurface: "#2b2020",
+  glassFill: "rgba(28, 28, 30, 0.6)",
+  glassBorder: "rgba(255, 255, 255, 0.14)",
+  glassSelected: "rgba(255, 255, 255, 0.12)",
 }
 
 export function useAppTheme() {
