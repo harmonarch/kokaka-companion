@@ -24,6 +24,7 @@
     "@expo/metro-runtime": "~4.0.1",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@sentry/react-native": "~6.10.0",
+    "@shopify/react-native-skia": "1.5.0",
     "expo": "~52.0.25",
     "expo-asset": "~11.0.5",
     "expo-audio": "~0.3.5",
