@@ -1,6 +1,5 @@
 import { Image, Pressable, Text, View } from "react-native"
 import type { AppTheme } from "@/theme"
-import { BottomTabs } from "@/pages/ChatList/components/BottomTabs"
 import { styles } from "../styles"
 import type { AccountAction } from "./AccountActionConfirmDialog"
 
@@ -33,7 +32,6 @@ export function ProfileContent({
         onRequestAccountAction={onRequestAccountAction}
         theme={theme}
       />
-      <BottomTabs active="profile" theme={theme} />
     </View>
   )
 }

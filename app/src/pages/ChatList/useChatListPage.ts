@@ -1,8 +1,7 @@
 import { router } from "expo-router"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect } from "react"
 import { useAuthStore } from "@/stores/authStore"
 import { useConversationStore } from "@/stores/conversationStore"
-import type { CreateAgentInput } from "./types"
 
 export function useChatListPage() {
   const authReady = useAuthStore((state) => state.ready)
@@ -13,7 +12,6 @@ export function useChatListPage() {
   const agents = useConversationStore((state) => state.agents)
   const userAvatarUrl = useConversationStore((state) => state.userAvatarUrl)
   const storedUserName = useConversationStore((state) => state.userName)
-  const createAgent = useConversationStore((state) => state.createAgent)
   const pinConversation = useConversationStore((state) => state.pinConversation)
   const unpinConversation = useConversationStore(
     (state) => state.unpinConversation,
@@ -24,7 +22,6 @@ export function useChatListPage() {
   const setActiveConversation = useConversationStore(
     (state) => state.setActiveConversation,
   )
-  const [agentModalVisible, setAgentModalVisible] = useState(false)
 
   useEffect(() => {
     if (user) void hydrate()
@@ -41,32 +38,12 @@ export function useChatListPage() {
     [setActiveConversation],
   )
 
-  const saveAgent = useCallback(
-    async (input: CreateAgentInput) => {
-      const conversationId = await createAgent(input)
-      setActiveConversation(conversationId)
-      setAgentModalVisible(false)
-      router.push("/chat")
-    },
-    [createAgent, setActiveConversation],
-  )
-
-  const openAgentCreator = useCallback(() => {
-    setAgentModalVisible(true)
-  }, [])
-
-  const closeAgentModal = useCallback(() => setAgentModalVisible(false), [])
-
   return {
     agents,
-    agentModalVisible,
-    closeAgentModal,
     conversations,
     loading,
-    openAgentCreator,
     openConversation,
     pinConversation,
-    saveAgent,
     unpinConversation,
     deleteConversation,
     user,

@@ -2,8 +2,6 @@ import { Redirect } from "expo-router"
 import { useMemo } from "react"
 import { ActivityIndicator, View } from "react-native"
 import { useAppTheme } from "@/theme"
-import { AddAgentModal } from "./components/AddAgentModal"
-import { BottomTabs } from "./components/BottomTabs"
 import { ChatListHeader } from "./components/ChatListHeader"
 import { ConversationList } from "./components/ConversationList"
 import { getChatListPalette, styles } from "./styles"
@@ -29,11 +27,7 @@ export default function ChatList() {
   return (
     <View style={[styles.page, { backgroundColor: palette.listBackground }]}>
       <View style={styles.shell}>
-        <ChatListHeader
-          theme={theme}
-          palette={palette}
-          onOpenCreateMenu={chatList.openAgentCreator}
-        />
+        <ChatListHeader theme={theme} palette={palette} />
         <ConversationList
           conversations={chatList.conversations}
           agents={chatList.agents}
@@ -46,14 +40,7 @@ export default function ChatList() {
           onUnpinConversation={chatList.unpinConversation}
           onDeleteConversation={chatList.deleteConversation}
         />
-        <BottomTabs active="chats" theme={theme} />
       </View>
-      <AddAgentModal
-        visible={chatList.agentModalVisible}
-        theme={theme}
-        onClose={chatList.closeAgentModal}
-        onSave={chatList.saveAgent}
-      />
     </View>
   )
 }

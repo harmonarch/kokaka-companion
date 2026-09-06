@@ -56,7 +56,8 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingBottom: 8,
+    // 给底部悬浮的玻璃 tabbar 留出空间（dock 高度 56 + 底部间距 8 + 呼吸 8）
+    paddingBottom: 72,
   },
   row: {
     minHeight: 72,
